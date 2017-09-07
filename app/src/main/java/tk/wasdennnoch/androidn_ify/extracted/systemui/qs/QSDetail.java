@@ -74,17 +74,19 @@ public class QSDetail extends LinearLayout {
     private boolean mClosingDetail;
     private boolean mFullyExpanded;
     private ViewGroup mHeader;
+    private View mFooter;
     private boolean mTriggeredExpand;
     private int mOpenX;
     private int mOpenY;
     private boolean mAnimatingOpen;
     private boolean mSwitchState;
 
-    public QSDetail(Context context, ViewGroup panel, ViewGroup header, Method setDetailRecord) {
+    public QSDetail(Context context, ViewGroup panel, ViewGroup header, View footer, Method setDetailRecord) {
         super(context);
         mContext = context;
         mQsPanel = panel;
         mHeader = header;
+        mFooter = footer;
         mSetDetailRecord = setDetailRecord;
 
         Resources resources = mContext.getResources();
@@ -275,7 +277,8 @@ public class QSDetail extends LinearLayout {
             mClosingDetail = true;
             mDetailAdapter = null;
             listener = mTeardownDetailWhenDone;
-            //mHeader.setVisibility(View.VISIBLE);
+            mHeader.setVisibility(View.VISIBLE);
+            mFooter.setVisibility(View.VISIBLE);
             if (!mReconfigureNotificationPanel)
                 transition(mHeader, true);
             XposedHelpers.callMethod(mQsPanel, "setGridContentVisibility", true);
@@ -355,7 +358,8 @@ public class QSDetail extends LinearLayout {
             // Only hide content if still in detail state.
             if (mDetailAdapter != null) {
                 XposedHelpers.callMethod(mQsPanel, "setGridContentVisibility", false);
-                //mHeader.setVisibility(View.INVISIBLE);
+                mHeader.setVisibility(View.INVISIBLE);
+                mFooter.setVisibility(View.INVISIBLE);
             }
             mAnimatingOpen = false;
             checkPendingAnimations();

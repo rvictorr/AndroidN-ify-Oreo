@@ -22,10 +22,12 @@ import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.ExpandableIndicator;
+import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSFooter;
 import tk.wasdennnoch.androidn_ify.misc.SafeOnClickListener;
 import tk.wasdennnoch.androidn_ify.systemui.qs.QSContainerHelper;
 import tk.wasdennnoch.androidn_ify.systemui.qs.customize.QSCustomizer;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 @SuppressLint("StaticFieldLeak")
 public class NotificationPanelHooks {
@@ -47,6 +49,7 @@ public class NotificationPanelHooks {
     private static ViewGroup mQsContainer;
     private static ViewGroup mHeader;
     private static ViewGroup mQsPanel;
+    private static QSFooter mQsFooter;
     private static ExpandableIndicator mExpandIndicator;
     private static QSCustomizer mQsCustomizer;
     private static QSContainerHelper mQsContainerHelper;
@@ -63,14 +66,14 @@ public class NotificationPanelHooks {
             mNotificationPanelView.setClipChildren(false);
             mNotificationPanelView.setClipToPadding(false);
             mHeader = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mHeader");
-            mHeader.setOnClickListener(null);
-            mExpandIndicator = (ExpandableIndicator) mHeader.findViewById(R.id.statusbar_header_expand_indicator);
-            mExpandIndicator.setOnClickListener(mExpandIndicatorListener);
-
             mQsContainer = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsContainer");
             mQsPanel = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsPanel");
+            mQsFooter = (QSFooter) mQsContainer.findViewById(R.id.qs_footer);
+            mHeader.setOnClickListener(null);
+            mExpandIndicator = (ExpandableIndicator) mQsFooter.findViewById(R.id.statusbar_header_expand_indicator);
+            mExpandIndicator.setOnClickListener(mExpandIndicatorListener);
 
-            if (!ConfigUtils.qs().keep_qs_panel_background) {
+            /*if (!ConfigUtils.qs().keep_qs_panel_background) {
                 View mQsContainer = (View) XposedHelpers.getObjectField(param.thisObject, "mQsContainer");
                 try {
                     //noinspection deprecation
@@ -78,21 +81,31 @@ public class NotificationPanelHooks {
                 } catch (Throwable t) {
                     XposedHook.logE(TAG, "Couldn't change QS container background color", t);
                 }
-            }
+            }*/
 
             FrameLayout.LayoutParams qsCustomizerLp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
             qsCustomizerLp.gravity = Gravity.CENTER_HORIZONTAL;
             QSCustomizer qsCustomizer = new QSCustomizer(context);
+            qsCustomizer.setElevation(ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_container_elevation));
             mNotificationPanelView.addView(qsCustomizer, qsCustomizerLp);
 
             mQsCustomizer = qsCustomizer;
 
             if (ConfigUtils.qs().fix_header_space) {
                 mQsContainerHelper = new QSContainerHelper(mNotificationPanelView, mQsContainer, mHeader,
-                        mQsPanel);
+                        mQsPanel, mQsFooter);
 
                 mNotificationPanelView.requestLayout();
             }
+        }
+    };
+
+    private static final XC_MethodHook setHeightOverrideHook = new XC_MethodHook() {
+        @Override
+        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            int height = (int) param.args[0];
+            height = height - mQsContainerHelper.getGutterHeight();
+            param.args[0] = height;
         }
     };
 
@@ -104,6 +117,7 @@ public class NotificationPanelHooks {
             for (BarStateCallback callback : mBarStateCallbacks) {
                 callback.onStateChanged();
             }
+            setKeyguardShowing(XposedHelpers.getBooleanField(param.thisObject, "mKeyguardShowing"));
         }
     };
 
@@ -133,6 +147,18 @@ public class NotificationPanelHooks {
                 mNotificationPanelView.post(mRunAfterInstantCollapse);
         }
     };
+
+    private static void setKeyguardShowing(boolean keyguardShowing) {
+        XposedHook.logD(TAG, "setKeyguardShowing " + keyguardShowing);
+        //QSContainerHelper.setKeyguardShowing(keyguardShowing);//FIXME this screws things up
+
+        if (StatusBarHeaderHooks.getQsAnimator() != null) {
+            StatusBarHeaderHooks.getQsAnimator().setOnKeyguard(keyguardShowing);
+        }
+
+        mQsFooter.setKeyguardShowing(keyguardShowing);
+        XposedHelpers.callMethod(mNotificationPanelView, "updateQsState");
+    }
 
     public static void expandWithQs() {
         try {
@@ -221,6 +247,17 @@ public class NotificationPanelHooks {
 
                 XposedHelpers.findAndHookMethod(classNotificationPanelView, "onFinishInflate", onFinishInflateHook);
                 XposedHelpers.findAndHookMethod(classNotificationPanelView, "setBarState", int.class, boolean.class, boolean.class, setBarStateHook);
+                XposedHelpers.findAndHookMethod(classQSContainer, "setHeightOverride", int.class, setHeightOverrideHook);
+                XposedHelpers.findAndHookMethod(classNotificationPanelView, "setQsExpansionEnabled", boolean.class, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        boolean qsExpansionEnabled = (boolean) param.args[0];
+                        XposedHelpers.setBooleanField(mNotificationPanelView, "mQsExpansionEnabled", qsExpansionEnabled);
+                        mQsFooter.getExpandView().setClickable(qsExpansionEnabled);
+                        mHeader.setClickable(false);
+                        return null;
+                    }
+                });
 
                 if (ConfigUtils.M)
                     XposedHelpers.findAndHookMethod(classNotificationPanelView, "setVerticalPanelTranslation", float.class, setVerticalPanelTranslationHook);

@@ -38,7 +38,7 @@ public abstract class BaseTile implements KeyguardMonitor.Callback {
     }
 
     /**
-     * ALWAYS CALL THIS METHOD AS THHE LAST LINE OF THE OVERRIDDEN CONSTRUCTOR
+     * ALWAYS CALL THIS METHOD AS THE LAST LINE OF THE OVERRIDDEN CONSTRUCTOR
      */
     void registerCallbacks() {
         mKeyguard.addCallback(this);
@@ -88,6 +88,13 @@ public abstract class BaseTile implements KeyguardMonitor.Callback {
     }
 
     public void handleLongClick() {
+    }
+
+    public void handleSecondaryClick() {
+    }
+
+    public boolean supportsDualTargets() {
+        return false;
     }
 
     public void setListening(boolean listening) {

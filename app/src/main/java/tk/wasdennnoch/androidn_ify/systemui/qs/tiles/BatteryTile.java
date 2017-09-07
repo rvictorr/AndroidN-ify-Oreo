@@ -94,12 +94,26 @@ public class BatteryTile extends QSTile implements BatteryInfoManager.BatterySta
 
     @Override
     public void handleClick() {
+        togglePowerSaving();
+    }
+
+    @Override
+    public void handleSecondaryClick() {
         showDetail(true);
     }
 
     @Override
     public void handleLongClick() {
         startActivityDismissingKeyguard(Intent.ACTION_POWER_USAGE_SUMMARY);
+    }
+
+    @Override
+    public boolean supportsDualTargets() {
+        return true;
+    }
+
+    private void togglePowerSaving() {
+        SystemUIHooks.batteryInfoManager.togglePowerSaving();
     }
 
     @Override
@@ -298,7 +312,7 @@ public class BatteryTile extends QSTile implements BatteryInfoManager.BatterySta
 
         @Override
         public void onClick(View v) {
-            SystemUIHooks.batteryInfoManager.togglePowerSaving();
+            togglePowerSaving();
             ((Switch) mCurrentView.findViewById(android.R.id.toggle)).setChecked(SystemUIHooks.batteryInfoManager.isPowerSaveMode());
         }
 

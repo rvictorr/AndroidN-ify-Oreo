@@ -39,8 +39,8 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
         OnAttachStateChangeListener, TouchAnimator.Listener, NotificationPanelHooks.BarStateCallback, PreferenceService.Tunable {
 
     private static final String TAG = "QSAnimator";
-    private static final float EXPANDED_TILE_DELAY = .86f;
-    private static final String NUM_QUICK_TILES = "notification_header_qs_tiles_count";
+    public static final float EXPANDED_TILE_DELAY = .86f;
+    public static final String NUM_QUICK_TILES = "notification_header_qs_tiles_count";
     private static final String ALLOW_FANCY_ANIMATION = "allow_fancy_qs_transition";
 
     private final ArrayList<View> mAllViews = new ArrayList<>();
@@ -76,6 +76,9 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
         mQuickQsPanel = quickPanel;
         mQsPanel = panel;
         mQsPanel.addOnAttachStateChangeListener(this);
+        if (mQsPanel.isAttachedToWindow()) {
+            onViewAttachedToWindow(null);
+        }
         container.addOnLayoutChangeListener(this);
         mPagedLayout = StatusBarHeaderHooks.qsHooks.getTileLayout();
         mPagedLayout.setPageListener(this);
@@ -86,7 +89,7 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
         }
     }
 
-    private void setOnKeyguard(boolean onKeyguard) {
+    public void setOnKeyguard(boolean onKeyguard) {
         mOnKeyguard = onKeyguard;
         mQuickQsPanel.setVisibility(mOnKeyguard ? View.INVISIBLE : View.VISIBLE);
         if (mOnKeyguard) {
@@ -147,22 +150,25 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
         mAllViews.clear();
         mTopFiveQs.clear();
 
-        mAllViews.add(StatusBarHeaderHooks.qsHooks.getTileLayout());
+        PagedTileLayout tileLayout = StatusBarHeaderHooks.qsHooks.getTileLayout();
+        mAllViews.add(tileLayout);
+        int height = mQsContainer != null ? mQsContainer.getMeasuredHeight() : 0;
+        int heightDiff = height - StatusBarHeaderHooks.getHeader().getBottom()
+                + StatusBarHeaderHooks.getHeader().getPaddingBottom();
+        firstPageBuilder.addFloat(tileLayout, "translationY", heightDiff, 0);
 
         for (int i = 0; i < records.size(); i++) {
             Object tileRecord = records.get(i);
             final ViewGroup tileView = (ViewGroup) XposedHelpers.getObjectField(tileRecord, "tileView");
-            boolean dual = XposedHelpers.getBooleanField(tileView, "mDual");
-            final View label = (View) XposedHelpers.getObjectField(tileView, dual ? "mDualLabel" : "mLabel");
             final View tileIcon = findIcon(tileView);
             if (count < mNumQuickTiles && mAllowFancy) {
                 // Quick tiles.
                 ViewGroup quickTileView = mQuickQsPanel.getTileView(i);
+                if (quickTileView == null) continue;
 
                 lastX = loc1[0];
-
-                getRelativePosition(loc1, quickTileView.getChildAt(0), mReconfigureNotificationPanel ? mQsContainer
-                        : StatusBarHeaderHooks.mStatusBarHeaderView);
+                getRelativePosition(loc1, quickTileView, mReconfigureNotificationPanel ? mQsContainer
+                        : StatusBarHeaderHooks.getHeader());
                 getRelativePosition(loc2, tileIcon, mReconfigureNotificationPanel ? mQsContainer
                         : mQsPanel);
                 final int xDiff = loc2[0] - loc1[0] + ((i < maxTilesOnPage) ? 0 : mPagedLayout.getWidth());
@@ -178,17 +184,16 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
 
                 // Counteract the parent translation on the tile. So we have a static base to
                 // animate the label position off from.
-                firstPageBuilder.addFloat(tileView, "translationY", mQsPanel.getHeight(), 0);
+                //firstPageBuilder.addFloat(tileView, "translationY", mQsPanel.getHeight(), 0);
 
-                // Move the real tile's label from the quick tile position to its final
+                // Move the real tile from the quick tile position to its final
                 // location.
-                translationXBuilder.addFloat(label, "translationX", -xDiff, 0);
-                translationYBuilder.addFloat(label, "translationY", -yDiff, 0);
+                translationXBuilder.addFloat(tileView, "translationX", -xDiff, 0);
+                translationYBuilder.addFloat(tileView, "translationY", -yDiff, 0);
 
                 mTopFiveQs.add(tileIcon);
                 mAllViews.add(tileIcon);
                 mAllViews.add(quickTileView);
-                mTopFiveX.add(loc1[0]);
             } else if (mFullRows && isIconInAnimatedRow(count)) {
                 // TODO: Refactor some of this, it shares a lot with the above block.
                 // Move the last tile position over by the last difference between quick tiles.
@@ -199,23 +204,23 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
                 final int xDiff = loc2[0] - loc1[0];
                 final int yDiff = loc2[1] - loc1[1];
 
-                firstPageBuilder.addFloat(tileView, "translationY", mQsPanel.getHeight(), 0);
+                firstPageBuilder.addFloat(tileView, "translationY", heightDiff, 0);
                 translationXBuilder.addFloat(tileView, "translationX", -xDiff, 0);
-                translationYBuilder.addFloat(label, "translationY", -yDiff, 0);
+                translationYBuilder.addFloat(tileView, "translationY", -yDiff, 0);
                 translationYBuilder.addFloat(tileIcon, "translationY", -yDiff, 0);
 
                 mAllViews.add(tileIcon);
             } else {
                 firstPageBuilder.addFloat(tileView, "alpha", 0, 1);
+                firstPageBuilder.addFloat(tileView, "translationY", -heightDiff, 0);
             }
             mAllViews.add(tileView);
-            mAllViews.add(label);
             count++;
         }
         if (mAllowFancy) {
             View brightness = StatusBarHeaderHooks.qsHooks.getBrightnessView();
             if (brightness != null) {
-                firstPageBuilder.addFloat(brightness, "translationY", mQsPanel.getHeight(), 0);
+                firstPageBuilder.addFloat(brightness, "translationY", heightDiff, 0);
                 mBrightnessAnimator = new TouchAnimator.Builder()
                         .addFloat(brightness, "alpha", 0, 1)
                         .setStartDelay(.5f)
@@ -230,7 +235,13 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
             // Fade in the tiles/labels as we reach the final position.
             mFirstPageDelayedAnimator = new TouchAnimator.Builder()
                     .setStartDelay(EXPANDED_TILE_DELAY)
-                    .addFloat(StatusBarHeaderHooks.qsHooks.getTileLayout(), "alpha", 0, 1).build();
+                    .addFloat(tileLayout, "alpha", 0, 1)
+                    .addFloat(StatusBarHeaderHooks.qsHooks.getPageIndicator(), "alpha", 0, 1)
+                    .addFloat(StatusBarHeaderHooks.qsHooks.getDivider(), "alpha", 0, 1)
+                    .addFloat(StatusBarHeaderHooks.qsHooks.getFooter(), "alpha", 0, 1).build();
+            mAllViews.add(StatusBarHeaderHooks.qsHooks.getPageIndicator());
+            mAllViews.add(StatusBarHeaderHooks.qsHooks.getDivider());
+            mAllViews.add(StatusBarHeaderHooks.qsHooks.getFooter());
             float px = 0;
             float py = 1;
             if (records.size() <= 3) {
@@ -246,6 +257,8 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
         }
         mNonfirstPageAnimator = new TouchAnimator.Builder()
                 .addFloat(mQuickQsPanel, "alpha", 1, 0)
+                .addFloat(StatusBarHeaderHooks.qsHooks.getPageIndicator(), "alpha", 0, 1)
+                .addFloat(StatusBarHeaderHooks.qsHooks.getDivider(), "alpha", 0, 1)
                 .setListener(mNonFirstPageListener)
                 .setEndDelay(.5f)
                 .build();
@@ -292,12 +305,12 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
     }
 
     public void setPosition(float position) {
+        if (mFirstPageAnimator == null) return;
         if (mOnKeyguard) {
             return;
         }
         mLastPosition = position;
         if (mOnFirstPage && mAllowFancy && (!StatusBarHeaderHooks.mShowingDetail || position == 0)) {
-            if (mFirstPageAnimator == null) return;
             mQuickQsPanel.setAlpha(1);
             mFirstPageAnimator.setPosition(position);
             mFirstPageDelayedAnimator.setPosition(position);
@@ -369,6 +382,11 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
     private final TouchAnimator.Listener mNonFirstPageListener =
             new TouchAnimator.ListenerAdapter() {
                 @Override
+                public void onAnimationAtEnd() {
+                    mQuickQsPanel.setVisibility(View.INVISIBLE);
+                }
+
+                @Override
                 public void onAnimationStarted() {
                     mQuickQsPanel.setVisibility(View.VISIBLE);
                 }
@@ -405,5 +423,9 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
     private void setMaxTiles(int maxTiles) {
         mNumQuickTiles = maxTiles;
         mQuickQsPanel.setMaxTiles(maxTiles);
+    }
+
+    public int getNumTiles() {
+        return mNumQuickTiles;
     }
 }

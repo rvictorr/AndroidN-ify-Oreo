@@ -193,12 +193,13 @@ public class TileAdapter extends RecyclerView.Adapter<TileAdapter.TileViewHolder
         RelativeLayout.LayoutParams tileViewLp = new RelativeLayout.LayoutParams(mCellWidth, mCellHeight);
         tileViewLp.addRule(RelativeLayout.CENTER_IN_PARENT);
         ViewGroup tileView = (ViewGroup) XposedHelpers.callMethod(tile, "createTileView", mContext);
+        boolean dual = XposedHelpers.getBooleanField(tileView, "mDual");
         tileView.setLayoutParams(tileViewLp);
         try {
-            XposedHelpers.callMethod(tileView, "setDual", false);
+            XposedHelpers.callMethod(tileView, "setDual", dual);
         } catch (Throwable t) {// CM13
             try {
-                XposedHelpers.callMethod(tileView, "setDual", false, false);
+                XposedHelpers.callMethod(tileView, "setDual", dual, dual);//TODO see if this works
             } catch (Throwable ignore) {
                 // Other ROMs
             }

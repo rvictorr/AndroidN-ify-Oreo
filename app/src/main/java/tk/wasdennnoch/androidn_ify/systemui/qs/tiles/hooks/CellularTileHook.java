@@ -33,29 +33,24 @@ public class CellularTileHook extends QSTileHook {
         if (ConfigUtils.M) {
             MetricsLogger.action(mContext, MetricsLogger.QS_CELLULAR);
         }
-        if (NotificationPanelHooks.isCollapsed()) {
-            // Only toggle
-            Object mDetailAdapter = getObjectField("mDetailAdapter");
-            boolean enabled = (boolean) XposedHelpers.callMethod(mDetailAdapter, "getToggleState");
-            XposedHelpers.callMethod(mDetailAdapter, "setToggleState", !enabled);
-        } else {
-            boolean dataSupported;
-            try {
-                dataSupported = (boolean) XposedHelpers.callMethod(mDataController, "isMobileDataSupported");
-            } catch (Throwable t) { // Motorola
-                dataSupported = (boolean) XposedHelpers.callMethod(mDataController, "isMobileDataSupported", XposedHelpers.getIntField(mThisObject, "mSubId"));
-            }
-            if (dataSupported) {
-                showDetail(true);
-            } else {
-                startSettings();
-            }
-        }
+        Object mDetailAdapter = getObjectField("mDetailAdapter");
+        boolean enabled = (boolean) XposedHelpers.callMethod(mDetailAdapter, "getToggleState");
+        XposedHelpers.callMethod(mDetailAdapter, "setToggleState", !enabled);
     }
 
     @Override
-    public void handleLongClick() {
-        startSettings();
+    protected void handleSecondaryClick() {
+        boolean dataSupported;
+        try {
+            dataSupported = (boolean) XposedHelpers.callMethod(mDataController, "isMobileDataSupported");
+        } catch (Throwable t) { // Motorola
+            dataSupported = (boolean) XposedHelpers.callMethod(mDataController, "isMobileDataSupported", XposedHelpers.getIntField(mThisObject, "mSubId"));
+        }
+        if (dataSupported) {
+            showDetail(true);
+        } else {
+            startSettings();
+        }
     }
 
     @Override

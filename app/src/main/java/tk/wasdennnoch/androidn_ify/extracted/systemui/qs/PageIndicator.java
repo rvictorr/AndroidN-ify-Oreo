@@ -1,6 +1,7 @@
 package tk.wasdennnoch.androidn_ify.extracted.systemui.qs;
 
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.drawable.AnimatedVectorDrawable;
 import android.util.AttributeSet;
 import android.view.View;
@@ -62,6 +63,10 @@ public class PageIndicator extends ViewGroup {
         while (numPages < getChildCount()) {
             removeViewAt(getChildCount() - 1);
         }
+        TypedArray array = getContext().obtainStyledAttributes(
+                new int[]{android.R.attr.colorForeground});
+        int color = array.getColor(0, 0); //TODO finish theming
+        array.recycle();
         while (numPages > getChildCount()) {
             ImageView v = new ImageView(mContext);
             v.setImageDrawable(ResourceUtils.getInstance(getContext()).getDrawable(R.drawable.minor_a_b));
@@ -203,7 +208,7 @@ public class PageIndicator extends ViewGroup {
         for (int i = 0; i < N; i++) {
             getChildAt(i).measure(widthChildSpec, heightChildSpec);
         }
-        int width = (mPageIndicatorWidth - mPageDotWidth) * N + mPageDotWidth;
+        int width = (mPageIndicatorWidth - mPageDotWidth) * (N - 1) + mPageDotWidth;
         setMeasuredDimension(width, mPageIndicatorHeight);
     }
 

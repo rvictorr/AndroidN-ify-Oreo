@@ -2,11 +2,13 @@ package tk.wasdennnoch.androidn_ify.systemui.qs.tiles.hooks;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.Message;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
+import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.QSTile;
 
 @SuppressWarnings({"SameParameterValue", "WeakerAccess"})
 public abstract class QSTileHook {
@@ -16,7 +18,7 @@ public abstract class QSTileHook {
     protected Context mContext;
     protected Object mThisObject;
 
-    public QSTileHook(ClassLoader classLoader, String className) {
+    public QSTileHook(ClassLoader classLoader, final String className) {
         mHook = this;
         mTileClass = XposedHelpers.findClass(className, classLoader);
         XposedBridge.hookAllConstructors(mTileClass, new XC_MethodHook() {
@@ -41,13 +43,22 @@ public abstract class QSTileHook {
             } catch (Throwable ignore) { // Not implemented, let maybeHandleLongClick do the job
             }
         }
-    }
-
-    protected void setDualTargets() {
         try {
-            XposedHelpers.findAndHookMethod(mTileClass, "supportsDualTargets", XC_MethodReplacement.returnConstant(false));
-        } catch (Throwable ignore) {
-        }
+            XposedHelpers.callMethod(mTileClass, "handleSecondaryClick", handleSecondaryClickHook);
+        } catch (Throwable ignore) {}
+
+        XposedHelpers.findAndHookMethod(QSTile.CLASS_QS_TILE + "$H", classLoader, "handleMessage", Message.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                String tileClass = XposedHelpers.getSurroundingThis(param.thisObject).getClass().getName();
+                Message msg = (Message) param.args[0];
+                if (className.equals(tileClass)) {
+                    if (msg.what == 3) {
+                        handleSecondaryClick();
+                    }
+                }
+            }
+        });
     }
 
     protected void afterConstructor(XC_MethodHook.MethodHookParam param) {
@@ -59,6 +70,10 @@ public abstract class QSTileHook {
     }
 
     protected void handleLongClick() {
+        startSettings();
+    }
+
+    protected void handleSecondaryClick() {
     }
 
     protected final void startSettings() {
@@ -98,6 +113,14 @@ public abstract class QSTileHook {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             handleLongClick();
+            return null;
+        }
+    };
+
+    protected final XC_MethodHook handleSecondaryClickHook = new XC_MethodReplacement() {
+        @Override
+        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+            handleSecondaryClick();
             return null;
         }
     };

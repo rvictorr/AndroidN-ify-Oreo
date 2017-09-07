@@ -22,6 +22,7 @@ class CMQuickSettingsHooks extends QuickSettingsHooks {
                 mFooter = XposedHelpers.getObjectField(param.thisObject, "mFooter");
                 mDetail = (View) XposedHelpers.getObjectField(param.thisObject, "mDetail");
                 setupTileLayout();
+                addDivider();
             }
         });
     }

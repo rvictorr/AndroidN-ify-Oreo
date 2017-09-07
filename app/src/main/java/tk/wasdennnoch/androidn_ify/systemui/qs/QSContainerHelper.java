@@ -17,6 +17,7 @@ import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
+import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSFooter;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSDetail;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
@@ -27,15 +28,18 @@ public class QSContainerHelper {
 
     private static final String TAG = "QSContainerHelper";
     private static boolean reconfigureNotifPanel = false;
+    private static View mBackground;
     private static ViewGroup mNotificationPanelView;
     private static ViewGroup mHeader;
     private static ViewGroup mQSContainer;
     private static ViewGroup mQSPanel;
+    private static QSFooter mQSFooter;
     private static Object mNotificationStackScroller;
     private static QSDetail mQSDetail;
     private static float mQsExpansion;
+    private static float mFullElevation;
+    private static int mGutterHeight;
     private static int mHeaderHeight;
-    private static int mQsTopMargin;
 
     private static final int CAP_HEIGHT = 1456;
     private static final int FONT_HEIGHT = 2163;
@@ -45,25 +49,28 @@ public class QSContainerHelper {
     private static boolean mKeyguardShowing = false;
     private static boolean mHeaderAnimating;
 
-    public QSContainerHelper(ViewGroup notificationPanelView, ViewGroup qsContainer, ViewGroup header, ViewGroup qsPanel) {
+    public QSContainerHelper(ViewGroup notificationPanelView, ViewGroup qsContainer, ViewGroup header, ViewGroup qsPanel, QSFooter qsFooter) {
         mNotificationPanelView = notificationPanelView;
         mQSContainer = qsContainer;
         mHeader = header;
         mQSPanel = qsPanel;
+        mQSFooter = qsFooter;
         mQSPanel.setClipToPadding(false);
         mQSContainer.setPadding(0, 0, 0, 0);
-        mQSDetail = StatusBarHeaderHooks.qsHooks.setupQsDetail(mQSPanel, mHeader);
+        mQSDetail = StatusBarHeaderHooks.qsHooks.setupQsDetail(mQSPanel, mHeader, mQSFooter);
 
         mQSContainer.addView(mQSDetail);
-        //mQSDetail = (View) XposedHelpers.getObjectField(mQSPanel, "mDetail");
+
+        mFullElevation = mQSPanel.getElevation();
 
         ResourceUtils res = ResourceUtils.getInstance(qsContainer.getContext());
         mHeaderHeight = res.getDimensionPixelSize(R.dimen.status_bar_header_height);
-        mQsTopMargin = res.getDimensionPixelSize(R.dimen.qs_margin_top);
+        mGutterHeight = res.getDimensionPixelSize(R.dimen.qs_gutter_height);
+
         mQSPanel.setPadding(0, 0, 0, res.getDimensionPixelSize(R.dimen.qs_padding_bottom));
 
         FrameLayout.LayoutParams qsPanelLp = (FrameLayout.LayoutParams) mQSPanel.getLayoutParams();
-        qsPanelLp.setMargins(0, res.getDimensionPixelSize(R.dimen.qs_margin_top), 0, 0);
+        qsPanelLp.setMargins(0, res.getDimensionPixelSize(R.dimen.qs_margin_top), 0, res.getDimensionPixelSize(R.dimen.qs_margin_bottom));
         qsPanel.setLayoutParams(qsPanelLp);
 
         //TODO fix landscape behavior
@@ -77,6 +84,13 @@ public class QSContainerHelper {
         ViewGroup.LayoutParams scrollViewLayoutParams = scrollView.getLayoutParams();
         scrollViewLayoutParams.height = FrameLayout.LayoutParams.WRAP_CONTENT;
         scrollView.setLayoutParams(scrollViewLayoutParams);
+
+        mBackground = new View(qsContainer.getContext());
+        mBackground.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        mBackground.setBackground(res.getDrawable(R.drawable.qs_background_primary));
+        mBackground.setElevation(res.getDimensionPixelSize(R.dimen.qs_container_elevation));
+        mQSContainer.addView(mBackground, 0);
+        mQSDetail.setElevation(res.getDimensionPixelSize(R.dimen.qs_container_elevation));
 
         if (ConfigUtils.qs().reconfigure_notification_panel) {
             reconfigureNotifPanel = true;
@@ -103,20 +117,24 @@ public class QSContainerHelper {
         mQsExpansion = expansion;
         final float translationScaleY = expansion - 1;
         if (!mHeaderAnimating) {
-            float translation = keyguardShowing ? (translationScaleY * mHeader.getHeight())
-                    : headerTranslation;
-            mQSContainer.setTranslationY(translation);
+            int height = mHeader.getHeight() + mGutterHeight;
+            if (mKeyguardShowing) {
+                headerTranslation = translationScaleY * height;
+            }
+            mQSContainer.setTranslationY(headerTranslation);
             if (!reconfigureNotifPanel)
-                mHeader.setTranslationY(translation);
+                mHeader.setTranslationY(height);
         }
         XposedHelpers.callMethod(mHeader, "setExpansion", mKeyguardShowing ? 1 : expansion);
-        mQSPanel.setTranslationY(translationScaleY * mQSPanel.getHeight());
+        mQSFooter.setExpansion(mKeyguardShowing ? 1 : expansion);
+        int heightDiff = mQSPanel.getBottom() - mHeader.getBottom() + mHeader.getPaddingBottom()
+                + mQSFooter.getHeight();
+        mQSPanel.setTranslationY(translationScaleY * heightDiff);
         mQSDetail.setFullyExpanded(expansion == 1);
-        //mQSAnimator.setPosition(expansion); //not yet
         updateBottom();
 
         // Set bounds on the QS panel so it doesn't run over the header.
-        mQsBounds.top = (int) (mQSPanel.getHeight() * (1 - expansion));
+        mQsBounds.top = (int) -mQSPanel.getTranslationY();;
         mQsBounds.right = mQSPanel.getWidth();
         mQsBounds.bottom = mQSPanel.getHeight();
         mQSPanel.setClipBounds(mQsBounds);
@@ -124,9 +142,18 @@ public class QSContainerHelper {
 
     public static void updateBottom() {
         int height = calculateContainerHeight();
-        mQSContainer.setBottom(mQSContainer.getTop() + height);
+        int gutterHeight = Math.round(mQsExpansion * mGutterHeight);
+        mQSContainer.setBottom(mQSContainer.getTop() + height + gutterHeight);
         if (reconfigureNotifPanel)
             mQSDetail.setBottom(mQSContainer.getTop() + height);
+        mBackground.setBottom(mQSContainer.getTop() + height);
+        // Pin QS Footer to the bottom of the panel.
+        mQSFooter.setTranslationY(height - mQSFooter.getHeight());
+        float elevation = mQsExpansion * mFullElevation;
+        mQSDetail.setElevation(elevation);
+        mBackground.setElevation(elevation);
+        mQSFooter.setElevation(elevation);
+        mQSPanel.setElevation(elevation);
     }
 
     private static int calculateContainerHeight() {
@@ -215,9 +242,12 @@ public class QSContainerHelper {
 
     public int getDesiredHeight() {
         if (mQSDetail.isClosingDetail()) {
-            return (int) XposedHelpers.callMethod(mQSPanel, "getGridHeight") + mQsTopMargin + mQSContainer.getPaddingBottom();
+            ViewGroup.MarginLayoutParams layoutParams = (ViewGroup.MarginLayoutParams) mQSPanel.getLayoutParams();
+            int panelHeight = layoutParams.topMargin + layoutParams.bottomMargin +
+                    + mQSPanel.getMeasuredHeight();
+            return panelHeight + mQSContainer.getPaddingBottom() + mGutterHeight;
         } else {
-            return mQSContainer.getMeasuredHeight();
+            return mQSContainer.getMeasuredHeight() + mGutterHeight;
         }
     }
 
@@ -269,6 +299,27 @@ public class QSContainerHelper {
             XposedHelpers.callMethod(mNotificationPanelView, "updateQsState");
         }
     };
+
+    public void setGutterEnabled(boolean gutterEnabled) {
+        if (gutterEnabled == (mGutterHeight != 0)) {
+            return;
+        }
+        if (gutterEnabled) {
+            mGutterHeight = mQSContainer.getContext().getResources().getDimensionPixelSize(
+                    R.dimen.qs_gutter_height);
+        } else {
+            mGutterHeight = 0;
+        }
+        updateBottom();
+    }
+
+    public static void setKeyguardShowing(boolean keyguardShowing) {
+        mKeyguardShowing = keyguardShowing;
+    }
+
+    public int getGutterHeight() {
+        return mGutterHeight;
+    }
 
     public int getBottom() {
         return mQSContainer.getBottom();

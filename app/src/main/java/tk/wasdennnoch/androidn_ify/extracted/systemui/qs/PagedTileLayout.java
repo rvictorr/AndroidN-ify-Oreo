@@ -29,7 +29,6 @@ public class PagedTileLayout extends ViewPager implements QuickSettingsHooks.QST
     private final ArrayList<Object> mTiles = new ArrayList<>();
     private final ArrayList<TilePage> mPages = new ArrayList<>();
     private final Context mContext;
-    private final int mBottomMargin;
 
     private PageIndicator mPageIndicator;
 
@@ -47,7 +46,6 @@ public class PagedTileLayout extends ViewPager implements QuickSettingsHooks.QST
     public PagedTileLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
         mContext = context;
-        mBottomMargin = ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_edit_bottom_margin);
         setClipChildren(false);
         setClipToPadding(false);
         setAdapter(mAdapter);
@@ -179,6 +177,7 @@ public class PagedTileLayout extends ViewPager implements QuickSettingsHooks.QST
             }
             XposedHook.logD(TAG, "Size: " + mNumPages);
             mPageIndicator.setNumPages(mNumPages);
+            mPageIndicator.setVisibility(mNumPages > 1 ? View.VISIBLE : View.GONE);
             setAdapter(mAdapter);
             mAdapter.notifyDataSetChanged();
             setCurrentItem(0, false);
@@ -212,8 +211,7 @@ public class PagedTileLayout extends ViewPager implements QuickSettingsHooks.QST
                 maxHeight = height;
             }
         }
-        setMeasuredDimension(getMeasuredWidth(), maxHeight +
-                (mNumPages > 1 ? mDecorGroup.getMeasuredHeight() : mBottomMargin));
+        setMeasuredDimension(getMeasuredWidth(), maxHeight + mDecorGroup.getMeasuredHeight());
     }
 
     private final Runnable mDistribute = new Runnable() {
@@ -244,6 +242,10 @@ public class PagedTileLayout extends ViewPager implements QuickSettingsHooks.QST
 
     public TilePage getFirstPage() {
         return mPages.get(0);
+    }
+
+    public View getDecorGroup() {
+        return mDecorGroup;
     }
 
     @Override
@@ -346,7 +348,7 @@ public class PagedTileLayout extends ViewPager implements QuickSettingsHooks.QST
         ResourceUtils res = ResourceUtils.getInstance(mContext);
         ViewPager.LayoutParams decorLayoutLp = new LayoutParams();
         decorLayoutLp.width = ViewGroup.LayoutParams.MATCH_PARENT;
-        decorLayoutLp.height = res.getDimensionPixelSize(R.dimen.qs_panel_decor_height);
+        decorLayoutLp.height = res.getDimensionPixelSize(R.dimen.qs_panel_decor_height) + res.getDimensionPixelSize(R.dimen.qs_page_indicator_height);
         decorLayoutLp.gravity = Gravity.BOTTOM;
         decorLayoutLp.isDecor = true;
         mDecorGroup = new FrameLayout(mContext);
@@ -354,6 +356,8 @@ public class PagedTileLayout extends ViewPager implements QuickSettingsHooks.QST
 
         FrameLayout.LayoutParams pageIndicatorLp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         pageIndicatorLp.gravity = Gravity.CENTER;
+        pageIndicatorLp.topMargin = res.getDimensionPixelSize(R.dimen.qs_panel_decor_margin);
+        pageIndicatorLp.bottomMargin = res.getDimensionPixelSize(R.dimen.qs_panel_decor_margin);
         mPageIndicator = new PageIndicator(mContext);
         mPageIndicator.setLayoutParams(pageIndicatorLp);
         mDecorGroup.addView(mPageIndicator);

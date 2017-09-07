@@ -1,11 +1,28 @@
 package tk.wasdennnoch.androidn_ify.systemui.qs;
 
 import android.content.Context;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.RippleDrawable;
+import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.TypedValue;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
+import android.widget.Space;
+import android.widget.TextView;
+
+import com.android.internal.logging.MetricsLogger;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -13,11 +30,20 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
+import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
+import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.ButtonRelativeLayout;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.PagedTileLayout;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSDetail;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
+import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.QSTile;
+import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
+
+import static android.view.View.GONE;
+import static android.view.View.INVISIBLE;
+import static android.view.View.VISIBLE;
 
 public class QuickSettingsHooks {
 
@@ -34,17 +60,17 @@ public class QuickSettingsHooks {
     View mBrightnessView;
     Object mFooter;
     View mDetail;
+    View mDivider;
 
     private PagedTileLayout mTileLayout;
     private QSDetail mQSDetail;
     private boolean mHookedGetGridHeight = false;
     private boolean mExpanded;
-    private int mGridHeight;
     private XC_MethodReplacement
             getGridHeightHook = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-            return mGridHeight;
+            return getGridHeight();
         }
     };
 
@@ -62,17 +88,70 @@ public class QuickSettingsHooks {
     QuickSettingsHooks(ClassLoader classLoader) {
         mHookClass = XposedHelpers.findClass(getHookClass(), classLoader);
         mSecondHookClass = XposedHelpers.findClass(getSecondHookClass(), classLoader);
+        QuickSettingsTileHooks.hook(classLoader);
         hookConstructor();
         hookOnMeasure();
         hookOnLayout();
         hookUpdateResources();
         hookSetTiles();
+        hookAddTile();
+        hookSetGridContentVisibility();
         hookSetExpanded();
         hookFireScanStateChanged();
 
+        XposedHelpers.findAndHookMethod(mHookClass, "handleSetTileVisibility", View.class, int.class, XC_MethodReplacement.DO_NOTHING);
         Class<?> classRecord = XposedHelpers.findClass(getSecondHookClass() + "$Record", classLoader);
         mSetDetailRecord = XposedHelpers.findMethodExact(mSecondHookClass, "setDetailRecord", classRecord);
     }
+
+    protected void addDivider() {
+        mDivider = LayoutInflater.from(mContext).inflate(ResourceUtils.getInstance(mContext).getLayout(R.layout.qs_divider), mQsPanel, false);
+        mDivider.setBackgroundColor(ColorUtils.applyAlpha(mDivider.getAlpha(), getColorForState(mContext)));
+        mQsPanel.addView(mDivider);
+    }
+
+    public static int getColorForState(Context context) {
+        /*switch (state) {
+            case Tile.STATE_UNAVAILABLE:
+                return Utils.getDisabled(context,
+                        ColorUtils.getColorAttr(context, android.R.attr.colorForeground));
+            case Tile.STATE_INACTIVE:
+                return ColorUtils.getColorAttr(context, android.R.attr.textColorHint);
+            case Tile.STATE_ACTIVE:*/
+                return ColorUtils.getColorAttr(context, android.R.attr.textColorPrimary);
+            /*default:
+                Log.e("QSTile", "Invalid state " + state);
+                return 0;
+        }*/
+    }
+
+    private void hookSetGridContentVisibility() {
+        XposedHelpers.findAndHookMethod(mHookClass, "setGridContentVisibility", boolean.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                boolean visible = (boolean) param.args[0];
+                ViewGroup qsPanel = (ViewGroup) param.thisObject;
+                int newVis = visible ? VISIBLE : INVISIBLE;
+                mQsPanel.setVisibility(newVis);
+                if (XposedHelpers.getBooleanField(qsPanel, "mGridContentVisible") != visible) {
+                    MetricsLogger.visibility(mContext, MetricsLogger.QS_PANEL, newVis);
+                }
+                XposedHelpers.setBooleanField(qsPanel, "mGridContentVisible", visible);
+                return null;
+            }
+        });
+    }
+
+    private void hookAddTile() {
+        XposedHelpers.findAndHookMethod(mHookClass, "addTile", QuickSettingsTileHooks.getQsTileClass(), new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                ArrayList mRecords = (ArrayList) XposedHelpers.getObjectField(param.thisObject, "mRecords");
+                ((View) XposedHelpers.getObjectField(mRecords.get(mRecords.size() - 1), "tileView")).setVisibility(VISIBLE);
+            }
+        });
+    }
+
 
     protected void hookConstructor() {
         XposedHelpers.findAndHookConstructor(mHookClass, Context.class, AttributeSet.class, new XC_MethodHook() {
@@ -84,6 +163,7 @@ public class QuickSettingsHooks {
                 mFooter = XposedHelpers.getObjectField(param.thisObject, "mFooter");
                 mDetail = (View) XposedHelpers.getObjectField(param.thisObject, "mDetail");
                 setupTileLayout();
+                addDivider();
             }
         });
     }
@@ -169,10 +249,27 @@ public class QuickSettingsHooks {
         mQsPanel.addView(mTileLayout);
     }
 
+    public View getDivider() {
+        return mDivider;
+    }
+
+    public View getPageIndicator() {
+        return mTileLayout.getDecorGroup();
+    }
+
+
     private void hookOnMeasure() {
         XposedHelpers.findAndHookMethod(mHookClass, "onMeasure", int.class, int.class, new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                ArrayList records = (ArrayList) XposedHelpers.getObjectField(param.thisObject, "mRecords");
+                for (Object record : records) {
+                    Object tileView = XposedHelpers.getObjectField(record, "tileView");
+                    Object tile = XposedHelpers.getObjectField(record, "tile");
+                    if ((boolean) XposedHelpers.callMethod(tileView, "setDual", XposedHelpers.callMethod(tile, "supportsDualTargets"))) {
+                        XposedHelpers.callMethod(tileView, "handleStateChanged", XposedHelpers.callMethod(tile, "getState"));
+                    }
+                }
                 onMeasure((int) param.args[0], (int) param.args[1]);
                 return null;
             }
@@ -192,13 +289,15 @@ public class QuickSettingsHooks {
     @SuppressWarnings("UnusedParameters")
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         final int width = View.MeasureSpec.getSize(widthMeasureSpec);
+        final int brightnessHeight = ResourceUtils.getInstance(mContext).getDimensionPixelSize(R.dimen.brightness_view_height);
+        final int brightnessBottom = brightnessHeight + ((mBrightnessView.getMeasuredHeight() - brightnessHeight) / 2);
         mBrightnessView.measure(exactly(width), View.MeasureSpec.UNSPECIFIED);
         mTileLayout.measure(exactly(width), View.MeasureSpec.UNSPECIFIED);
 
         View footerView = (View) XposedHelpers.callMethod(mFooter, "getView");
         footerView.measure(exactly(width), View.MeasureSpec.UNSPECIFIED);
 
-        int h = mBrightnessView.getMeasuredHeight() + mTileLayout.getMeasuredHeight()/* + mPanelPaddingBottom*/;
+        int h = brightnessBottom + mTileLayout.getMeasuredHeight() + mDivider.getHeight()/* + mPanelPaddingBottom*/;
 
         if ((boolean) XposedHelpers.callMethod(mFooter, "hasFooter")) {
             h += footerView.getMeasuredHeight();
@@ -216,10 +315,6 @@ public class QuickSettingsHooks {
             }
         }
         // Used to clip header too
-        mGridHeight = h;
-
-        // TODO in N getGridHeight() returns getMeasuredHeight(), try that
-
         mDetail.measure(exactly(width), View.MeasureSpec.UNSPECIFIED);
 
         if (mDetail.getMeasuredHeight() < h) {
@@ -234,21 +329,24 @@ public class QuickSettingsHooks {
 
     protected void onLayout() {
         final int w = mQsPanel.getWidth();
+        final int brightnessHeight = ResourceUtils.getInstance(mContext).getDimensionPixelSize(R.dimen.brightness_view_height);
+        final int brightnessBottom = brightnessHeight + ((mBrightnessView.getMeasuredHeight() - brightnessHeight) / 2);
+        final int dividerHeight = mDivider.getLayoutParams().height;
 
         mBrightnessView.layout(0, 0, w, mBrightnessView.getMeasuredHeight());
 
-        int viewPagerBottom = mBrightnessView.getMeasuredHeight() + mTileLayout.getMeasuredHeight();
+        int viewPagerBottom = brightnessBottom + mTileLayout.getMeasuredHeight();
         // view pager laid out from top of brightness view to bottom to page through settings
-        mTileLayout.layout(0, mBrightnessView.getMeasuredHeight(), w, viewPagerBottom);
+        mTileLayout.layout(0, brightnessBottom, w, viewPagerBottom);
 
         mDetail.layout(0, 0, w, mDetail.getMeasuredHeight());
+        mDivider.layout(0, viewPagerBottom, w, viewPagerBottom + dividerHeight);
 
         if ((boolean) XposedHelpers.callMethod(mFooter, "hasFooter")) {
             View footer = (View) XposedHelpers.callMethod(mFooter, "getView");
             footer.layout(0, mQsPanel.getMeasuredHeight() - footer.getMeasuredHeight(),
                     footer.getMeasuredWidth(), mQsPanel.getMeasuredHeight());
         }
-
         if (ConfigUtils.L1 && !isShowingDetail() && !isClosingDetail()) {
             mBrightnessView.bringToFront();
         }
@@ -282,16 +380,20 @@ public class QuickSettingsHooks {
         return mTileLayout;
     }
 
+    public View getFooter() {
+        return (View)XposedHelpers.callMethod(XposedHelpers.getObjectField(mQsPanel, "mFooter"), "getView");
+    }
+
     public int getGridHeight() {
-        return mGridHeight;
+        return mQsPanel.getMeasuredHeight();
     }
 
     public View getBrightnessView() {
         return mBrightnessView;
     }
 
-    QSDetail setupQsDetail(ViewGroup panel, ViewGroup header) {
-        mQSDetail = new QSDetail(panel.getContext(), panel, header, mSetDetailRecord);
+    QSDetail setupQsDetail(ViewGroup panel, ViewGroup header, View footer) {
+        mQSDetail = new QSDetail(panel.getContext(), panel, header, footer, mSetDetailRecord);
         return mQSDetail;
     }
 

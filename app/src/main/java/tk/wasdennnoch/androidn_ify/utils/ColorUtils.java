@@ -1,8 +1,12 @@
 package tk.wasdennnoch.androidn_ify.utils;
 
+import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.ColorInt;
 import android.support.v7.graphics.Palette;
 
 public class ColorUtils {
@@ -25,6 +29,21 @@ public class ColorUtils {
         drawable.setBounds(0, 0, widthPixels, heightPixels);
         drawable.draw(canvas);
         return bitmap;
+    }
+
+    @ColorInt
+    public static int applyAlpha(float alpha, int inputColor) {
+        alpha *= Color.alpha(inputColor);
+        return Color.argb((int) (alpha), Color.red(inputColor), Color.green(inputColor),
+                Color.blue(inputColor));
+    }
+
+    @ColorInt
+    public static int getColorAttr(Context context, int attr) {
+        TypedArray ta = context.obtainStyledAttributes(new int[]{attr});
+        @ColorInt int colorAccent = ta.getColor(0, 0);
+        ta.recycle();
+        return colorAccent;
     }
 
 }

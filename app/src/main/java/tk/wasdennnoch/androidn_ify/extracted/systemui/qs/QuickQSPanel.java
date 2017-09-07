@@ -51,7 +51,7 @@ public class QuickQSPanel extends LinearLayout {
         mQuickTilePadding = mRes.getDimensionPixelSize(R.dimen.qs_quick_tile_padding);
         setOrientation(VERTICAL);
         int m = mRes.getDimensionPixelSize(R.dimen.qs_quick_panel_margin_horizontal);
-        setPadding(m, mRes.getDimensionPixelSize(R.dimen.qs_quick_panel_padding_top), m, 0);
+        setPadding(m, 0, m, 0);
         mTileLayout = new HeaderTileLayout(context);
         addView(mTileLayout);
     }
@@ -92,7 +92,7 @@ public class QuickQSPanel extends LinearLayout {
     }
 
     public ViewGroup getTileView(int i) {
-        return (ViewGroup) mIconViews.get(i).getParent();
+        return (ViewGroup) mIconViews.get(i);
     }
 
     public void setMaxTiles(int maxTile) {
@@ -188,19 +188,7 @@ public class QuickQSPanel extends LinearLayout {
                 XposedHelpers.callMethod(tileView, "onStateChanged", XposedHelpers.getObjectField(tile, "mState"));
             }
 
-            View iconView = null;
-            int children = tileView.getChildCount();
-            for (int i = 0; i < children; i++) {
-                View child = tileView.getChildAt(i);
-                // no complex "getResources().getIdenifier("blah", "blah", "blah")"? I love it!
-                // FrameLayout is the container of the signal state icons
-                if (child.getId() == android.R.id.icon || child instanceof FrameLayout) {
-                    child.setVisibility(VISIBLE);
-                    iconView = child;
-                } else {
-                    child.setVisibility(GONE);
-                }
-            }
+            ViewGroup iconView = (ViewGroup) XposedHelpers.getAdditionalInstanceField(tileView, "mIconFrame");
 
             XposedHelpers.setAdditionalInstanceField(tile, KEY_QUICKQS_TILEVIEW, tileView);
 
@@ -216,20 +204,18 @@ public class QuickQSPanel extends LinearLayout {
             }
         }
 
-        private void addViewToLayout(View view, int position, OnClickListener click, OnLongClickListener longClick) {
+        private void addViewToLayout(ViewGroup view, int position, OnClickListener click, OnLongClickListener longClick) {
             view.setClickable(false);
-            FrameLayout container = new FrameLayout(view.getContext());
             if (ConfigUtils.qs().reconfigure_notification_panel) {
-                container.setClipChildren(false);
-                container.setClipToPadding(false);
+                view.setClipChildren(false);
+                view.setClipToPadding(false);
             }
-            container.setClickable(true);
-            container.setOnClickListener(click);
-            container.setOnLongClickListener(longClick);
-            container.setBackground(newTileBackground());
-            container.addView(view, generateLayoutParams());
-            new GlobalLayoutListener(container);
-            addView(container, position, generateContainerLayoutParams());
+            view.setClickable(true);
+            view.setOnClickListener(click);
+            view.setOnLongClickListener(longClick);
+            view.setBackground(newTileBackground());
+            new GlobalLayoutListener(view);
+            addView(view, position, generateContainerLayoutParams());
             mIconViews.add(view);
         }
 
@@ -252,12 +238,6 @@ public class QuickQSPanel extends LinearLayout {
             removeAllViews();
         }
 
-        private FrameLayout.LayoutParams generateLayoutParams() {
-            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, mIconSizePx);
-            lp.gravity = Gravity.CENTER;
-            return lp;
-        }
-
         private LayoutParams generateOriginalLayoutParams() {
             int i = mRes.getDimensionPixelSize(R.dimen.qs_quick_tile_size);
             LayoutParams layoutparams = new LayoutParams(i, i);
@@ -273,7 +253,7 @@ public class QuickQSPanel extends LinearLayout {
         }
 
         private LayoutParams generateSpaceParams() {
-            LayoutParams layoutparams = new LayoutParams(0, mRes.getDimensionPixelSize(R.dimen.qs_quick_panel_padding_top));
+            LayoutParams layoutparams = new LayoutParams(0, 0);
             layoutparams.weight = 1.0F;
             layoutparams.gravity = Gravity.CENTER;
             return layoutparams;

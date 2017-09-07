@@ -23,6 +23,7 @@ import tk.wasdennnoch.androidn_ify.packageinstaller.PackageInstallerHooks;
 import tk.wasdennnoch.androidn_ify.phone.emergency.EmergencyHooks;
 import tk.wasdennnoch.androidn_ify.settings.SettingsHooks;
 import tk.wasdennnoch.androidn_ify.systemui.SystemUIHooks;
+import tk.wasdennnoch.androidn_ify.systemui.SystemUIThemingHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ActivatableNotificationViewHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationPanelHooks;
@@ -145,8 +146,10 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
                 break;
             case PACKAGE_SYSTEMUI:
                 SystemUIHooks.hookSystemUI(lpparam.classLoader);
+                //SystemUIThemingHooks.hook(lpparam.classLoader);
                 ScreenshotHooks.hook(lpparam.classLoader);
                 StatusBarHeaderHooks.hook(lpparam.classLoader);
+                StatusBarHeaderHooks.hookKeyguard(lpparam.classLoader);
                 NotificationPanelHooks.hook(lpparam.classLoader);
                 StackScrollAlgorithmHooks.hook(lpparam.classLoader);
                 NotificationHooks.hookSystemUI(lpparam.classLoader);
@@ -181,6 +184,7 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
             case PACKAGE_PACKAGEINSTALLER:
             case PACKAGE_GOOGLEPACKAGEINSTALLER:
                 PackageInstallerHooks.hook(lpparam.classLoader);
+                break;
         }
 
         // Has to be hooked in every app as every app creates own instances of the Notification.Builder

@@ -3,6 +3,7 @@ package tk.wasdennnoch.androidn_ify.systemui.qs;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
+import android.os.Message;
 import android.view.View;
 
 import java.lang.reflect.Method;
@@ -284,6 +285,31 @@ public class TilesManager {
                 XposedHook.logW(TAG, "No long click method found! Custom tiles won't recognize long clicks.");
             }
 
+            XposedHelpers.findAndHookMethod(QSTile.CLASS_QS_TILE + "$H", classLoader, "handleMessage", Message.class, new XC_MethodHook() {
+                @SuppressWarnings("SuspiciousMethodCalls")
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    Message msg = (Message) param.args[0];
+                    final BaseTile tile = mTiles.get(XposedHelpers.getAdditionalInstanceField(XposedHelpers.getSurroundingThis(param.thisObject), QSTile.TILE_KEY_NAME));
+                    if (tile != null) {
+                        if (msg.what == 3) {
+                            tile.handleSecondaryClick();
+                        }
+                    }
+                }
+            });
+
+            XposedHelpers.findAndHookMethod(QSTile.CLASS_QS_TILE, classLoader, "supportsDualTargets", new XC_MethodHook() {
+                @SuppressWarnings("SuspiciousMethodCalls")
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    final BaseTile tile = mTiles.get(XposedHelpers.getAdditionalInstanceField(param.thisObject, QSTile.TILE_KEY_NAME));
+                    if (tile != null){
+                        param.setResult(tile.supportsDualTargets());
+                    }
+                }
+            });
+
             XposedHelpers.findAndHookMethod(hookClass, "setListening",
                     boolean.class, new XC_MethodHook() {
                         @SuppressWarnings("SuspiciousMethodCalls")
@@ -306,7 +332,13 @@ public class TilesManager {
                             if (tile != null && tile instanceof QSTile) {
                                 param.setResult(((QSTile) tile).getResourceIconDrawable());
                             }
-                        }
+                        }/*
+
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            Drawable icon = (Drawable) param.getResult();
+                            icon.setTint(android.R.attr.textColorPrimary);
+                        }*/
                     });
 
             try { // Fix a SystemUI crash caused by this tile

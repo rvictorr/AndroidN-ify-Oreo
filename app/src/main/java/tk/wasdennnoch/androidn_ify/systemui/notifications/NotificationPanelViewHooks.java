@@ -17,6 +17,7 @@ import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationUtils;
+import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSFooter;
 import tk.wasdennnoch.androidn_ify.systemui.qs.QSContainerHelper;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 
@@ -42,6 +43,7 @@ public class NotificationPanelViewHooks {
     private static ViewGroup mNotificationPanelView;
     private static ViewGroup mScrollView;
     private static ViewGroup mQsContainer;
+    private static QSFooter mQsFooter;
     private static ViewGroup mHeader;
     private static ViewGroup mQsPanel;
     private static ViewGroup mNotificationStackScroller;
@@ -244,6 +246,7 @@ public class NotificationPanelViewHooks {
             mHeader = (ViewGroup) fieldHeader.get(mNotificationPanelView);
             mScrollView = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mScrollView");
             mQsContainer = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsContainer");
+            mQsFooter = (QSFooter) mNotificationPanelView.findViewById(R.id.qs_footer);
             mQsPanel = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsPanel");
             mNotificationStackScroller = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mNotificationStackScroller");
         }
@@ -335,13 +338,18 @@ public class NotificationPanelViewHooks {
             int mStatusBarState = XposedHelpers.getIntField(mNotificationPanelView, "mStatusBarState");
             View mQsNavbarScrim = (View) XposedHelpers.getObjectField(mNotificationPanelView, "mQsNavbarScrim");
             boolean expandVisually = mQsExpanded || mStackScrollerOverscrolling || mHeaderAnimating;
+            XposedHelpers.callMethod(mQsPanel, "setExpanded", mQsExpanded);
             mHeader.setVisibility((mQsExpanded || !mKeyguardShowing || mHeaderAnimating)
                     ? View.VISIBLE
                     : View.INVISIBLE);
             XposedHelpers.callMethod(mHeader, "setExpanded", ((mKeyguardShowing && !mHeaderAnimating)
                     || (mQsExpanded && !mStackScrollerOverscrolling)));
+            mQsFooter.setVisibility((mQsExpanded || !mKeyguardShowing || mHeaderAnimating)
+                    ? View.VISIBLE
+                    : View.INVISIBLE);
+            mQsFooter.setExpanded((mKeyguardShowing && !mHeaderAnimating)
+                    || (mQsExpanded && !mStackScrollerOverscrolling));
             XposedHelpers.callMethod(mQsPanel, "setVisibility", (expandVisually ? View.VISIBLE : View.INVISIBLE));
-            XposedHelpers.callMethod(mQsPanel, "setExpanded", mQsExpanded);
             XposedHelpers.callMethod(mNotificationStackScroller, "setScrollingEnabled", (
                     mStatusBarState != STATE_KEYGUARD && (!mQsExpanded
                             || mQsExpansionFromOverscroll)));

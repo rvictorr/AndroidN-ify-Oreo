@@ -69,7 +69,7 @@ public class SettingsActivity extends Activity implements View.OnClickListener,
     @SuppressWarnings("ConstantConditions")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        this.mInstance = this;
+        mInstance = this;
         final SharedPreferences prefs = ConfigUtils.getPreferences(this);
         ViewUtils.applyTheme(this, prefs);
         super.onCreate(savedInstanceState);

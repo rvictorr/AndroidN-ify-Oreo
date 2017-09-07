@@ -19,12 +19,16 @@ public class QSTile extends BaseTile {
     protected final State mState;
 
     private static final String DUMMY_INTENT = "intent(dummy)";
-    public static final String CLASS_INTENT_TILE = "com.android.systemui.qs.tiles.IntentTile";
-    public static final String CLASS_VOLUME_TILE = "com.android.systemui.qs.tiles.VolumeTile"; // Used on CM12.1 where IntentTile doesn't exist
-    public static final String CLASS_VISUALIZER_TILE = "com.android.systemui.qs.tiles.VisualizerTile"; // To fix a SystemUI crash caused by it
-    public static final String CLASS_TILE_VIEW = "com.android.systemui.qs.QSTileView";
-    public static final String CLASS_QS_TILE = "com.android.systemui.qs.QSTile";
+    public static final String QS_PACKAGE = "com.android.systemui.qs";
+    public static final String CLASS_INTENT_TILE = QS_PACKAGE + ".tiles.IntentTile";
+    public static final String CLASS_VOLUME_TILE = QS_PACKAGE + ".tiles.VolumeTile"; // Used on CM12.1 where IntentTile doesn't exist
+    public static final String CLASS_VISUALIZER_TILE = QS_PACKAGE + ".tiles.VisualizerTile"; // To fix a SystemUI crash caused by it
+    public static final String CLASS_TILE_VIEW = QS_PACKAGE + ".QSTileView";
+    public static final String CLASS_QS_TILE = QS_PACKAGE + ".QSTile";
     public static final String CLASS_RESOURCE_ICON = CLASS_QS_TILE + ".ResourceIcon";
+    public static final String CLASS_ANIMATION_ICON = CLASS_QS_TILE + ".AnimationIcon";
+    public static final String CLASS_CELLULAR_TILE = "CellularTile";
+    public static final String CLASS_DND_TILE = "DndTile";
 
     public QSTile(TilesManager tilesManager, Object host, String key) {
         super(tilesManager, host, key);
@@ -55,27 +59,6 @@ public class QSTile extends BaseTile {
     public void handleUpdateState(Object state, Object arg) {
         mState.visible = !mSecure || !mKeyguard.isShowing() || !mKeyguard.isSecure();
         mState.apply(state);
-    }
-
-    @Override
-    public boolean handleClickInner() {
-        handleClick();
-        return false;
-        /*
-        if (mSecure && mKeyguard.isShowing() && mKeyguard.isSecure()) {
-            SystemUIHooks.statusBarHooks.startRunnableDismissingKeyguard(new Runnable() {
-                @Override
-                public void run()
-                {
-                    handleClick();
-                }
-            });
-            return true;
-        } else {
-            handleClick();
-            return false;
-        }
-        */
     }
 
     public void startActivityDismissingKeyguard(String action) {

@@ -133,12 +133,13 @@ public class TileLayout extends ViewGroup implements QuickSettingsHooks.QSTileLa
 
     private void setDual(Object record) {
         View tileView = getTileViewFromRecord(record);
+        boolean dual = XposedHelpers.getBooleanField(tileView, "mDual");
         try {
-            XposedHelpers.callMethod(tileView, "setDual", new Class[]{boolean.class}, false);
+            XposedHelpers.callMethod(tileView, "setDual", boolean.class, dual);
         } catch (Throwable t) { // CM13
             try {
                 Object tile = getTileFromRecord(record);
-                XposedHelpers.callMethod(tileView, "setDual", new Class[]{boolean.class, boolean.class}, false, XposedHelpers.callMethod(tile, "hasDualTargetsDetails"));
+                XposedHelpers.callMethod(tileView, "setDual", boolean.class, boolean.class, dual, XposedHelpers.callMethod(tile, "hasDualTargetsDetails"));
             } catch (Throwable ignore) {
                 // Other ROMs
             }
@@ -161,20 +162,19 @@ public class TileLayout extends ViewGroup implements QuickSettingsHooks.QSTileLa
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         int row = 0;
         int column = 0;
-        for (int i = 0; i < mRecords.size(); i++) {
+        for (int i = 0; i < mRecords.size(); i++, column++) {
             Object record = mRecords.get(i);
             View tileView = getTileViewFromRecord(record);
             if (tileView.getVisibility() != VISIBLE) continue;
             if (column == getColumns(row)) {
                 row++;
-                column = 0;
+                column -= getColumns(row);
             }
             int left = getColumnStart(row, column);
             final int top = getRowTop(row);
             int right;
             right = left + getCellWidth(row);
             tileView.layout(left, top, right, top + tileView.getMeasuredHeight());
-            column++;
         }
     }
 
