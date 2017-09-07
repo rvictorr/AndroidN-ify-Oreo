@@ -33,5 +33,12 @@
     <item name="status_view" type="id" />
     <item name="users_button" type="id" />
     <item name="progress_view" type="id" />
+    <item name="alarm_status_collapsed" type="id" />
+    <item name="date_time_alarm_group" type="id" />
+    <item name="qs_footer" type="id" />
+    <item name="expand_indicator" type="id" />
+    <item name="expand_space" type="id" />
+    <item name="tile_label" type="id" />
+    <item name="quick_qs_panel" type="id" />
 
 </resources>

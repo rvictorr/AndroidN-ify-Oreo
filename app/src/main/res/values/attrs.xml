@@ -10,4 +10,7 @@
     <declare-styleable name="EmergencyListPreference">
         <attr name="entryContentDescriptions" format="reference"/>
     </declare-styleable>
+    <declare-styleable name="AutoSizingList">
+        <attr name="itemHeight" format="dimension" />
+    </declare-styleable>
 </resources>
