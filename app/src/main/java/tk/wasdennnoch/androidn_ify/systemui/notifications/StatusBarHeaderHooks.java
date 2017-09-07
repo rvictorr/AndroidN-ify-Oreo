@@ -42,7 +42,6 @@ import de.robv.android.xposed.callbacks.XC_InitPackageResources;
 import de.robv.android.xposed.callbacks.XC_LayoutInflated;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
-import tk.wasdennnoch.androidn_ify.extracted.systemui.AlphaOptimizedButton;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.AlphaOptimizedImageView;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.ExpandableIndicator;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.NonInterceptingScrollView;
@@ -93,11 +92,6 @@ public class StatusBarHeaderHooks {
     private static boolean mHideEditTiles = false;
     private static boolean mHideCarrierLabel = false;
 
-    private static boolean mShowFullAlarm;
-    private static TouchAnimator mFirstHalfAnimator;
-    private static TouchAnimator mSecondHalfAnimator;
-    private static TouchAnimator mSettingsAlpha;
-
     private static Constructor mCarrierTextConstructor;
     private static Constructor mStatusBarClockConstructor;
 
@@ -127,6 +121,7 @@ public class StatusBarHeaderHooks {
     private static View mCustomQSEditButton;
     private static View mCustomQSEditButton2;
     private static TextView mCarrierText;
+    private static View mOriginalCarrierText;
     private static TextView mBatteryLevel;
 
     private static ExpandableIndicator mExpandIndicator;
@@ -172,8 +167,6 @@ public class StatusBarHeaderHooks {
             mResUtils = ResourceUtils.getInstance(mContext);
             ResourceUtils res = mResUtils;
             ConfigUtils config = ConfigUtils.getInstance();
-
-            mShowFullAlarm = res.getResources().getBoolean(R.bool.quick_settings_show_full_alarm) || config.qs.force_old_date_position;
 
             try {
                 if (!config.qs.keep_header_background) {
@@ -227,6 +220,10 @@ public class StatusBarHeaderHooks {
                 mWeatherContainer = (LinearLayout) XposedHelpers.getObjectField(param.thisObject, "mWeatherContainer");
                 mWeatherLine1 = (TextView) XposedHelpers.getObjectField(param.thisObject, "mWeatherLine1");
                 mWeatherLine2 = (TextView) XposedHelpers.getObjectField(param.thisObject, "mWeatherLine2");
+            } catch (Throwable ignore) {
+            }
+            try {
+                mOriginalCarrierText = (View) XposedHelpers.getObjectField(param.thisObject, "mCarrierText");
             } catch (Throwable ignore) {
             }
             try {
@@ -591,6 +588,8 @@ public class StatusBarHeaderHooks {
                     } catch (Throwable ignored) {
                     }
                 }
+                if (mOriginalCarrierText != null)
+                    mOriginalCarrierText.setVisibility(View.GONE);
             }
             return null;
         }
