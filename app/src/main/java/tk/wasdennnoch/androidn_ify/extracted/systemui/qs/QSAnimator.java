@@ -156,6 +156,7 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
         int heightDiff = height - StatusBarHeaderHooks.getHeader().getBottom()
                 + StatusBarHeaderHooks.getHeader().getPaddingBottom();
         firstPageBuilder.addFloat(tileLayout, "translationY", heightDiff, 0);
+        firstPageBuilder.addFloat(tileLayout.getDecorGroup(), "translationY", -heightDiff, 0); //temporary solution
 
         for (int i = 0; i < records.size(); i++) {
             Object tileRecord = records.get(i);
