@@ -1018,6 +1018,12 @@ public class StatusBarHeaderHooks {
                         return null;
                     }
                 });
+                XposedBridge.hookAllMethods(classQSDetailItems, "handleSetCallback", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        QSDetailItemsHelper.getInstance(param.thisObject).handleSetCallback(param.args[0]);
+                    }
+                });
                 mStatusBarClockConstructor = classStatusBarClock.getConstructor(Context.class);
 
                 try {

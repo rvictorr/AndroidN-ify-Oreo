@@ -69,8 +69,6 @@ public class QSDetailItemsHelper {
 
         mItemList.setVisibility(GONE);
         mItemList.setAdapter(mAdapter);
-
-        mCallback = XposedHelpers.getObjectField(mQSDetailItems, "mCallback");
     }
 
     public void handleSetItems(Object[] items) {
@@ -87,6 +85,10 @@ public class QSDetailItemsHelper {
         for (int i = 0; i < mItemList.getChildCount(); i++) {
             mItemList.getChildAt(i).setVisibility(mItemsVisible ? VISIBLE : INVISIBLE);
         }
+    }
+
+    public void handleSetCallback(Object callback) {
+        mCallback = callback;
     }
 
     private class Adapter extends BaseAdapter {
