@@ -10,10 +10,7 @@ import android.view.View;
 import android.view.ViewOutlineProvider;
 import android.widget.FrameLayout;
 
-import java.util.ArrayList;
-
 import de.robv.android.xposed.XposedHelpers;
-import tk.wasdennnoch.androidn_ify.extracted.systemui.ExpandableIndicator;
 
 public class ExpandableOutlineViewHelper {
     private static final String TAG = "ExpandableOutlineViewHelper";

@@ -1,47 +1,30 @@
 package tk.wasdennnoch.androidn_ify.systemui.qs;
 
 import android.content.Context;
-import android.graphics.Typeface;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.RippleDrawable;
-import android.text.TextUtils;
 import android.util.AttributeSet;
-import android.util.TypedValue;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
-import android.widget.Space;
-import android.widget.TextView;
 
 import com.android.internal.logging.MetricsLogger;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
-import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
-import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.ButtonRelativeLayout;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.PagedTileLayout;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSDetail;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
-import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.QSTile;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
-import static android.view.View.GONE;
 import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 
@@ -99,7 +82,13 @@ public class QuickSettingsHooks {
         hookSetExpanded();
         hookFireScanStateChanged();
 
-        XposedHelpers.findAndHookMethod(mHookClass, "handleSetTileVisibility", View.class, int.class, XC_MethodReplacement.DO_NOTHING);
+        try {
+            XposedHelpers.findAndHookMethod(mHookClass, "handleSetTileVisibility", View.class, int.class, XC_MethodReplacement.DO_NOTHING);
+        } catch (NoSuchMethodError e) { //LOS
+            try {
+                XposedHelpers.findAndHookMethod(mSecondHookClass, "handleSetTileVisibility", View.class, int.class, XC_MethodReplacement.DO_NOTHING);
+            } catch (NoSuchMethodError ignore) {}
+        }
         Class<?> classRecord = XposedHelpers.findClass(getSecondHookClass() + "$Record", classLoader);
         mSetDetailRecord = XposedHelpers.findMethodExact(mSecondHookClass, "setDetailRecord", classRecord);
     }
@@ -126,7 +115,7 @@ public class QuickSettingsHooks {
     }
 
     private void hookSetGridContentVisibility() {
-        XposedHelpers.findAndHookMethod(mHookClass, "setGridContentVisibility", boolean.class, new XC_MethodReplacement() {
+        XC_MethodReplacement setGridContentVisibility = new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 boolean visible = (boolean) param.args[0];
@@ -139,17 +128,29 @@ public class QuickSettingsHooks {
                 XposedHelpers.setBooleanField(qsPanel, "mGridContentVisible", visible);
                 return null;
             }
-        });
+        };
+        try {
+            XposedHelpers.findAndHookMethod(mHookClass, "setGridContentVisibility", boolean.class, setGridContentVisibility);
+        } catch (NoSuchMethodError e) {
+            try { //LOS
+                XposedHelpers.findAndHookMethod(mSecondHookClass, "setGridContentVisibility", boolean.class, setGridContentVisibility);
+            } catch (NoSuchMethodError ignore) {}
+        }
     }
 
     private void hookAddTile() {
-        XposedHelpers.findAndHookMethod(mHookClass, "addTile", QuickSettingsTileHooks.getQsTileClass(), new XC_MethodHook() {
+        XC_MethodHook addTile = new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 ArrayList mRecords = (ArrayList) XposedHelpers.getObjectField(param.thisObject, "mRecords");
                 ((View) XposedHelpers.getObjectField(mRecords.get(mRecords.size() - 1), "tileView")).setVisibility(VISIBLE);
             }
-        });
+        };
+        try {
+            XposedHelpers.findAndHookMethod(mHookClass, "addTile", QuickSettingsTileHooks.getQsTileClass(), addTile);
+        } catch (NoSuchMethodError e) { //LOS
+            XposedHelpers.findAndHookMethod(mSecondHookClass, "addTile", QuickSettingsTileHooks.getQsTileClass(), addTile);
+        }
     }
 
 
@@ -266,7 +267,16 @@ public class QuickSettingsHooks {
                 for (Object record : records) {
                     Object tileView = XposedHelpers.getObjectField(record, "tileView");
                     Object tile = XposedHelpers.getObjectField(record, "tile");
-                    if ((boolean) XposedHelpers.callMethod(tileView, "setDual", XposedHelpers.callMethod(tile, "supportsDualTargets"))) {
+                    boolean supportsDualTargets;
+                    boolean changed;
+                    try {
+                        supportsDualTargets = (boolean) XposedHelpers.callMethod(tile, "supportsDualTargets");
+                        changed = (boolean) XposedHelpers.callMethod(tileView, "setDual", supportsDualTargets);
+                    } catch (NoSuchMethodError e) { //LOS
+                        supportsDualTargets = (boolean) XposedHelpers.callMethod(tile, "hasDualTargetsDetails");
+                        changed = (boolean) XposedHelpers.callMethod(tileView, "setDual", supportsDualTargets, supportsDualTargets);
+                    }
+                    if (changed) {
                         XposedHelpers.callMethod(tileView, "handleStateChanged", XposedHelpers.callMethod(tile, "getState"));
                     }
                 }

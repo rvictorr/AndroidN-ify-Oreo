@@ -298,8 +298,7 @@ public class TilesManager {
                     }
                 }
             });
-
-            XposedHelpers.findAndHookMethod(QSTile.CLASS_QS_TILE, classLoader, "supportsDualTargets", new XC_MethodHook() {
+            XC_MethodHook supportsDualTargets = new XC_MethodHook() {
                 @SuppressWarnings("SuspiciousMethodCalls")
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -308,7 +307,12 @@ public class TilesManager {
                         param.setResult(tile.supportsDualTargets());
                     }
                 }
-            });
+            };
+            try {
+                XposedHelpers.findAndHookMethod(QSTile.CLASS_QS_TILE, classLoader, "supportsDualTargets", supportsDualTargets);
+            } catch (NoSuchMethodError e) { //LOS
+                XposedHelpers.findAndHookMethod(QSTile.CLASS_QS_TILE, classLoader, "hasDualTargetsDetails", supportsDualTargets);
+            }
 
             XposedHelpers.findAndHookMethod(hookClass, "setListening",
                     boolean.class, new XC_MethodHook() {

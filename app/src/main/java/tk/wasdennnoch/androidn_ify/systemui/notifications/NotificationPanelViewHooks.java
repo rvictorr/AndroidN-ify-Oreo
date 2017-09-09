@@ -59,8 +59,6 @@ public class NotificationPanelViewHooks {
     private static Method methodGetQsExpansionFraction;
     private static Method methodGetHeaderTranslation;
 
-    private static Method methodGetChildCount;
-    private static Method methodGetChildAt;
     private static Method methodGetNotGoneChildCount;
     private static Method methodGetFirstChildNotGone;
 
@@ -142,8 +140,6 @@ public class NotificationPanelViewHooks {
                 methodGetQsExpansionFraction = XposedHelpers.findMethodBestMatch(classNotificationPanelView, "getQsExpansionFraction");
                 methodGetHeaderTranslation = XposedHelpers.findMethodBestMatch(classNotificationPanelView, "getHeaderTranslation");
 
-                methodGetChildCount = XposedHelpers.findMethodBestMatch(classNotificationStackScrollLayout, "getChildCount");
-                methodGetChildAt = XposedHelpers.findMethodBestMatch(classNotificationStackScrollLayout, "getChildAt", int.class);
                 methodGetIntrinsicHeight = XposedHelpers.findMethodBestMatch(classNotificationStackScrollLayout, "getIntrinsicHeight", View.class);
                 methodGetPositionInLinearLayout = XposedHelpers.findMethodBestMatch(classNotificationStackScrollLayout, "getPositionInLinearLayout", View.class);
                 methodClampScrollPosition = XposedHelpers.findMethodBestMatch(classNotificationStackScrollLayout, "clampScrollPosition");
@@ -225,7 +221,7 @@ public class NotificationPanelViewHooks {
                 XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "updateSpeedBumpIndex", int.class, updateSpeedBumpIndex);
                 XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "setStackHeight", float.class, setStackHeight);
 
-                XposedHelpers.findAndHookMethod(classObservableScrollView, "overScrollBy", int.class, int.class, int.class, int.class, int.class, int.class, int.class, int.class, boolean.class, XC_MethodReplacement.returnConstant(false));
+                XposedBridge.hookAllMethods(classObservableScrollView, "overScrollBy", XC_MethodReplacement.returnConstant(false));
                 XposedHelpers.findAndHookMethod(classObservableScrollView, "fling", int.class, XC_MethodReplacement.DO_NOTHING);
                 XposedHelpers.findAndHookMethod(classObservableScrollView, "getMaxScrollY", XC_MethodReplacement.DO_NOTHING);
                 XposedHelpers.findAndHookMethod(classObservableScrollView, "isScrolledToBottom", XC_MethodReplacement.DO_NOTHING);
@@ -901,8 +897,8 @@ public class NotificationPanelViewHooks {
         if (mChildrenToAddAnimated.isEmpty()) {
             return;
         }
-        for (int i = 0; i < (int) methodGetChildCount.invoke(mNotificationStackScroller); i++) {
-            View child = (View) methodGetChildAt.invoke(mNotificationStackScroller, i);
+        for (int i = 0; i < mNotificationStackScroller.getChildCount(); i++) {
+            View child = mNotificationStackScroller.getChildAt(i);
             if (mChildrenToAddAnimated.contains(child)) {
                 int startingPosition = (int) methodGetPositionInLinearLayout.invoke(mNotificationStackScroller, child);
                 int padding = mPaddingBetweenElements;

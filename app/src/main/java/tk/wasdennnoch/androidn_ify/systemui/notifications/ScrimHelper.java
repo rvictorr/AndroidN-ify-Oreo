@@ -8,8 +8,6 @@ import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.view.View;
 
-import java.util.ArrayList;
-
 import de.robv.android.xposed.XposedHelpers;
 
 public class ScrimHelper {

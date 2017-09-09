@@ -157,5 +157,5 @@ public class QSDetailItemsHelper {
             });
             return view;
         }
-    };
+    }
 }

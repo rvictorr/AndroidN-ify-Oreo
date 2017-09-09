@@ -199,7 +199,7 @@ public class TileAdapter extends RecyclerView.Adapter<TileAdapter.TileViewHolder
             XposedHelpers.callMethod(tileView, "setDual", dual);
         } catch (Throwable t) {// CM13
             try {
-                XposedHelpers.callMethod(tileView, "setDual", dual, dual);//TODO see if this works
+                XposedHelpers.callMethod(tileView, "setDual", dual, dual);
             } catch (Throwable ignore) {
                 // Other ROMs
             }

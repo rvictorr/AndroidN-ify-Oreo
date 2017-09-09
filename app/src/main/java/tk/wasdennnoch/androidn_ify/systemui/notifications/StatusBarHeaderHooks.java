@@ -3,7 +3,6 @@ package tk.wasdennnoch.androidn_ify.systemui.notifications;
 import android.annotation.SuppressLint;
 import android.app.AlarmManager;
 import android.content.Context;
-import android.content.res.Configuration;
 import android.content.res.TypedArray;
 import android.content.res.XModuleResources;
 import android.content.res.XResources;
@@ -49,7 +48,6 @@ import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSAnimator;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSDetail;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSFooter;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QuickQSPanel;
-import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.TouchAnimator;
 import tk.wasdennnoch.androidn_ify.misc.SafeOnClickListener;
 import tk.wasdennnoch.androidn_ify.misc.SafeRunnable;
 import tk.wasdennnoch.androidn_ify.systemui.SystemUIHooks;
@@ -761,12 +759,6 @@ public class StatusBarHeaderHooks {
         }
     }
 
-    private static void updateAlarmVisibilities() {
-        boolean mAlarmShowing = XposedHelpers.getBooleanField(mStatusBarHeaderView, "mAlarmShowing");
-        if (mAlarmStatusCollapsed != null)
-            mAlarmStatusCollapsed.setVisibility(mAlarmShowing ? View.VISIBLE : View.INVISIBLE);
-    }
-
     private static void showDetailAdapter(boolean show, Object adapter, int[] locationInWindow) throws Exception {
         Class<?> classRecord = XposedHelpers.findClass(CLASS_QS_PANEL + "$Record", mQsPanel.getContext().getClassLoader());
 
@@ -788,7 +780,7 @@ public class StatusBarHeaderHooks {
         XposedHelpers.callMethod(mQsPanel, "showDetail", show, r);
     }
 
-    private static void handleShowingDetail(final Object detail) {
+    private static void handleShowingDetail(final Object detail) { //TODO see what we do with this
         if (ConfigUtils.qs().fix_header_space) return;
         final boolean showingDetail = detail != null;
         mCurrentDetailView = getCurrentDetailView();
@@ -1097,28 +1089,11 @@ public class StatusBarHeaderHooks {
                         }
                     }
                 });
-                try {
-                    XposedHelpers.findAndHookMethod(classQSPanel, "fireShowingDetail", CLASS_DETAIL_ADAPTER, new XC_MethodReplacement() {
-                        @Override
-                        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                            handleShowingDetail(param.args[0]);
-                            return null;
-                        }
-                    });
-                    if (ConfigUtils.qs().fix_header_space) {
-                        XposedHelpers.findAndHookMethod(classQSPanel, "showDetailAdapter", boolean.class, CLASS_DETAIL_ADAPTER, int[].class, new XC_MethodReplacement() {
-                            @Override
-                            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                                showDetailAdapter((boolean) param.args[0], param.args[1], (int[]) param.args[2]);
-                                return null;
-                            }
-                        });
-                    }
-                } catch (Throwable t) {
+                if (ConfigUtils.qs().fix_header_space) {
                     XposedHelpers.findAndHookMethod(classQSPanel, "showDetailAdapter", boolean.class, CLASS_DETAIL_ADAPTER, int[].class, new XC_MethodReplacement() {
                         @Override
                         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                            handleShowingDetail(param.args[0]);
+                            showDetailAdapter((boolean) param.args[0], param.args[1], (int[]) param.args[2]);
                             return null;
                         }
                     });

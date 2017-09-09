@@ -62,6 +62,25 @@ public class QuickSettingsTileHooks {
     }
 
     private static void hookQsTileView() {
+        final XC_MethodReplacement setDual = new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                boolean changed = false;
+                boolean dual = (boolean) param.args[0];
+                if (dual != XposedHelpers.getBooleanField(param.thisObject, "mDual")) {
+                    changed = true;
+                }
+                XposedHelpers.setBooleanField(param.thisObject, "mDual", dual);
+                return changed;
+            }
+        };
+        try {
+            XposedHelpers.findAndHookMethod(mQsTileViewClass, "setDual", boolean.class, setDual);
+        } catch (NoSuchMethodError e) {
+            try { //LOS
+                XposedHelpers.findAndHookMethod(mQsTileViewClass, "setDual", boolean.class, boolean.class, setDual);
+            } catch (NoSuchMethodError ignore) {}
+        }
         XposedHelpers.findAndHookMethod(mQsTileViewClass, "updateAccessibilityOrder", View.class, XC_MethodReplacement.DO_NOTHING);
         XposedHelpers.findAndHookConstructor(mQsTileViewClass, Context.class, new XC_MethodHook() {
             @Override
@@ -79,7 +98,7 @@ public class QuickSettingsTileHooks {
                 mIconFrame.setForegroundGravity(Gravity.CENTER);
                 int size = res.getDimensionPixelSize(R.dimen.qs_quick_tile_size);
                 qsTileView.addView(mIconFrame, new FrameLayout.LayoutParams(size, size));
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(-2, -2);
+                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                 params.gravity = Gravity.CENTER;
                 params.setMargins(0, padding, 0, padding);
                 mIconFrame.addView(mIcon, params);
@@ -195,18 +214,6 @@ public class QuickSettingsTileHooks {
                 return null;
             }
         });
-        XposedHelpers.findAndHookMethod(mQsTileViewClass, "setDual", boolean.class, new XC_MethodReplacement() {
-            @Override
-            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                boolean changed = false;
-                boolean dual = (boolean) param.args[0];
-                if (dual != XposedHelpers.getBooleanField(param.thisObject, "mDual")) {
-                    changed = true;
-                }
-                XposedHelpers.setBooleanField(param.thisObject, "mDual", dual);
-                return changed;
-            }
-        });
         XposedHelpers.findAndHookMethod(mQsTileViewClass, "init", View.OnClickListener.class, View.OnClickListener.class, View.OnLongClickListener.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
@@ -227,14 +234,21 @@ public class QuickSettingsTileHooks {
     }
 
     private static void hookQsTile() {
-        XposedHelpers.findAndHookMethod(mQsTileClass, "supportsDualTargets", new XC_MethodHook() {
+        final XC_MethodHook supportsDualTargetsHook = new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 if (QS_CLASSES.contains(param.thisObject.getClass().getSimpleName())) {
                     param.setResult(true);
                 }
             }
-        });
+        };
+        try {
+            XposedHelpers.findAndHookMethod(mQsTileClass, "supportsDualTargets", supportsDualTargetsHook);
+        } catch (NoSuchMethodError e) {
+            try { //LOS
+                XposedHelpers.findAndHookMethod(mQsTileClass, "hasDualTargetsDetails", supportsDualTargetsHook);
+            } catch (NoSuchMethodError ignore) {}
+        }
     }
 
     private static void layout(View child, int left, int top) {
@@ -269,7 +283,7 @@ public class QuickSettingsTileHooks {
         label.setTextColor(ColorUtils.getColorAttr(context, android.R.attr.textColorPrimary));
         label.setId(R.id.tile_label);
         ImageView expandIndicator = new ImageView(context);
-        LinearLayout.LayoutParams expandIndicatorLp = new LinearLayout.LayoutParams(res.getDimensionPixelSize(R.dimen.qs_expand_indicator_width), -1);
+        LinearLayout.LayoutParams expandIndicatorLp = new LinearLayout.LayoutParams(res.getDimensionPixelSize(R.dimen.qs_expand_indicator_width), ViewGroup.LayoutParams.MATCH_PARENT);
         expandIndicatorLp.setMarginStart(res.getDimensionPixelSize(R.dimen.qs_expand_indicator_margin));
         expandIndicator.setColorFilter(ColorUtils.getColorAttr(context, android.R.attr.textColorPrimary));
         expandIndicator.setImageDrawable(res.getResources().getDrawable(R.drawable.qs_dual_tile_caret));
@@ -281,7 +295,7 @@ public class QuickSettingsTileHooks {
         return labelContainer;
     }
 
-    public static boolean equal(Object a, Object b) {
+    private static boolean equal(Object a, Object b) {
         return a == b || (a != null && a.equals(b));
     }
 }
