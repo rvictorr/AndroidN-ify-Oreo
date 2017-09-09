@@ -20,6 +20,8 @@ import android.util.TypedValue;
 import android.view.View;
 import android.widget.TextView;
 
+import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
+
 /**
  * Utility class to update the font size when the configuration has changed.
  */
@@ -33,8 +35,9 @@ public class FontSizeUtils {
 
     public static void updateFontSize(TextView v, int dimensId) {
         if (v != null) {
+            ResourceUtils res = ResourceUtils.getInstance(v.getContext());
             v.setTextSize(TypedValue.COMPLEX_UNIT_PX,
-                    v.getResources().getDimensionPixelSize(dimensId));
+                    res.getDimensionPixelSize(dimensId));
         }
     }
 }

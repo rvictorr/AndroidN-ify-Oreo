@@ -156,8 +156,10 @@ public class QSTileHostHooks {
             mTiles.putAll(newTiles);
 
             Object mCallback = XposedHelpers.getObjectField(param.thisObject, "mCallback");
-            if (mCallback != null)
+            if (mCallback != null) {
                 XposedHelpers.callMethod(mCallback, "onTilesChanged");
+                StatusBarHeaderHooks.getQsAnimator().onTilesChanged();
+            }
         }
     };
 

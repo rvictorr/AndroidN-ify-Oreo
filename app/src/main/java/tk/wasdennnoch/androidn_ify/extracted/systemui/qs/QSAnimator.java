@@ -371,14 +371,11 @@ public class QSAnimator implements PagedTileLayout.PageListener, OnLayoutChangeL
         mQsPanel.post(mUpdateAnimators);
     }
 
-    /*
-    @Override
     public void onTilesChanged() {
         // Give the QS panels a moment to generate their new tiles, then create all new animators
         // hooked up to the new views.
         mQsPanel.post(mUpdateAnimators);
     }
-    */
 
     private final TouchAnimator.Listener mNonFirstPageListener =
             new TouchAnimator.ListenerAdapter() {
