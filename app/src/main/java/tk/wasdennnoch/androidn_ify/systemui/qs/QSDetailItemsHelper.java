@@ -62,7 +62,7 @@ public class QSDetailItemsHelper {
         mEmpty.setLayoutParams(new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER));
         mEmpty.setGravity(Gravity.CENTER);
 
-        mQSDetailItems.setPaddingRelative(res.getDimensionPixelSize(R.dimen.qs_detail_padding_start), 0, Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 16, res.getResources().getDisplayMetrics())), 0);
+        mQSDetailItems.setPaddingRelative(res.getDimensionPixelSize(R.dimen.qs_detail_padding_start), res.getDimensionPixelSize(R.dimen.qs_detail_items_padding_top), Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 16, res.getResources().getDisplayMetrics())), 0);
         mQSDetailItems.removeView(mQSDetailItems.findViewById(android.R.id.list));
         mQSDetailItems.addView(mItemList, 0);
         mQSDetailItems.removeView(mQSDetailItems.findViewById(res.getResources().getIdentifier("min_height_spacer", "id", XposedHook.PACKAGE_SYSTEMUI)));
