@@ -35,6 +35,7 @@ import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.ExpandableIndicator;
+import tk.wasdennnoch.androidn_ify.extracted.systemui.FontSizeUtils;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.TouchAnimator.Builder;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.TouchAnimator.ListenerAdapter;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
@@ -182,7 +183,7 @@ public class QSFooter extends LinearLayout implements OnClickListener {
     }
 
     private void updateResources() {
-        //FontSizeUtils.updateFontSize(mAlarmStatus, R.dimen.qs_date_collapsed_size);
+        FontSizeUtils.updateFontSize(mAlarmStatus, R.dimen.qs_date_collapsed_size);
 
         updateSettingsAnimator();
     }
@@ -238,6 +239,7 @@ public class QSFooter extends LinearLayout implements OnClickListener {
         }
     }
 
+    @SuppressWarnings("DoubleNegation")
     public void onNextAlarmChanged(AlarmManager.AlarmClockInfo nextAlarm) {
         mNextAlarm = nextAlarm;
         if (mAlarmShowing != (nextAlarm != null)) {

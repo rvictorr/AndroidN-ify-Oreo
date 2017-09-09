@@ -84,6 +84,8 @@ public class QSContainerHelper {
         ViewGroup.LayoutParams scrollViewLayoutParams = scrollView.getLayoutParams();
         scrollViewLayoutParams.height = FrameLayout.LayoutParams.WRAP_CONTENT;
         scrollView.setLayoutParams(scrollViewLayoutParams);
+        scrollView.setClipChildren(false);
+        scrollView.setClipToPadding(false);
 
         mBackground = new View(qsContainer.getContext());
         mBackground.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -115,6 +117,7 @@ public class QSContainerHelper {
             }
         }
         mQsExpansion = expansion;
+        updateBottom();
         final float translationScaleY = expansion - 1;
         if (!mHeaderAnimating) {
             int height = mHeader.getHeight() + mGutterHeight;
@@ -125,16 +128,16 @@ public class QSContainerHelper {
             if (!reconfigureNotifPanel)
                 mHeader.setTranslationY(height);
         }
-        XposedHelpers.callMethod(mHeader, "setExpansion", mKeyguardShowing ? 1 : expansion);
         mQSFooter.setExpansion(mKeyguardShowing ? 1 : expansion);
         int heightDiff = mQSPanel.getBottom() - mHeader.getBottom() + mHeader.getPaddingBottom()
                 + mQSFooter.getHeight();
         mQSPanel.setTranslationY(translationScaleY * heightDiff);
         mQSDetail.setFullyExpanded(expansion == 1);
-        updateBottom();
+
+        XposedHelpers.callMethod(mHeader, "setExpansion", mKeyguardShowing ? 1 : expansion);
 
         // Set bounds on the QS panel so it doesn't run over the header.
-        mQsBounds.top = (int) -mQSPanel.getTranslationY();;
+        mQsBounds.top = (int) -mQSPanel.getTranslationY();
         mQsBounds.right = mQSPanel.getWidth();
         mQsBounds.bottom = mQSPanel.getHeight();
         mQSPanel.setClipBounds(mQsBounds);

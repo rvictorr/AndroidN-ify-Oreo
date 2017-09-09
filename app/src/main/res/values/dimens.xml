@@ -42,6 +42,7 @@
     <dimen name="status_bar_clock_starting_padding">7dp</dimen>
 
     <dimen name="qs_time_expanded_size">14sp</dimen>
+    <dimen name="qs_date_collapsed_size">14sp</dimen>
     <dimen name="date_time_alarm_group_margin_end">8dp</dimen>
     <dimen name="date_time_alarm_group_margin_start">16dp</dimen>
     <dimen name="date_time_group_padding">4dp</dimen>

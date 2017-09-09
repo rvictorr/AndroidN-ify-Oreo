@@ -537,9 +537,9 @@ public class StatusBarHeaderHooks {
         }
     };
 
-    private static final XC_MethodHook setExpansionHook = new XC_MethodHook() {
+    private static final XC_MethodReplacement setExpansion = new XC_MethodReplacement() {
         @Override
-        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             float f = (float) param.args[0];
             mExpanded = f > 0;
             mExpansion = f;
@@ -548,19 +548,7 @@ public class StatusBarHeaderHooks {
             } catch (Throwable ignore) {
                 // Oh god, a massive spam wall coming right at you, quick, hide!
             }
-        }
-
-        @Override
-        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-            int mGridHeight = qsHooks.getGridHeight();
-            if (mGridHeight == 0)
-                return;
-            View view = (View) param.thisObject;
-            float height = view.getHeight();
-            height += (int) (mGridHeight * mExpansion);
-            mClipBounds.set(view.getPaddingLeft(), 0, view.getWidth() - view.getPaddingRight(), (int) height);
-            view.setClipBounds(mClipBounds);
-            view.invalidateOutline();
+            return null;
         }
     };
     private static final XC_MethodHook updateVisibilities = new XC_MethodReplacement() {
@@ -1026,7 +1014,7 @@ public class StatusBarHeaderHooks {
                 }
 
                 XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "onFinishInflate", onFinishInflateHook);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "setExpansion", float.class, setExpansionHook);
+                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "setExpansion", float.class, setExpansion);
                 XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateVisibilities", updateVisibilities);
 
                 try {
