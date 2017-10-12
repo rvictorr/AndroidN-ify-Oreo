@@ -42,7 +42,7 @@ import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
-public class QSFooter extends LinearLayout implements OnClickListener {
+public class QSFooter extends LinearLayout {
 
     private static final float EXPAND_INDICATOR_THRESHOLD = 0.93f;
 
@@ -109,8 +109,6 @@ public class QSFooter extends LinearLayout implements OnClickListener {
                 res.getBoolean(R.bool.config_showQuickSettingsExpandIndicator)
                         ? VISIBLE : GONE);*/
         mExpandIndicator.setVisibility(VISIBLE);
-
-        mDateTimeGroup.setOnClickListener(this);
 
         mMultiUserAvatar = (ImageView) mMultiUserSwitch.findViewById(mContext.getResources().getIdentifier("multi_user_avatar", "id", XposedHook.PACKAGE_SYSTEMUI));
         mAlwaysShowMultiUserSwitch = false/*res.getBoolean(R.bool.config_alwaysShowMultiUserSwitcher)*/;
@@ -304,15 +302,6 @@ public class QSFooter extends LinearLayout implements OnClickListener {
             mEdit.setVisibility(!mExpanded ? View.INVISIBLE : View.VISIBLE);
         }
     }
-
-    @Override
-    public void onClick(View v) {
-        if (v == mDateTimeGroup) {
-            PendingIntent showIntent = mNextAlarm.getShowIntent();
-            XposedHelpers.callMethod(mActivityStarter, "startPendingIntentDismissingKeyguard", showIntent);
-        }
-    }
-
 
     public void setEmergencyCallsOnly(boolean show) {
         boolean changed = show != mShowEmergencyCallsOnly;

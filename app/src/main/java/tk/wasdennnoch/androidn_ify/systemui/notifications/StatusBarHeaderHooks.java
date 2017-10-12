@@ -3,6 +3,7 @@ package tk.wasdennnoch.androidn_ify.systemui.notifications;
 import android.annotation.SuppressLint;
 import android.app.AlarmManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.TypedArray;
 import android.content.res.XModuleResources;
 import android.content.res.XResources;
@@ -11,6 +12,7 @@ import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Animatable;
 import android.graphics.drawable.Drawable;
+import android.provider.AlarmClock;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -75,23 +77,25 @@ public class StatusBarHeaderHooks {
     private static final int WRAP_CONTENT = ViewGroup.LayoutParams.WRAP_CONTENT;
     private static final String PACKAGE_SYSTEMUI = XposedHook.PACKAGE_SYSTEMUI;
 
-    private static final String CLASS_STATUS_BAR_HEADER_VIEW = "com.android.systemui.statusbar.phone.StatusBarHeaderView";
+    private static final String CLASS_STATUS_BAR_HEADER_VIEW = PACKAGE_SYSTEMUI + ".statusbar.phone.StatusBarHeaderView";
+    private static final String CLASS_TUNER_SERVICE = PACKAGE_SYSTEMUI + ".tuner.TunerService";
     private static final String CLASS_LAYOUT_VALUES = CLASS_STATUS_BAR_HEADER_VIEW + "$LayoutValues";
-    private static final String CLASS_QS_DETAIL_ITEMS = "com.android.systemui.qs.QSDetailItems";
-    private static final String CLASS_QS_PANEL = "com.android.systemui.qs.QSPanel";
-    private static final String CLASS_QS_DRAG_PANEL = "com.android.systemui.qs.QSDragPanel";
-    private static final String CLASS_QS_TILE = "com.android.systemui.qs.QSTile";
+    private static final String CLASS_QS_DETAIL_ITEMS = PACKAGE_SYSTEMUI + ".qs.QSDetailItems";
+    private static final String CLASS_QS_PANEL = PACKAGE_SYSTEMUI + ".qs.QSPanel";
+    private static final String CLASS_QS_DRAG_PANEL = PACKAGE_SYSTEMUI + ".qs.QSDragPanel";
+    private static final String CLASS_QS_TILE = PACKAGE_SYSTEMUI + ".qs.QSTile";
     private static final String CLASS_QS_STATE = CLASS_QS_TILE + "$State";
-    private static final String CLASS_QS_TILE_VIEW = "com.android.systemui.qs.QSTileView";
+    private static final String CLASS_QS_TILE_VIEW = PACKAGE_SYSTEMUI + ".qs.QSTileView";
     private static final String CLASS_DETAIL_ADAPTER = CLASS_QS_TILE + "$DetailAdapter";
+
+    private static Class classTunerService;
+    private static Class classCarrierText;
+    private static Class classStatusBarClock;
 
     private static boolean mCollapseAfterHideDetails = false;
     private static boolean mHideTunerIcon = false;
     private static boolean mHideEditTiles = false;
     private static boolean mHideCarrierLabel = false;
-
-    private static Constructor mCarrierTextConstructor;
-    private static Constructor mStatusBarClockConstructor;
 
     public static ViewGroup mStatusBarHeaderView;
 
@@ -202,7 +206,6 @@ public class StatusBarHeaderHooks {
                 XposedHook.logE(TAG, "Couldn't find required views, aborting", t);
                 return;
             }
-            mAlarmStatus.setOnClickListener(null);
             // Separate try-catch for settings button as some ROMs removed the container around it
             try {
                 mSettingsContainer = (View) XposedHelpers.getObjectField(param.thisObject, "mSettingsContainer");
@@ -213,7 +216,7 @@ public class StatusBarHeaderHooks {
             mHideTunerIcon = config.qs.hide_tuner_icon;
             mHideEditTiles = config.qs.hide_edit_tiles;
             mHideCarrierLabel = config.qs.hide_carrier_label;
-            mCarrierText = (TextView) mCarrierTextConstructor.newInstance(mContext);
+            mCarrierText = (TextView) XposedHelpers.newInstance(classCarrierText, mContext);
             try {
                 mWeatherContainer = (LinearLayout) XposedHelpers.getObjectField(param.thisObject, "mWeatherContainer");
                 mWeatherLine1 = (TextView) XposedHelpers.getObjectField(param.thisObject, "mWeatherLine1");
@@ -337,7 +340,7 @@ public class StatusBarHeaderHooks {
                 mAlarmStatus.setVisibility(View.GONE);
 
                 LinearLayout.LayoutParams clockLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
-                mClock = (TextView) mStatusBarClockConstructor.newInstance(mContext);
+                mClock = (TextView) XposedHelpers.newInstance(classStatusBarClock, mContext);
                 ((TextView) mClock).setSingleLine();
                 ((TextView) mClock).setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
                 ((TextView) mClock).setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimensionPixelSize(R.dimen.status_bar_clock_size));
@@ -433,16 +436,6 @@ public class StatusBarHeaderHooks {
                     mTaskManagerButton.setLayoutParams(taskManagerButtonLp);
                 }
 
-                /*try { // OOS (and maybe more in the future)
-                    XposedHelpers.findMethodBestMatch(mStatusBarHeaderView.getClass(), "startDateActivity");
-                    if (mStatusBarHeaderView instanceof View.OnClickListener) {
-                        View.OnClickListener l = (View.OnClickListener) mStatusBarHeaderView;
-                        mDateCollapsed.setOnClickListener(l);
-                        mDateExpanded.setOnClickListener(l);
-                    }
-                } catch (Throwable ignore) {
-                }*/
-
                 mTopContainer.addView(mCarrierText);
                 mTopContainer.addView(mBatteryContainer);
                 mTopContainer.addView(mClock);
@@ -457,7 +450,7 @@ public class StatusBarHeaderHooks {
 
                 mDateTimeAlarmGroup.addView(mDateCollapsed);
                 mDateTimeAlarmGroup.addView(mAlarmStatusCollapsed);
-                mDateTimeAlarmGroup.addView(mAlarmStatus); // The view HAS to be attached to a parent, otherwise it apparently gets GC -> NPE. We hide it later if necessary
+                mDateTimeAlarmGroup.addView(mAlarmStatus);
                 mDateTimeAlarmGroup.setOnClickListener((View.OnClickListener) mStatusBarHeaderView);
 
                 LinearLayout.LayoutParams qsFooterLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, res.getDimensionPixelSize(R.dimen.qs_quick_tile_size));
@@ -557,11 +550,14 @@ public class StatusBarHeaderHooks {
             if (mSystemIconsSuperContainer != null) {
                 mBatteryLevel.setVisibility(View.VISIBLE);
                 boolean mExpanded = XposedHelpers.getBooleanField(param.thisObject, "mExpanded");
+                boolean tunerEnabled = (boolean) XposedHelpers.callStaticMethod(classTunerService, "isTunerEnabled", mContext);
                 mSystemIconsSuperContainer.setVisibility(View.GONE);
                 mDateExpanded.setVisibility(View.GONE);
                 mDateGroup.setVisibility(View.GONE);
 
-                if (mHideTunerIcon && mTunerIcon != null) mTunerIcon.setVisibility(View.INVISIBLE);
+                if (mTunerIcon != null)
+                    mTunerIcon.setVisibility(tunerEnabled && !mHideTunerIcon
+                        ? View.VISIBLE : View.INVISIBLE);
                 if (mHideEditTiles && mCustomQSEditButton != null) {
                     mCustomQSEditButton.setVisibility(View.GONE);
                     if (mCustomQSEditButton2 != null) mCustomQSEditButton2.setVisibility(View.GONE);
@@ -954,26 +950,25 @@ public class StatusBarHeaderHooks {
     }
 
     public static void hookKeyguard(ClassLoader classLoader) {
-        try {
-            mCarrierTextConstructor = XposedHelpers.findClass("com.android.keyguard.CarrierText", classLoader).getDeclaredConstructor(Context.class);
-        } catch (NoSuchMethodException ignore) {
-        }
+        classCarrierText = XposedHelpers.findClass("com.android.keyguard.CarrierText", classLoader);
     }
 
 
-    public static void hook(ClassLoader classLoader) {
+    public static void hook(final ClassLoader classLoader) {
         try {
             if (ConfigUtils.qs().header) {
 
                 qsHooks = QuickSettingsHooks.create(classLoader);
 
+                classTunerService = XposedHelpers.findClass(CLASS_TUNER_SERVICE, classLoader);
+                classStatusBarClock = XposedHelpers.findClass("com.android.systemui.statusbar.policy.Clock", classLoader);
                 Class<?> classStatusBarHeaderView = XposedHelpers.findClass(CLASS_STATUS_BAR_HEADER_VIEW, classLoader);
                 Class<?> classLayoutValues = XposedHelpers.findClass(CLASS_LAYOUT_VALUES, classLoader);
                 Class<?> classQSPanel = XposedHelpers.findClass(CLASS_QS_PANEL, classLoader);
                 Class<?> classQSTile = XposedHelpers.findClass(CLASS_QS_TILE, classLoader);
                 Class<?> classQSTileView = XposedHelpers.findClass(CLASS_QS_TILE_VIEW, classLoader);
                 Class<?> classPhoneStatusBar = XposedHelpers.findClass("com.android.systemui.statusbar.phone.PhoneStatusBar", classLoader);
-                Class<?> classStatusBarClock = XposedHelpers.findClass("com.android.systemui.statusbar.policy.Clock", classLoader);
+
                 Class<?> classQSDetailItems = XposedHelpers.findClass(CLASS_QS_DETAIL_ITEMS, classLoader);
 
                 XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "onLayout", boolean.class, int.class, int.class, int.class, int.class, onLayoutHook);
@@ -1004,7 +999,6 @@ public class StatusBarHeaderHooks {
                         QSDetailItemsHelper.getInstance(param.thisObject).handleSetCallback(param.args[0]);
                     }
                 });
-                mStatusBarClockConstructor = classStatusBarClock.getConstructor(Context.class);
 
                 try {
                     XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "setEditing", boolean.class, setEditingHook);
@@ -1064,15 +1058,22 @@ public class StatusBarHeaderHooks {
                         if (param.args[0] == mAlarmStatus) {
                             param.setResult(null);
                         }
+                        if (param.args[0] == mDateTimeAlarmGroup)
+                            param.args[0] = mAlarmStatus; //hack because we can't call the method as it's inlined or sth
                     }
 
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         Object v = param.args[0];
-                        if (v == mDateTimeAlarmGroup) {
-                            try {
-                                XposedHelpers.callMethod(param.thisObject, "startDateActivity");
-                            } catch (Throwable ignore) {
+                        AlarmManager.AlarmClockInfo nextAlarm = (AlarmManager.AlarmClockInfo) XposedHelpers.getObjectField(param.thisObject, "mNextAlarm");
+                        Object activityStarter = XposedHelpers.getObjectField(param.thisObject, "mActivityStarter");
+
+                        if (v == mAlarmStatus) {
+                            if (nextAlarm == null) {
+                                try {
+                                    XposedHelpers.callMethod(activityStarter, "postStartActivityDismissingKeyguard", new Intent(
+                                            AlarmClock.ACTION_SHOW_ALARMS), 0);
+                                } catch (Throwable ignore) {}
                             }
                         }
                     }
@@ -1223,20 +1224,6 @@ public class StatusBarHeaderHooks {
                 resparam.res.setReplacement(PACKAGE_SYSTEMUI, "dimen", "qs_time_expanded_size", modRes.fwd(R.dimen.qs_time_expanded_size));
                 if (ConfigUtils.M)
                     resparam.res.setReplacement(PACKAGE_SYSTEMUI, "dimen", "multi_user_avatar_expanded_size", modRes.fwd(R.dimen.multi_user_avatar_size));
-
-                /*
-                if (!ConfigUtils.qs().large_first_row) {
-                    try {
-                        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "dimen", "qs_dual_tile_height",
-                                new XResources.DimensionReplacement(resparam.res.getDimensionPixelSize(
-                                        resparam.res.getIdentifier("qs_tile_height", "dimen", PACKAGE_SYSTEMUI)),
-                                        TypedValue.COMPLEX_UNIT_PX));
-                        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "dimen", "qs_tile_divider_height", zero);
-                    } catch (Throwable t) {
-                        XposedHook.logE(TAG, "Couldn't change qs_dual_tile_height or qs_tile_divider_height (" + t.getClass().getSimpleName() + ")", null);
-                    }
-                }
-                */
 
                 resparam.res.setReplacement(PACKAGE_SYSTEMUI, "color", "qs_tile_divider", 0x00000000);
 
