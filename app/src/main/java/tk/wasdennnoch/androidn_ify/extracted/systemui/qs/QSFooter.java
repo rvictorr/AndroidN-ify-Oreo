@@ -48,7 +48,6 @@ public class QSFooter extends LinearLayout {
 
     private Context mContext;
 
-    private Object mActivityStarter;
     private ImageButton mSettingsButton;
     protected View mSettingsContainer;
 
@@ -119,10 +118,6 @@ public class QSFooter extends LinearLayout {
         XposedHelpers.callMethod(mExpandIndicator.getBackground(), "setForceSoftware", true);
 
         updateResources();
-    }
-
-    public void setActivityStarter(Object activityStarter) {
-        mActivityStarter = activityStarter;
     }
 
     @Override

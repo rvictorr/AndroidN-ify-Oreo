@@ -181,6 +181,7 @@ public class NotificationPanelViewHooks {
                 XposedHelpers.findAndHookMethod(classNotificationPanelView, "onOverscrolled", float.class, float.class, int.class, XC_MethodReplacement.DO_NOTHING);
                 XposedHelpers.findAndHookMethod(classNotificationPanelView, "getTempQsMaxExpansion", getTempQsMaxExpansionHook);
                 XposedHelpers.findAndHookMethod(classNotificationPanelView, "onExpandingStarted", onExpandingStartedHook);
+                XposedHelpers.findAndHookMethod(classNotificationPanelView, "setListening", boolean.class, setListening);
                 XposedHelpers.findAndHookMethod(classNotificationPanelView, "onClick", View.class, onClick);
                 XposedHelpers.findAndHookMethod(classNotificationPanelView, "setVerticalPanelTranslation", float.class, setVerticalPanelTranslation);
                 XposedHelpers.findAndHookMethod(classNotificationPanelView, "onQsExpansionStarted", int.class, onQsExpansionStarted);
@@ -281,6 +282,16 @@ public class NotificationPanelViewHooks {
         @Override
         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
             XposedHelpers.callMethod(mHeader, "setListening", true);
+        }
+    };
+
+    private static final XC_MethodReplacement setListening = new XC_MethodReplacement() {
+        @Override
+        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+            Object mKeyguardStatusBar = XposedHelpers.getObjectField(param.thisObject, "mKeyguardStatusBar");
+            XposedHelpers.callMethod(mKeyguardStatusBar, "setListening", param.args[0]);
+            XposedHelpers.callMethod(mQsPanel, "setListening", param.args[0]);
+            return null;
         }
     };
 

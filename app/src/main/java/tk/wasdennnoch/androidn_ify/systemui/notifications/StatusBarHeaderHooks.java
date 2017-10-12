@@ -468,7 +468,6 @@ public class StatusBarHeaderHooks {
                 mQsFooter.addView(mDateTimeAlarmGroup);
                 mQsFooter.addView(mRightContainer);
                 mQsFooter.init();
-                mQsFooter.setActivityStarter(XposedHelpers.getObjectField(mStatusBarHeaderView, "mActivityStarter"));
 
                 mStatusBarHeaderView.addView(mTopContainer, 0);
                 mStatusBarHeaderView.addView(mHeaderQsPanel, 1);
