@@ -39,10 +39,12 @@ public class QuickSettingsTileHooks {
 
     private static final String CLASS_QS_TILE = "com.android.systemui.qs.QSTile";
     private static final String CLASS_QS_TILE_VIEW = "com.android.systemui.qs.QSTileView";
-    public static final ArrayList<String> QS_CLASSES = new ArrayList<>(Arrays.asList(QSTile.CLASS_CELLULAR_TILE, QSTile.CLASS_DND_TILE));
+    private static final String CLASS_SIGNAL_TILE_VIEW = "com.android.systemui.qs.SignalTileView";
+    private static final ArrayList<String> QS_CLASSES = new ArrayList<>(Arrays.asList(QSTile.CLASS_CELLULAR_TILE, QSTile.CLASS_DND_TILE));
 
     private static Class mQsTileClass;
     private static Class mQsTileViewClass;
+    private static Class mSignalTileViewClass;
     private static Method mNewTileBackground;
     private static Method mSetRipple;
     private static Method mUpdateRippleSize;
@@ -50,15 +52,30 @@ public class QuickSettingsTileHooks {
     public static void hook(ClassLoader classLoader) {
         mQsTileViewClass = XposedHelpers.findClass(CLASS_QS_TILE_VIEW, classLoader);
         mQsTileClass = XposedHelpers.findClass(CLASS_QS_TILE, classLoader);
+        mSignalTileViewClass = XposedHelpers.findClass(CLASS_SIGNAL_TILE_VIEW, classLoader);
         mUpdateRippleSize = XposedHelpers.findMethodExact(mQsTileViewClass, "updateRippleSize", int.class, int.class);
         mNewTileBackground = XposedHelpers.findMethodExact(mQsTileViewClass, "newTileBackground");
         mSetRipple = XposedHelpers.findMethodExact(mQsTileViewClass, "setRipple", RippleDrawable.class);
         hookQsTileView();
         hookQsTile();
+        hookSignalTileView();
     }
 
     public static Class getQsTileClass() {
         return mQsTileClass;
+    }
+
+    private static void hookSignalTileView() {
+        XposedHelpers.findAndHookMethod(mSignalTileViewClass, "addTrafficView", int.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                ImageView traffic = (ImageView) param.getResult();
+                ViewGroup tileView = (ViewGroup) param.thisObject;
+                ViewGroup iconFrame = tileView.findViewById(R.id.icon_frame);
+                tileView.removeView(traffic);
+                iconFrame.addView(traffic);
+            }
+        });
     }
 
     private static void hookQsTileView() {
@@ -95,6 +112,7 @@ public class QuickSettingsTileHooks {
                 XposedHelpers.setIntField(qsTileView, "mTileSpacingPx", 0);
                 XposedHelpers.setIntField(qsTileView, "mTilePaddingTopPx", 0);
                 FrameLayout mIconFrame = new FrameLayout(context);
+                mIconFrame.setId(R.id.icon_frame);
                 mIconFrame.setForegroundGravity(Gravity.CENTER);
                 int size = res.getDimensionPixelSize(R.dimen.qs_quick_tile_size);
                 qsTileView.addView(mIconFrame, new FrameLayout.LayoutParams(size, size));
@@ -162,7 +180,7 @@ public class QuickSettingsTileHooks {
                 int heightMeasureSpec = (int) param.args[1];
                 int w = View.MeasureSpec.getSize(widthMeasureSpec);
                 int h = View.MeasureSpec.getSize(heightMeasureSpec);
-                mIconFrame.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.AT_MOST), View.MeasureSpec.makeMeasureSpec(mIconSizePx, View.MeasureSpec.EXACTLY));
+                mIconFrame.measure(View.MeasureSpec.makeMeasureSpec(mIconSizePx, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(mIconSizePx, View.MeasureSpec.EXACTLY));
                 labelContainer.measure(widthMeasureSpec, View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.AT_MOST));
                 XposedHelpers.callMethod(qsTileView, "setMeasuredDimension", w, h);
                 return null;
