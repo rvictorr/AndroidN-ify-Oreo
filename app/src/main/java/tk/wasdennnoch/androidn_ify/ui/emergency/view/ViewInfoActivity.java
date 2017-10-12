@@ -55,9 +55,9 @@ public class ViewInfoActivity extends EmergencyTabActivity {
         setContentView(R.layout.emergency_view_activity_layout);
         setTaskDescription(new ActivityManager.TaskDescription(getString(R.string.emergency_info)));
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        mPersonalCard = (LinearLayout) findViewById(R.id.name_and_dob_linear_layout);
-        mPersonalCardLargeItem = (TextView) findViewById(R.id.personal_card_large);
-        mViewFlipper = (ViewFlipper) findViewById(R.id.view_flipper);
+        mPersonalCard = findViewById(R.id.name_and_dob_linear_layout);
+        mPersonalCardLargeItem = findViewById(R.id.personal_card_large);
+        mViewFlipper = findViewById(R.id.view_flipper);
     }
     @Override
     public void onResume() {

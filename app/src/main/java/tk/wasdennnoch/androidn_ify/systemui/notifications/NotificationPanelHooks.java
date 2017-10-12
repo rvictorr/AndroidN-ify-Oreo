@@ -68,9 +68,9 @@ public class NotificationPanelHooks {
             mHeader = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mHeader");
             mQsContainer = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsContainer");
             mQsPanel = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsPanel");
-            mQsFooter = (QSFooter) mQsContainer.findViewById(R.id.qs_footer);
+            mQsFooter = mQsContainer.findViewById(R.id.qs_footer);
             mHeader.setOnClickListener(null);
-            mExpandIndicator = (ExpandableIndicator) mQsFooter.findViewById(R.id.statusbar_header_expand_indicator);
+            mExpandIndicator = mQsFooter.findViewById(R.id.statusbar_header_expand_indicator);
             mExpandIndicator.setOnClickListener(mExpandIndicatorListener);
 
             /*if (!ConfigUtils.qs().keep_qs_panel_background) {

@@ -100,15 +100,15 @@ public class SeekBarPreference extends Preference implements OnSeekBarChangeList
 
         View layout = View.inflate(getContext(), R.layout.slider_preference, null);
 
-        mMonitorBox = (TextView) layout.findViewById(R.id.monitor_box);
+        mMonitorBox = layout.findViewById(R.id.monitor_box);
         mMonitorBox.setVisibility(mMonitorBoxEnabled ? View.VISIBLE : View.GONE);
-        mBar = (SeekBar) layout.findViewById(R.id.seek_bar);
+        mBar = layout.findViewById(R.id.seek_bar);
         mBar.setMax(mMaximum - mMinimum);
         mBar.setOnSeekBarChangeListener(this);
         mBar.setProgress(mValue - mMinimum);
-        mBtnPlus = (ImageButton) layout.findViewById(R.id.btnPlus);
+        mBtnPlus = layout.findViewById(R.id.btnPlus);
         mBtnPlus.setOnClickListener(this);
-        mBtnMinus = (ImageButton) layout.findViewById(R.id.btnMinus);
+        mBtnMinus = layout.findViewById(R.id.btnMinus);
         mBtnMinus.setOnClickListener(this);
         setMonitorBoxText();
         return layout;

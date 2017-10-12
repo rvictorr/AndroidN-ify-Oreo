@@ -105,7 +105,7 @@ public class SettingsActivity extends Activity implements View.OnClickListener,
         if (!isActivated()) {
             getActionBar().setSubtitle(R.string.not_activated);
         } else if (!isPrefsFileReadable()) {
-            TextView warning = (TextView) findViewById(R.id.prefs_not_readable_warning);
+            TextView warning = findViewById(R.id.prefs_not_readable_warning);
             //noinspection deprecation
             warning.setText(Html.fromHtml(getString(R.string.prefs_not_readable)));
             warning.setVisibility(View.VISIBLE);

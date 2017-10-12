@@ -74,7 +74,7 @@ public class QSContainerHelper {
         qsPanel.setLayoutParams(qsPanelLp);
 
         //TODO fix landscape behavior
-        ViewGroup scrollView = (ViewGroup) mNotificationPanelView.findViewById(mQSContainer.getContext().getResources().getIdentifier("scroll_view", "id", XposedHook.PACKAGE_SYSTEMUI));
+        ViewGroup scrollView = mNotificationPanelView.findViewById(mQSContainer.getContext().getResources().getIdentifier("scroll_view", "id", XposedHook.PACKAGE_SYSTEMUI));
         LinearLayout linearLayout = (LinearLayout) mQSContainer.getParent();
 
         linearLayout.removeAllViews();

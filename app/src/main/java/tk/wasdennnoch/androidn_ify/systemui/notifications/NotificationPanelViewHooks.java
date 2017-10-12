@@ -243,7 +243,7 @@ public class NotificationPanelViewHooks {
             mHeader = (ViewGroup) fieldHeader.get(mNotificationPanelView);
             mScrollView = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mScrollView");
             mQsContainer = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsContainer");
-            mQsFooter = (QSFooter) mNotificationPanelView.findViewById(R.id.qs_footer);
+            mQsFooter = mNotificationPanelView.findViewById(R.id.qs_footer);
             mQsPanel = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsPanel");
             mNotificationStackScroller = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mNotificationStackScroller");
         }

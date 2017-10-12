@@ -87,14 +87,14 @@ public class QSFooter extends LinearLayout {
     }
 
     public void init() {
-        mMultiUserSwitch = (FrameLayout) findViewById(mContext.getResources().getIdentifier("multi_user_switch", "id", XposedHook.PACKAGE_SYSTEMUI));
+        mMultiUserSwitch = findViewById(mContext.getResources().getIdentifier("multi_user_switch", "id", XposedHook.PACKAGE_SYSTEMUI));
         mDate = findViewById(mContext.getResources().getIdentifier("date_collapsed", "id", XposedHook.PACKAGE_SYSTEMUI));
-        mAlarmStatus = (TextView) findViewById(mContext.getResources().getIdentifier("alarm_status", "id", XposedHook.PACKAGE_SYSTEMUI));
-        mSettingsButton = (ImageButton) findViewById(mContext.getResources().getIdentifier("settings_button", "id", XposedHook.PACKAGE_SYSTEMUI));
+        mAlarmStatus = findViewById(mContext.getResources().getIdentifier("alarm_status", "id", XposedHook.PACKAGE_SYSTEMUI));
+        mSettingsButton = findViewById(mContext.getResources().getIdentifier("settings_button", "id", XposedHook.PACKAGE_SYSTEMUI));
         mSettingsContainer = findViewById(mContext.getResources().getIdentifier("settings_button_container", "id", XposedHook.PACKAGE_SYSTEMUI));
         mDateTimeGroup = findViewById(R.id.date_time_alarm_group);
         mAlarmStatusCollapsed = findViewById(R.id.alarm_status_collapsed);
-        mExpandIndicator = (ExpandableIndicator) findViewById(R.id.statusbar_header_expand_indicator);
+        mExpandIndicator = findViewById(R.id.statusbar_header_expand_indicator);
         mEdit = findViewById(R.id.qs_edit);
     }
 
@@ -109,7 +109,7 @@ public class QSFooter extends LinearLayout {
                         ? VISIBLE : GONE);*/
         mExpandIndicator.setVisibility(VISIBLE);
 
-        mMultiUserAvatar = (ImageView) mMultiUserSwitch.findViewById(mContext.getResources().getIdentifier("multi_user_avatar", "id", XposedHook.PACKAGE_SYSTEMUI));
+        mMultiUserAvatar = mMultiUserSwitch.findViewById(mContext.getResources().getIdentifier("multi_user_avatar", "id", XposedHook.PACKAGE_SYSTEMUI));
         mAlwaysShowMultiUserSwitch = false/*res.getBoolean(R.bool.config_alwaysShowMultiUserSwitcher)*/;
 
         // RenderThread is doing more harm than good when touching the header (to expand quick

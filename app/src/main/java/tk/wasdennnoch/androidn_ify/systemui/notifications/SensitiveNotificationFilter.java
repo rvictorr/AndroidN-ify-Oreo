@@ -78,7 +78,7 @@ public class SensitiveNotificationFilter {
                         View guts = (View) XposedHelpers.getObjectField(row, "mGuts");
                         if (sbn == null || guts == null) return;
 
-                        SensitiveFilterButton filterButton = (SensitiveFilterButton) guts.findViewById(R.id.notification_sensitive_filter);
+                        SensitiveFilterButton filterButton = guts.findViewById(R.id.notification_sensitive_filter);
                         if (filterButton == null) return;
                         filterButton.init(SensitiveNotificationFilter.this, sbn);
                     }

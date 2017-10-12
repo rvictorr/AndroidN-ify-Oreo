@@ -71,7 +71,7 @@ public abstract class EmergencyTabActivity extends Activity {
     public void setContentView(@LayoutRes int layoutResID) {
         super.setContentView(layoutResID);
         setupTabs();
-        Toolbar toolbar = (Toolbar) findViewById(R.id.action_bar);
+        Toolbar toolbar = findViewById(R.id.action_bar);
         setActionBar(toolbar);
         getActionBar().setDisplayHomeAsUpEnabled(true);
     }
@@ -84,10 +84,10 @@ public abstract class EmergencyTabActivity extends Activity {
     }
     protected void setupTabs() {
         mFragments = setUpFragments();
-        mTabLayout = (TabLayout) findViewById(R.id.sliding_tabs);
+        mTabLayout = findViewById(R.id.sliding_tabs);
         if (mTabsAdapter == null) {
             // The viewpager that will host the section contents.
-            ViewPager viewPager = (ViewPager) findViewById(R.id.view_pager);
+            ViewPager viewPager = findViewById(R.id.view_pager);
             mTabsAdapter = new ViewPagerAdapter(getFragmentManager());
             viewPager.setAdapter(mTabsAdapter);
             mTabLayout.setTabsFromPagerAdapter(mTabsAdapter);

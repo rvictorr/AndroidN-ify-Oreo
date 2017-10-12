@@ -107,7 +107,7 @@ public class PackageInstallerHooks {
             Message msg = (Message) param.args[0];
             final Activity uninstallAppProgress = (Activity) XposedHelpers.getSurroundingThis(param.thisObject);
             Button mUsersButton;
-            mUsersButton = (Button) uninstallAppProgress.findViewById(R.id.users_button);
+            mUsersButton = uninstallAppProgress.findViewById(R.id.users_button);
             if (msg.what == UNINSTALL_COMPLETE) {
                 if (msg.arg1 == DELETE_FAILED_OWNER_BLOCKED) {
                     UserManager userManager =
@@ -129,7 +129,7 @@ public class PackageInstallerHooks {
         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
             final Activity uninstallAppProgress = (Activity)param.thisObject;
             Button mUsersButton;
-            mUsersButton = (Button) uninstallAppProgress.findViewById(R.id.users_button);
+            mUsersButton = uninstallAppProgress.findViewById(R.id.users_button);
             mUsersButton.setVisibility(View.GONE);
             mUsersButton.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -153,7 +153,7 @@ public class PackageInstallerHooks {
             Context context = packageInstallerActivity.getApplicationContext();
             int dividerId = context.getResources().getIdentifier("divider", "id", PACKAGE_PACKAGEINSTALLER);
 
-            TabHost tabHost = (TabHost) packageInstallerActivity.findViewById(android.R.id.tabhost);
+            TabHost tabHost = packageInstallerActivity.findViewById(android.R.id.tabhost);
             tabHost.setVisibility(View.VISIBLE);
             PackageInfo mPkgInfo = (PackageInfo) XposedHelpers.getObjectField(packageInstallerActivity, "mPkgInfo");
             ApplicationInfo mAppInfo = (ApplicationInfo) XposedHelpers.getObjectField(packageInstallerActivity, "mAppInfo");
@@ -323,8 +323,8 @@ public class PackageInstallerHooks {
             int appSnippetId = context.getResources().getIdentifier("app_snippet", "id", PACKAGE_PACKAGEINSTALLER);
             int installConfirmId = context.getResources().getIdentifier("install_confirm_panel", "id", PACKAGE_PACKAGEINSTALLER);
 
-            LinearLayout appSnippetLayout = (LinearLayout) relativeLayout.findViewById(appSnippetId);
-            LinearLayout installConfirmLayout = (LinearLayout) relativeLayout.findViewById(installConfirmId);
+            LinearLayout appSnippetLayout = relativeLayout.findViewById(appSnippetId);
+            LinearLayout installConfirmLayout = relativeLayout.findViewById(installConfirmId);
             LinearLayout newLayout = new LinearLayout(context);
 
             LinearLayout.LayoutParams newLayoutLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -362,7 +362,7 @@ public class PackageInstallerHooks {
             int appIconId = context.getResources().getIdentifier("app_icon", "id", PACKAGE_PACKAGEINSTALLER);
             int appNameId = context.getResources().getIdentifier("app_name", "id", PACKAGE_PACKAGEINSTALLER);
 
-            ImageView appIcon = (ImageView) thisLayout.findViewById(appIconId);
+            ImageView appIcon = thisLayout.findViewById(appIconId);
             TextView appName = new TextView(context);
             LinearLayout appSnippetLayout = new LinearLayout(context);
 
@@ -425,14 +425,14 @@ public class PackageInstallerHooks {
             int cancelButtonId = context.getResources().getIdentifier("cancel_button", "id", PACKAGE_PACKAGEINSTALLER);
             int horizontalScrollViewId = context.getResources().getIdentifier("tabscontainer", "id", PACKAGE_PACKAGEINSTALLER);
 
-            ImageView divider = (ImageView) thisLayout.findViewById(dividerId);
-            FrameLayout filler = (FrameLayout) thisLayout.findViewById(fillerId);
-            Button okButton = (Button) thisLayout.findViewById(okButtonId);
-            Button cancelButton = (Button) thisLayout.findViewById(cancelButtonId);
+            ImageView divider = thisLayout.findViewById(dividerId);
+            FrameLayout filler = thisLayout.findViewById(fillerId);
+            Button okButton = thisLayout.findViewById(okButtonId);
+            Button cancelButton = thisLayout.findViewById(cancelButtonId);
             LinearLayout buttonContainer = (LinearLayout) okButton.getParent();
             LinearLayout buttonContainerParent = (LinearLayout) buttonContainer.getParent();
-            TextView installConfirmQuestion = (TextView) thisLayout.findViewById(installConfirmQuestionId);
-            HorizontalScrollView horizontalScrollView = (HorizontalScrollView) thisLayout.findViewById(horizontalScrollViewId);
+            TextView installConfirmQuestion = thisLayout.findViewById(installConfirmQuestionId);
+            HorizontalScrollView horizontalScrollView = thisLayout.findViewById(horizontalScrollViewId);
 
             horizontalScrollView.setBackground(null);
             horizontalScrollView.setBackgroundColor(colorPrimary);
@@ -502,20 +502,20 @@ public class PackageInstallerHooks {
             int doneButtonId = context.getResources().getIdentifier("done_button", "id", PACKAGE_PACKAGEINSTALLER);
             int launchButtonId = context.getResources().getIdentifier("launch_button", "id", PACKAGE_PACKAGEINSTALLER);
 
-            LinearLayout appSnippetLayout = (LinearLayout) thisLayout.findViewById(appSnippetId);
+            LinearLayout appSnippetLayout = thisLayout.findViewById(appSnippetId);
             LinearLayout buttonsPanel = new LinearLayout(context, null, android.R.attr.buttonBarStyle);
             LinearLayout centerView = new LinearLayout(context);
             ImageView centerIcon = new ImageView(context);
             ScrollView explanationView = new ScrollView(context);
             ProgressBar progressBar = new ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal);
-            TextView centerText = (TextView) thisLayout.findViewById(centerTextId);
+            TextView centerText = thisLayout.findViewById(centerTextId);
             TextView explanationStatus = new TextView(context, null, android.R.attr.textAppearanceMedium);
             LinearLayout explanationContainer = new LinearLayout(context);
             TextView explanationText = new TextView(context, null, android.R.attr.textAppearanceSmall);
             View spacer = new View(context);
-            Button doneButton = (Button) thisLayout.findViewById(doneButtonId);
-            Button launchButton = (Button) thisLayout.findViewById(launchButtonId);
-            TextView centerExplanation = (TextView) thisLayout.findViewById(centerExplanationId);
+            Button doneButton = thisLayout.findViewById(doneButtonId);
+            Button launchButton = thisLayout.findViewById(launchButtonId);
+            TextView centerExplanation = thisLayout.findViewById(centerExplanationId);
 
             centerView.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
             centerView.setGravity(Gravity.CENTER);
@@ -619,9 +619,9 @@ public class PackageInstallerHooks {
             int progressBarId = context.getResources().getIdentifier("progress_bar", "id", PACKAGE_PACKAGEINSTALLER);
             int topDividerId = context.getResources().getIdentifier("top_divider", "id", PACKAGE_PACKAGEINSTALLER);
 
-            TextView activityText = (TextView) thisLayout.findViewById(activityTextId);
-            LinearLayout uninstallActivitySnippet = (LinearLayout) thisLayout.findViewById(uninstallActivitySnippetId);
-            TextView uninstallConfirm = (TextView) thisLayout.findViewById(uninstallConfirmId);
+            TextView activityText = thisLayout.findViewById(activityTextId);
+            LinearLayout uninstallActivitySnippet = thisLayout.findViewById(uninstallActivitySnippetId);
+            TextView uninstallConfirm = thisLayout.findViewById(uninstallConfirmId);
             FrameLayout topDivider = new FrameLayout(context);
             ProgressBar progressBar = new ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal);
 
@@ -669,11 +669,11 @@ public class PackageInstallerHooks {
             int deviceManagerButtonId = context.getResources().getIdentifier("device_manager_button", "id", PACKAGE_PACKAGEINSTALLER);
             int progressBarId = context.getResources().getIdentifier("progress_bar", "id", PACKAGE_PACKAGEINSTALLER);
 
-            LinearLayout appSnippet = (LinearLayout) thisLayout.findViewById(appSnippetId);
-            TextView centerText = (TextView) thisLayout.findViewById(centerTextId);
-            ScrollView uninstallingScrollView = (ScrollView) thisLayout.findViewById(uninstallingScrollViewId);
-            LinearLayout uninstallHolder = (LinearLayout) thisLayout.findViewById(uninstallHolderId);
-            LinearLayout okPanel = (LinearLayout) thisLayout.findViewById(okPanelId);
+            LinearLayout appSnippet = thisLayout.findViewById(appSnippetId);
+            TextView centerText = thisLayout.findViewById(centerTextId);
+            ScrollView uninstallingScrollView = thisLayout.findViewById(uninstallingScrollViewId);
+            LinearLayout uninstallHolder = thisLayout.findViewById(uninstallHolderId);
+            LinearLayout okPanel = thisLayout.findViewById(okPanelId);
             LinearLayout newLayout = new LinearLayout(context);
             LinearLayout progressViewLayout = new LinearLayout(context);
             ImageView imageView = new ImageView(context);

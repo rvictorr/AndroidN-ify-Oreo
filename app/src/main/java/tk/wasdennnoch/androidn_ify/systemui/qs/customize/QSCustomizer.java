@@ -124,16 +124,16 @@ public class QSCustomizer extends LinearLayout implements OnMenuItemClickListene
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             recyclerView.setScrollIndicators(SCROLL_INDICATOR_TOP);
         }
-        mListContainer = (LinearLayout) findViewById(R.id.list_containter);
+        mListContainer = findViewById(R.id.list_containter);
         mListContainer.addView(recyclerView);
 
-        mTitle = (TextView) findViewById(R.id.title);
+        mTitle = findViewById(R.id.title);
         mTitles = new String[] {
                 res.getString(R.string.hide_tiles_on_lockscreen),
                 res.getString(R.string.cm_qs_settings)
         };
 
-        mToolbar = (Toolbar) findViewById(R.id.action_bar);
+        mToolbar = findViewById(R.id.action_bar);
         TypedValue value = new TypedValue();
         mContext.getTheme().resolveAttribute(android.R.attr.homeAsUpIndicator, value, true);
         mToolbar.setNavigationIcon(
@@ -161,7 +161,7 @@ public class QSCustomizer extends LinearLayout implements OnMenuItemClickListene
         mDoneButton = findViewById(R.id.done_button);
         mDoneButton.setOnClickListener(this);
 
-        mRecyclerView = (RecyclerView) findViewById(android.R.id.list);
+        mRecyclerView = findViewById(android.R.id.list);
         setBottomMargin(mNavigationBarSize);
         mTileAdapter = new TileAdapter(mContext);
         mRecyclerView.setAdapter(mTileAdapter);

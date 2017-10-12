@@ -76,7 +76,7 @@ public class AboutActivity extends Activity implements UpdateUtils.UpdateListene
     }
 
     private void setupIcon() {
-        ImageView im = (ImageView) findViewById(R.id.icon);
+        ImageView im = findViewById(R.id.icon);
         Drawable N = im.getDrawable();
         im.setImageDrawable(null);
         im.setBackground(new RippleDrawable(
@@ -88,7 +88,7 @@ public class AboutActivity extends Activity implements UpdateUtils.UpdateListene
 
     private void checkForUpdates() {
         if (UpdateUtils.isEnabled()) {
-            mUpdateText = (TextView) findViewById(R.id.updates);
+            mUpdateText = findViewById(R.id.updates);
             mUpdateText.setText(R.string.checking_for_update);
             mUpdateText.setVisibility(View.VISIBLE);
             UpdateUtils.check(this, this);

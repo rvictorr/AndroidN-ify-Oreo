@@ -47,7 +47,7 @@ public abstract class AppListActivity extends Activity implements SearchView.OnQ
         mIsLoading = true;
         mSharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
         loadEnabledApps();
-        mRecyclerView = (RecyclerView) findViewById(R.id.recyclerView);
+        mRecyclerView = findViewById(R.id.recyclerView);
         mSearchQuery = "";
 
         setupApps();
@@ -57,7 +57,7 @@ public abstract class AppListActivity extends Activity implements SearchView.OnQ
         mRecyclerView.setLayoutManager(mLayoutManager);
         mRecyclerView.setAdapter(mAdapter);
 
-        mProgress = (ProgressBar) findViewById(R.id.loading);
+        mProgress = findViewById(R.id.loading);
     }
 
     public void loadEnabledApps() {

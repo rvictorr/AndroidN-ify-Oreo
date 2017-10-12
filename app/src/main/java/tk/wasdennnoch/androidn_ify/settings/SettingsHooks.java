@@ -165,7 +165,7 @@ public class SettingsHooks {
 
             ((TextView) view.findViewById(R.id.charge)).setText(batteryInfo.batteryPercentString);
             ((TextView) view.findViewById(R.id.estimation)).setText(batteryInfo.remainingLabel);
-            UsageView usageView = (UsageView) view.findViewById(R.id.battery_usage);
+            UsageView usageView = view.findViewById(R.id.battery_usage);
             batteryInfo.bindHistory(usageView);
         }
     }
@@ -215,7 +215,7 @@ public class SettingsHooks {
             View view = (View) param.getResult();
             Context context = view.getContext();
             ResourceUtils res = ResourceUtils.getInstance(context);
-            LinearLayout allDetails = (LinearLayout) view.findViewById(
+            LinearLayout allDetails = view.findViewById(
                     context.getResources().getIdentifier("all_details", "id", XposedHook.PACKAGE_SETTINGS));
 
             LinearLayout.LayoutParams panelLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);

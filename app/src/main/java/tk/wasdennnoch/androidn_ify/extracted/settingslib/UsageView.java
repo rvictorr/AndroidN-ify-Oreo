@@ -49,7 +49,7 @@ public class UsageView extends FrameLayout {
         LayoutInflater.from(ownContext).inflate(R.layout.usage_view, this);
 
         int usageGraphMarginBottom = res.getDimensionPixelSize(R.dimen.usage_graph_margin_top_bottom);
-        LinearLayout layout = (LinearLayout) findViewById(R.id.graph_label_group);
+        LinearLayout layout = findViewById(R.id.graph_label_group);
         LinearLayout.LayoutParams usageGraphLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         usageGraphLp.weight = 1;
         usageGraphLp.setMargins(0, usageGraphMarginBottom, 0, usageGraphMarginBottom);
@@ -65,15 +65,15 @@ public class UsageView extends FrameLayout {
             layout.addView(usageGraph);
         }
 
-        mUsageGraph = (UsageGraph) findViewById(R.id.usage_graph);
+        mUsageGraph = findViewById(R.id.usage_graph);
         mLabels = new TextView[] {
-                (TextView) findViewById(R.id.label_bottom),
-                (TextView) findViewById(R.id.label_middle),
-                (TextView) findViewById(R.id.label_top),
+                findViewById(R.id.label_bottom),
+                findViewById(R.id.label_middle),
+                findViewById(R.id.label_top),
         };
         mBottomLabels = new TextView[] {
-                (TextView) findViewById(R.id.label_start),
-                (TextView) findViewById(R.id.label_end),
+                findViewById(R.id.label_start),
+                findViewById(R.id.label_end),
         };
         for (TextView v : mLabels) {
             v.setTextColor(textColor);
@@ -90,15 +90,15 @@ public class UsageView extends FrameLayout {
         Context ownContext = ResourceUtils.createOwnContext(context);
 
         LayoutInflater.from(ownContext).inflate(R.layout.usage_view, this);
-        mUsageGraph = (UsageGraph) findViewById(R.id.usage_graph);
+        mUsageGraph = findViewById(R.id.usage_graph);
         mLabels = new TextView[] {
-                (TextView) findViewById(R.id.label_bottom),
-                (TextView) findViewById(R.id.label_middle),
-                (TextView) findViewById(R.id.label_top),
+                findViewById(R.id.label_bottom),
+                findViewById(R.id.label_middle),
+                findViewById(R.id.label_top),
         };
         mBottomLabels = new TextView[] {
-                (TextView) findViewById(R.id.label_start),
-                (TextView) findViewById(R.id.label_end),
+                findViewById(R.id.label_start),
+                findViewById(R.id.label_end),
         };
         TypedArray a = ownContext.obtainStyledAttributes(attrs, R.styleable.UsageView, 0, 0);
         if (a.hasValue(R.styleable.UsageView_sideLabels)) {

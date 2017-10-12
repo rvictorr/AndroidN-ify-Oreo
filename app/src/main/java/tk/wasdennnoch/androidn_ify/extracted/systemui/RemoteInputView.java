@@ -100,8 +100,8 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        mProgressBar = (ProgressBar) findViewById(R.id.remote_input_progress);
-        mSendButton = (ImageButton) findViewById(R.id.remote_input_send);
+        mProgressBar = findViewById(R.id.remote_input_progress);
+        mSendButton = findViewById(R.id.remote_input_send);
         mSendButton.setOnClickListener(this);
         mEditText = (RemoteEditText) getChildAt(0);
         mEditText.setOnEditorActionListener(new TextView.OnEditorActionListener() {

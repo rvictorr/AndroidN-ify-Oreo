@@ -83,7 +83,7 @@ public class SettingsActivityHelper implements View.OnClickListener, SettingsDra
         boolean mDisplayHomeAsUpEnabled = XposedHelpers.getBooleanField(activity, "mDisplayHomeAsUpEnabled");
         ViewGroup content = (ViewGroup) XposedHelpers.getObjectField(activity, "mContent");
         mDrawerLayout = (DrawerLayout) inflater.inflate(ResourceUtils.getInstance(activity).getLayout(R.layout.settings_with_drawer), content, false);
-        Toolbar toolbar = (Toolbar) mDrawerLayout.findViewById(R.id.action_bar);
+        Toolbar toolbar = mDrawerLayout.findViewById(R.id.action_bar);
         activity.setActionBar(toolbar);
         ActionBar actionBar = activity.getActionBar();
         actionBar.setDisplayHomeAsUpEnabled(mDisplayHomeAsUpEnabled);
@@ -102,7 +102,7 @@ public class SettingsActivityHelper implements View.OnClickListener, SettingsDra
         parent.addView(mDrawerLayout, index);
         mDrawerAdapter = new SettingsDrawerAdapter(activity);
         mDrawerAdapter.setSettingsActivityHelper(this);
-        RecyclerView recyclerView = (RecyclerView) activity.findViewById(R.id.left_drawer);
+        RecyclerView recyclerView = activity.findViewById(R.id.left_drawer);
         recyclerView.setLayoutManager(new LinearLayoutManager(mActivity));
         recyclerView.setAdapter(mDrawerAdapter);
         if (mIsShowingDashboard) {

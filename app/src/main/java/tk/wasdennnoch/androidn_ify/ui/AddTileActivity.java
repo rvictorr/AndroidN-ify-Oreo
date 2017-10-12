@@ -27,8 +27,8 @@ public class AddTileActivity extends Activity implements View.OnClickListener {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_tile);
 
-        mWarning = (TextView) findViewById(R.id.warning);
-        mSpec = (EditText) findViewById(R.id.spec);
+        mWarning = findViewById(R.id.warning);
+        mSpec = findViewById(R.id.spec);
 
         findViewById(R.id.dim).setOnClickListener(this);
         findViewById(R.id.qs_up).setOnClickListener(this);

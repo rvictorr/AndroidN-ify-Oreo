@@ -240,7 +240,7 @@ public class TileAdapter extends RecyclerView.Adapter<TileAdapter.TileViewHolder
     @Override
     public void onBindViewHolder(TileViewHolder holder, int position) {
         if (holder.getItemViewType() == 1) {
-            TextView textView = (TextView) holder.itemView.findViewById(android.R.id.title);
+            TextView textView = holder.itemView.findViewById(android.R.id.title);
             int textId;
             if (mCurrentDrag == null) {
                 textId = R.string.drag_to_add_tiles;

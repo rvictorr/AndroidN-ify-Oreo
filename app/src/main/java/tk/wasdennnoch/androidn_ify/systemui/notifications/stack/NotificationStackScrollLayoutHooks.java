@@ -875,7 +875,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
 
     private void setFakeShadowIntensity(View activatableNotificationView, float shadowIntensity, float outlineAlpha, int shadowYEnd,
                                         int outlineTranslation) {
-        FakeShadowView mFakeShadow = (FakeShadowView) activatableNotificationView.findViewById(R.id.fake_shadow);
+        FakeShadowView mFakeShadow = activatableNotificationView.findViewById(R.id.fake_shadow);
         if (mFakeShadow != null)
             mFakeShadow.setFakeShadowTranslationZ(shadowIntensity * (activatableNotificationView.getTranslationZ()
                             + FakeShadowView.SHADOW_SIBLING_TRESHOLD), outlineAlpha, shadowYEnd,

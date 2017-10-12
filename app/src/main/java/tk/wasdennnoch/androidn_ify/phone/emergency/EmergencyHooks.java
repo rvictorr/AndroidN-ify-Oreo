@@ -28,7 +28,7 @@ public class EmergencyHooks {
 
                         Activity activity = (Activity) param.thisObject;
 
-                        ViewGroup top = (ViewGroup) activity.findViewById(activity.getResources().getIdentifier("top", "id", PACKAGE_PHONE));
+                        ViewGroup top = activity.findViewById(activity.getResources().getIdentifier("top", "id", PACKAGE_PHONE));
                         ViewGroup parent = ConfigUtils.M ? (ViewGroup) top.getChildAt(0) : top;
 
                         new EmergencyButtonWrapper(activity, parent); // No need to store the instance yet

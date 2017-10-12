@@ -112,14 +112,14 @@ public class QSDetail extends LinearLayout {
         setVisibility(INVISIBLE);
         setOrientation(VERTICAL);
 
-        mDetailContent = (ViewGroup) findViewById(android.R.id.content);
-        mDetailSettingsButton = (TextView) findViewById(android.R.id.button2);
-        mDetailDoneButton = (TextView) findViewById(android.R.id.button1);
+        mDetailContent = findViewById(android.R.id.content);
+        mDetailSettingsButton = findViewById(android.R.id.button2);
+        mDetailDoneButton = findViewById(android.R.id.button1);
 
         mQsDetailHeader = findViewById(R.id.qs_detail_header);
-        mQsDetailHeaderTitle = (TextView) mQsDetailHeader.findViewById(android.R.id.title);
-        mQsDetailHeaderSwitch = (Switch) mQsDetailHeader.findViewById(android.R.id.toggle);
-        mQsDetailHeaderProgress = (ImageView) findViewById(R.id.qs_detail_header_progress);
+        mQsDetailHeaderTitle = mQsDetailHeader.findViewById(android.R.id.title);
+        mQsDetailHeaderSwitch = mQsDetailHeader.findViewById(android.R.id.toggle);
+        mQsDetailHeaderProgress = findViewById(R.id.qs_detail_header_progress);
 
         mQsDetailHeader.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         mQsDetailHeader.setVisibility(VISIBLE);

@@ -132,10 +132,10 @@ public class NotificationHooks {
             Context context = publicView.getContext();
 
             // Try to find app label for notifications without public version
-            TextView appName = (TextView) publicView.findViewById(R.id.public_app_name_text);
+            TextView appName = publicView.findViewById(R.id.public_app_name_text);
             if (appName == null) {
                 // For notifications with public version
-                appName = (TextView) publicView.findViewById(R.id.app_name_text);
+                appName = publicView.findViewById(R.id.app_name_text);
             }
 
             View time = publicView.findViewById(context.getResources().getIdentifier("time", "id", PACKAGE_SYSTEMUI));
@@ -144,13 +144,13 @@ public class NotificationHooks {
             }
 
             // Try to find icon for notifications without public version
-            ImageView icon = (ImageView) publicView.findViewById(context.getResources().getIdentifier("icon", "id", PACKAGE_SYSTEMUI));
+            ImageView icon = publicView.findViewById(context.getResources().getIdentifier("icon", "id", PACKAGE_SYSTEMUI));
             if (icon == null) {
                 // For notifications with public version
-                icon = (ImageView) publicView.findViewById(R.id.notification_icon);
+                icon = publicView.findViewById(R.id.notification_icon);
             }
             if (icon == null) {
-                icon = (ImageView) publicView.findViewById(android.R.id.icon);
+                icon = publicView.findViewById(android.R.id.icon);
             }
             if (icon != null) {
                 icon.setBackgroundResource(0);
@@ -158,7 +158,7 @@ public class NotificationHooks {
                 icon.setPadding(0, 0, 0, 0);
             }
 
-            TextView privateAppName = (TextView) privateView.findViewById(R.id.app_name_text);
+            TextView privateAppName = privateView.findViewById(R.id.app_name_text);
             int color = privateAppName != null ? privateAppName.getTextColors().getDefaultColor() : sbn.getNotification().color;
             if (privateAppName != null) {
                 if (appName != null) {
@@ -213,12 +213,12 @@ public class NotificationHooks {
         if (ConfigUtils.notifications().blacklistedApps.contains(context.getPackageName())) {
             return;
         }
-        NotificationActionListLayout actionsLayout = (NotificationActionListLayout) child.findViewById(context.getResources().getIdentifier("actions", "id", PACKAGE_ANDROID));
+        NotificationActionListLayout actionsLayout = child.findViewById(context.getResources().getIdentifier("actions", "id", PACKAGE_ANDROID));
         if (actionsLayout == null) {
             return;
         }
 
-        FrameLayout actionsContainer = (FrameLayout) child.findViewById(R.id.actions_container);
+        FrameLayout actionsContainer = child.findViewById(R.id.actions_container);
 
         // Add remote input
         if (haveRemoteInput(actions)) {
@@ -824,7 +824,7 @@ public class NotificationHooks {
             wlp.horizontalMargin = 0;
             window.setAttributes(wlp);
             ViewGroup mContentParent = (ViewGroup) XposedHelpers.getObjectField(window, "mContentParent");
-            ViewGroup panel = (ViewGroup) mContentParent.findViewById(res.getIdentifier("visible_panel", "id", PACKAGE_SYSTEMUI));
+            ViewGroup panel = mContentParent.findViewById(res.getIdentifier("visible_panel", "id", PACKAGE_SYSTEMUI));
             ViewGroup dialogView = (ViewGroup) panel.getParent();
             ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) dialogView.getLayoutParams();
             lp.setMargins(0, lp.topMargin, 0, lp.bottomMargin);
@@ -1069,12 +1069,12 @@ public class NotificationHooks {
                         boolean running = (boolean) param.args[0];
                         View child = (View) param.args[1];
                         if (child != null) {
-                            ImageView icon = (ImageView) child.findViewById(R.id.icon);
+                            ImageView icon = child.findViewById(R.id.icon);
                             if (icon == null)
-                                icon = (ImageView) child.findViewById(com.android.internal.R.id.icon);
+                                icon = child.findViewById(com.android.internal.R.id.icon);
                             if (icon != null)
                                 setIconRunning(param.thisObject, icon, running);
-                            ImageView rightIcon = (ImageView) child.findViewById(
+                            ImageView rightIcon = child.findViewById(
                                     com.android.internal.R.id.right_icon);
                             if (rightIcon != null)
                                 setIconRunning(param.thisObject, rightIcon, running);
