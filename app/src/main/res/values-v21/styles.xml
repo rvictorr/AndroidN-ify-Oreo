@@ -14,6 +14,33 @@
 
     <style name="DeviceDefault" parent="android:Theme.DeviceDefault"/>
 
+    <style name="DefaultSystemUITheme" parent="android:Theme.DeviceDefault"/>
+
+    <style name="LightSystemUITheme" parent="@android:style/Theme.Material.Light"/>
+
+    <!--<style name="Theme.Material.Settings" parent="Theme.Material.Light.LightStatusBar">
+        <item name="colorPrimary">@color/primary_material_settings_light</item>
+        <item name="colorPrimaryDark">@color/primary_dark_material_settings_light</item>
+        <item name="colorSecondary">@color/secondary_material_settings_light</item>
+        <item name="presentationTheme">@style/Theme.Material.Settings.Dialog.Presentation</item>
+        <item name="searchDialogTheme">@style/Theme.Material.Settings.SearchBar</item>
+        <item name="panelMenuListTheme">@style/Theme.Material.Settings.CompactMenu</item>
+    </style>
+
+
+    <style name="Theme.DeviceDefault.Settings" parent="Theme.Material.Settings">
+        &lt;!&ndash; action bar &ndash;&gt;
+        <item name="actionBarTheme">@style/ThemeOverlay.DeviceDefault.ActionBar.Accent</item>
+        <item name="popupTheme">@style/ThemeOverlay.DeviceDefault.Popup.Light</item>
+        &lt;!&ndash; Color palette &ndash;&gt;
+        <item name="colorPrimary">@color/primary_device_default_settings_light</item>
+        <item name="colorPrimaryDark">@color/primary_dark_device_default_settings_light</item>
+        <item name="colorSecondary">@color/secondary_device_default_settings_light</item>
+        <item name="colorAccent">@color/accent_device_default_light</item>
+        <item name="colorEdgeEffect">@android:color/black</item>
+    </style>-->
+
+
     <declare-styleable name="SubPreference">
         <attr name="content" format="reference"/>
     </declare-styleable>
@@ -111,5 +138,52 @@
 
     <style name="AppTheme.DatePickerStyle" parent="android:Widget.Material.DatePicker">
         <item name="android:datePickerMode">spinner</item>
+    </style>
+
+    <style name="HybridNotification">
+        <item name="hybridNotificationStyle">@style/hybrid_notification</item>
+        <item name="hybridNotificationTitleStyle">@style/hybrid_notification_title</item>
+        <item name="hybridNotificationTextStyle">@style/hybrid_notification_text</item>
+    </style>
+
+    <style name="HybridNotification.Ambient">
+        <item name="hybridNotificationStyle">@style/hybrid_notification_ambient</item>
+        <item name="hybridNotificationTitleStyle">@style/hybrid_notification_title_ambient</item>
+        <item name="hybridNotificationTextStyle">@style/hybrid_notification_text_ambient</item>
+    </style>
+
+    <style name="hybrid_notification_ambient">
+        <item name="android:paddingStart">@dimen/notification_extra_margin_ambient</item>
+        <item name="android:paddingEnd">@dimen/notification_extra_margin_ambient</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:paddingBottom">23.5dp</item>
+    </style>
+
+    <style name="hybrid_notification">
+        <item name="android:paddingStart">@*android:dimen/notification_content_margin_start</item>
+        <item name="android:paddingEnd">12dp</item>
+    </style>
+
+    <style name="hybrid_notification_title_ambient">
+        <item name="android:paddingStart">@*android:dimen/notification_content_margin_start</item>
+        <item name="android:paddingEnd">@*android:dimen/notification_content_margin_end</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textColor">#ffffffff</item>
+    </style>
+
+    <style name="hybrid_notification_title">
+        <item name="android:paddingEnd">4dp</item>
+    </style>
+
+    <style name="hybrid_notification_text_ambient">
+        <item name="android:paddingStart">@*android:dimen/notification_content_margin_start</item>
+        <item name="android:paddingEnd">@*android:dimen/notification_content_margin_end</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">#eeffffff</item>
+        <item name="android:layout_marginTop">4dp</item>
+    </style>
+
+    <style name="hybrid_notification_text">
+        <item name="android:paddingEnd">4dp</item>
     </style>
 </resources>

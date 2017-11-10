@@ -79,7 +79,7 @@
     <dimen name="notification_action_button_height">48dp</dimen>
     <dimen name="notification_action_button_margin_start">4dp</dimen>
     <dimen name="notification_action_button_padding">10dp</dimen>
-    <dimen name="notification_media_action_width">48dp</dimen>
+    <dimen name="media_notification_action_button_size">48dp</dimen>
     <dimen name="notification_media_action_padding">8dp</dimen>
     <dimen name="notification_media_action_margin">2dp</dimen>
     <dimen name="notification_media_actions_margin_top">-21dp</dimen>
@@ -94,7 +94,7 @@
     <dimen name="notification_dismiss_button_min_height">48dp</dimen>
     <dimen name="notification_divider_height">0.5dp</dimen>
     <dimen name="notification_action_button_text_size">14sp</dimen>
-    <dimen name="media_actions_margin_bottom">12dp</dimen>
+    <dimen name="media_notification_actions_padding_bottom">12dp</dimen>
     <dimen name="media_actions_margin_start">10dp</dimen>
     <dimen name="media_notification_expanded_image_max_size">94dp</dimen>
     <dimen name="big_media_actions_margin_start">8dp</dimen>
@@ -213,5 +213,19 @@
     <dimen name="image_margin">12dp</dimen>
     <dimen name="status_view_padding">16dp</dimen>
     <dimen name="ok_panel_padding">8dip</dimen>
+
+    <!-- The additional margin on the sides of the ambient view. -->
+    <dimen name="notification_extra_margin_ambient">16dp</dimen>
+    <!-- Minimum layouted height of a notification in the statusbar-->
+    <dimen name="min_notification_layout_height">48dp</dimen>
+
+    <!-- Height of a heads up notification in the status bar for legacy custom views -->
+    <dimen name="notification_max_heads_up_height_legacy">128dp</dimen>
+
+    <!-- Height of a heads up notification in the status bar -->
+    <dimen name="notification_max_heads_up_height">148dp</dimen>
+
+    <!-- The height of the divider between the individual notifications when the notification wants it to be increased. This is currently the case for notification groups -->
+    <dimen name="notification_divider_height_increased">6dp</dimen>
 
 </resources>

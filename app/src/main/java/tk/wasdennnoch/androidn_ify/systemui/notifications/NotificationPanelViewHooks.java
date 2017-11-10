@@ -33,7 +33,7 @@ public class NotificationPanelViewHooks {
     private static final String CLASS_NOTIFICATION_STACK_SCROLL_LAYOUT = PACKAGE_SYSTEMUI + ".statusbar.stack.NotificationStackScrollLayout";
     private static final String CLASS_NOTIFICATION_PANEL_VIEW = PACKAGE_SYSTEMUI + ".statusbar.phone.NotificationPanelView";
     private static final String CLASS_OBSERVABLE_SCROLL_VIEW = PACKAGE_SYSTEMUI + ".statusbar.phone.ObservableScrollView";
-    private static final String CLASS_HEADSUP_MANAGER = PACKAGE_SYSTEMUI + ".statusbar.policy.HeadsUpManager";
+    public static final String CLASS_HEADSUP_MANAGER = PACKAGE_SYSTEMUI + ".statusbar.policy.HeadsUpManager";
     private static final String CLASS_STACK_SCROLL_ALGORITHM = PACKAGE_SYSTEMUI + ".statusbar.stack.StackScrollAlgorithm";
 
     private static final int STATE_SHADE = 0;

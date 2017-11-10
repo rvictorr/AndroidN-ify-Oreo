@@ -8,6 +8,7 @@ import android.content.res.TypedArray;
 import android.content.res.XModuleResources;
 import android.content.res.XResources;
 import android.graphics.Outline;
+import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Animatable;
@@ -115,7 +116,7 @@ public class StatusBarHeaderHooks {
     private static Switch mQsDetailHeaderSwitch;
     private static Button mAlarmStatus;
     private static TextView mEditTileDoneText;
-    private static View mTunerIcon;
+    private static ImageView mSettingsTunerIcon;
     private static LinearLayout mWeatherContainer;
     private static LinearLayout mBatteryContainer;
     private static LinearLayout mTopContainer;
@@ -170,6 +171,9 @@ public class StatusBarHeaderHooks {
             ResourceUtils res = mResUtils;
             ConfigUtils config = ConfigUtils.getInstance();
 
+            int darkColor = ColorUtils.getColorAttr(mContext, android.R.attr.textColorPrimary);
+            int textColorPrimary = darkColor;
+
             try {
                 if (!config.qs.keep_header_background) {
                     //noinspection deprecation
@@ -187,7 +191,7 @@ public class StatusBarHeaderHooks {
                 mSystemIconsSuperContainer = (ViewGroup) XposedHelpers.getObjectField(param.thisObject, "mSystemIconsSuperContainer");
                 mSystemIcons = (ViewGroup) XposedHelpers.getObjectField(param.thisObject, "mSystemIcons");
                 mBattery = mSystemIcons.findViewById(mContext.getResources().getIdentifier("battery", "id", PACKAGE_SYSTEMUI));
-                mBatteryLevel = (TextView) mSystemIconsSuperContainer.findViewById(mContext.getResources().getIdentifier("battery_level", "id", PACKAGE_SYSTEMUI));
+                mBatteryLevel = mSystemIconsSuperContainer.findViewById(mContext.getResources().getIdentifier("battery_level", "id", PACKAGE_SYSTEMUI));
                 mDateGroup = (View) XposedHelpers.getObjectField(param.thisObject, "mDateGroup");
                 mClock = (View) XposedHelpers.getObjectField(param.thisObject, "mClock");
                 mMultiUserSwitch = (FrameLayout) XposedHelpers.getObjectField(param.thisObject, "mMultiUserSwitch");
@@ -212,7 +216,7 @@ public class StatusBarHeaderHooks {
             } catch (Throwable t) {
                 mSettingsContainer = mSettingsButton;
             }
-            mTunerIcon = mSettingsContainer.findViewById(mContext.getResources().getIdentifier("tuner_icon", "id", PACKAGE_SYSTEMUI));
+            mSettingsTunerIcon = mSettingsContainer.findViewById(mContext.getResources().getIdentifier("tuner_icon", "id", PACKAGE_SYSTEMUI));
             mHideTunerIcon = config.qs.hide_tuner_icon;
             mHideEditTiles = config.qs.hide_edit_tiles;
             mHideCarrierLabel = config.qs.hide_carrier_label;
@@ -258,7 +262,6 @@ public class StatusBarHeaderHooks {
                 } catch (Throwable ignore) {
                 }
 
-                int rippleRes = mContext.getResources().getIdentifier("ripple_drawable", "drawable", XposedHook.PACKAGE_SYSTEMUI);
                 int rightIconHeight = res.getDimensionPixelSize(R.dimen.right_icon_size);
                 int rightIconWidth = mTaskManagerButton != null && mShowTaskManager ? res.getDimensionPixelSize(R.dimen.right_icon_width_small) : rightIconHeight;
                 int expandIndicatorPadding = res.getDimensionPixelSize(R.dimen.expand_indicator_padding);
@@ -282,8 +285,10 @@ public class StatusBarHeaderHooks {
                 createEditButton(rightIconHeight, rightIconWidth);
 
                 mSettingsButton.setImageDrawable(res.getDrawable(R.drawable.ic_settings_16dp));
+                mSettingsButton.setColorFilter(ColorUtils.getColorAttr(mContext, android.R.attr.colorForeground));
+                mSettingsTunerIcon.setColorFilter(ColorUtils.getColorAttr(mContext, android.R.attr.textColorTertiary));
 
-                LinearLayout.LayoutParams rightContainerLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+                FrameLayout.LayoutParams rightContainerLp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                 rightContainerLp.setMarginEnd(res.getDimensionPixelSize(R.dimen.date_time_alarm_group_margin_end));
                 rightContainerLp.setMarginStart(dateTimeMarginStart);
                 mRightContainer = new LinearLayout(mContext);
@@ -298,6 +303,11 @@ public class StatusBarHeaderHooks {
                 LinearLayout.LayoutParams settingsContainerLp = new LinearLayout.LayoutParams(rightIconWidth, rightIconHeight);
                 mSettingsContainer.setLayoutParams(settingsContainerLp);
 
+                TypedArray ta = mContext.obtainStyledAttributes(new int[] {android.R.attr.selectableItemBackground, android.R.attr.selectableItemBackgroundBorderless});
+                int selectableItemBackground = ta.getResourceId(0, 0);
+                int selectableItemBackgroundBorderless = ta.getResourceId(1, 0);
+                ta.recycle();
+
                 LinearLayout.LayoutParams expandIndicatorLp = new LinearLayout.LayoutParams(rightIconHeight, rightIconHeight); // Requires full width
                 mExpandIndicator = new ExpandableIndicator(mContext);
                 mExpandIndicator.setLayoutParams(expandIndicatorLp);
@@ -306,13 +316,11 @@ public class StatusBarHeaderHooks {
                 mExpandIndicator.setFocusable(true);
                 mExpandIndicator.setFocusableInTouchMode(false);
                 mExpandIndicator.setCropToPadding(false);
-                mExpandIndicator.setBackgroundResource(rippleRes);
+                mExpandIndicator.setBackgroundResource(selectableItemBackgroundBorderless);
+                mExpandIndicator.setColorFilter(textColorPrimary);
                 mExpandIndicator.setId(R.id.statusbar_header_expand_indicator);
 
-                TypedArray ta = mContext.obtainStyledAttributes(new int[] {android.R.attr.selectableItemBackground});
-                int selectableItemBackground = ta.getResourceId(0, 0);
-                ta.recycle();
-                LinearLayout.LayoutParams dateTimeAlarmGroupLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
+                FrameLayout.LayoutParams dateTimeAlarmGroupLp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
                 dateTimeAlarmGroupLp.setMarginStart(dateTimeMarginStart);
                 dateTimeAlarmGroupLp.setMarginEnd(res.getDimensionPixelSize(R.dimen.date_time_alarm_group_margin_end));
 
@@ -320,16 +328,16 @@ public class StatusBarHeaderHooks {
                 mDateTimeAlarmGroup.setBackgroundResource(selectableItemBackground);
                 mDateTimeAlarmGroup.setClickable(true);
                 mDateTimeAlarmGroup.setFocusable(true);
-                mDateTimeAlarmGroup.setBaselineAligned(false);
                 mDateTimeAlarmGroup.setLayoutParams(dateTimeAlarmGroupLp);
                 mDateTimeAlarmGroup.setId(R.id.date_time_alarm_group);
                 mDateTimeAlarmGroup.setGravity(Gravity.CENTER_VERTICAL);
                 mDateTimeAlarmGroup.setOrientation(LinearLayout.HORIZONTAL);
                 mDateTimeAlarmGroup.setPadding(dateTimePadding, dateTimePadding, dateTimePadding, dateTimePadding);
+                mDateTimeAlarmGroup.setClipChildren(false);
 
                 mAlarmStatus.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, WRAP_CONTENT));
                 mAlarmStatus.setTextSize(TypedValue.COMPLEX_UNIT_PX, qsTimeExpandedSize);
-                mAlarmStatus.setTextColor(ColorUtils.getColorAttr(mContext, android.R.attr.textColorPrimary));
+                mAlarmStatus.setTextColor(textColorPrimary);
                 mAlarmStatus.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
                 mAlarmStatus.setCompoundDrawablesWithIntrinsicBounds(null, null, null, null);
                 mAlarmStatus.setCompoundDrawablePadding(0);
@@ -352,7 +360,7 @@ public class StatusBarHeaderHooks {
                 dateCollapsedLp.gravity = Gravity.CENTER_VERTICAL;
                 mDateCollapsed.setLayoutParams(dateCollapsedLp);
                 mDateCollapsed.setTextSize(TypedValue.COMPLEX_UNIT_PX, qsTimeExpandedSize);
-                mDateCollapsed.setTextColor(ColorUtils.getColorAttr(mContext, android.R.attr.textColorPrimary));
+                mDateCollapsed.setTextColor(textColorPrimary);
                 mDateCollapsed.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
 
 
@@ -366,6 +374,7 @@ public class StatusBarHeaderHooks {
                 mAlarmStatusCollapsed.setFocusable(false);
                 mAlarmStatusCollapsed.setVisibility(View.GONE);
                 mAlarmStatusCollapsed.setPaddingRelative(res.getDimensionPixelSize(R.dimen.alarm_status_collapsed_drawable_padding), 0, res.getDimensionPixelSize(R.dimen.alarm_status_collapsed_drawable_padding), 0);
+                mAlarmStatusCollapsed.setColorFilter(textColorPrimary);
 
                 RelativeLayout.LayoutParams headerQsPanelLp = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, res.getDimensionPixelSize(R.dimen.qs_quick_tile_size));
                 headerQsPanelLp.topMargin = res.getDimensionPixelSize(R.dimen.qs_quick_panel_margin_top);
@@ -410,7 +419,7 @@ public class StatusBarHeaderHooks {
                 LinearLayout.LayoutParams carrierTextLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1);
                 mCarrierText.setEllipsize(TextUtils.TruncateAt.MARQUEE);
                 mCarrierText.setTextAppearance(mContext, android.R.style.TextAppearance_Small);
-                mCarrierText.setTextColor(ColorUtils.getColorAttr(mContext, android.R.attr.textColorPrimary));
+                mCarrierText.setTextColor(textColorPrimary);
                 mCarrierText.setSingleLine();
                 mCarrierText.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
                 mCarrierText.setLayoutParams(carrierTextLp);
@@ -424,7 +433,7 @@ public class StatusBarHeaderHooks {
                 mBatteryLevel.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
                 mBatteryLevel.setSingleLine();
                 mBatteryLevel.setTextSize(TypedValue.COMPLEX_UNIT_PX, qsTimeExpandedSize);
-                mBatteryLevel.setTextColor(ColorUtils.getColorAttr(mContext, android.R.attr.textColorPrimary));
+                mBatteryLevel.setTextColor(textColorPrimary);
                 mBatteryLevel.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
                 mBatteryLevel.setPaddingRelative(0, 0, res.getDimensionPixelSize(R.dimen.battery_level_padding_start), 0);
                 ViewGroup.MarginLayoutParams batteryLp = new ViewGroup.MarginLayoutParams(res.getDimensionPixelSize(R.dimen.status_bar_battery_icon_width), res.getDimensionPixelSize(R.dimen.status_bar_battery_icon_height));
@@ -454,25 +463,25 @@ public class StatusBarHeaderHooks {
                 mDateTimeAlarmGroup.setOnClickListener((View.OnClickListener) mStatusBarHeaderView);
 
                 LinearLayout.LayoutParams qsFooterLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, res.getDimensionPixelSize(R.dimen.qs_quick_tile_size));
+                View divider = LayoutInflater.from(mContext).inflate(res.getLayout(R.layout.qs_divider), null, false);
+                divider.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewUtils.dpToPx(res.getResources(), 1), Gravity.BOTTOM));
                 mQsFooter = new QSFooter(mContext);
-                mQsFooter.setOrientation(LinearLayout.HORIZONTAL);
-                mQsFooter.setBaselineAligned(false);
                 mQsFooter.setClickable(false);
                 mQsFooter.setClipToPadding(false);
                 mQsFooter.setClipChildren(false);
                 mQsFooter.setId(R.id.qs_footer);
                 mQsFooter.setElevation(elevation);
                 mQsFooter.setLayoutParams(qsFooterLp);
-                mQsFooter.setGravity(Gravity.CENTER_VERTICAL);
                 mQsFooter.setBackgroundColor(0);
                 mQsFooter.addView(mDateTimeAlarmGroup);
                 mQsFooter.addView(mRightContainer);
+                mQsFooter.addView(divider);
+
                 mQsFooter.init();
 
                 mStatusBarHeaderView.addView(mTopContainer, 0);
                 mStatusBarHeaderView.addView(mHeaderQsPanel, 1);
                 mQsContainer.addView(mQsFooter);
-                mQsPanel.setClipChildren(false);
                 mQsPanel.setBackgroundColor(0);
                 mStatusBarHeaderView.setClipChildren(false);
                 mStatusBarHeaderView.setClipToPadding(false);
@@ -485,6 +494,13 @@ public class StatusBarHeaderHooks {
                         outline.setRect(mClipBounds);
                     }
                 });
+
+                if (ConfigUtils.qs().enable_theming) {
+                    XposedHelpers.callMethod(mBattery, "setDarkIntensity", 1.0f);
+                    ((Paint) XposedHelpers.getObjectField(mBattery, "mFramePaint")).setColor(darkColor);
+                    mBattery.invalidate();
+                    ((TextView) mClock).setTextColor(darkColor);
+                }
 
             } catch (Throwable t) {
                 // :(
@@ -513,6 +529,7 @@ public class StatusBarHeaderHooks {
         mEdit.setClickable(true);
         mEdit.setFocusable(true);
         mEdit.setImageDrawable(mResUtils.getDrawable(R.drawable.ic_mode_edit));
+        mEdit.setColorFilter(ColorUtils.getColorAttr(mContext, android.R.attr.colorForeground));
         mEdit.setBackground(mContext.getDrawable(background.resourceId));
         mEdit.setPadding(padding, padding, padding, padding);
         mEdit.setOnClickListener(onClickListener);
@@ -554,8 +571,8 @@ public class StatusBarHeaderHooks {
                 mDateExpanded.setVisibility(View.GONE);
                 mDateGroup.setVisibility(View.GONE);
 
-                if (mTunerIcon != null)
-                    mTunerIcon.setVisibility(tunerEnabled && !mHideTunerIcon
+                if (mSettingsTunerIcon != null)
+                    mSettingsTunerIcon.setVisibility(tunerEnabled && !mHideTunerIcon
                         ? View.VISIBLE : View.INVISIBLE);
                 if (mHideEditTiles && mCustomQSEditButton != null) {
                     mCustomQSEditButton.setVisibility(View.GONE);
@@ -676,7 +693,7 @@ public class StatusBarHeaderHooks {
     private static void wrapQsDetail(LinearLayout layout) {
         Context context = layout.getContext();
 
-        FrameLayout content = (FrameLayout) layout.findViewById(android.R.id.content);
+        FrameLayout content = layout.findViewById(android.R.id.content);
         ViewUtils.setHeight(content, ViewGroup.LayoutParams.MATCH_PARENT);
 
         int position = layout.indexOfChild(content);
@@ -1297,8 +1314,10 @@ public class StatusBarHeaderHooks {
                         params.setMarginEnd(0);
                         layout.setLayoutParams(params);
 
-                        mQsPanel = (ViewGroup) layout.findViewById(context.getResources().getIdentifier("quick_settings_panel", "id", PACKAGE_SYSTEMUI));
+                        mQsPanel = layout.findViewById(context.getResources().getIdentifier("quick_settings_panel", "id", PACKAGE_SYSTEMUI));
                         mQsPanel.setElevation(ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_container_elevation));
+                        mQsPanel.setClipChildren(true);
+                        mQsPanel.setClipToPadding(true);
                     }
                 });
 

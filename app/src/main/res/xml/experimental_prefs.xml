@@ -8,6 +8,11 @@
         android:title="@string/enable_experimental_features"/>
 
     <SwitchPreference
+        android:defaultValue="false"
+        android:key="enable_theming"
+        android:title="Enable theming"/>
+
+    <SwitchPreference
         android:defaultValue="true"
         android:dependency="enable_experimental_features"
         android:key="enable_n_style_settings_dashboard"

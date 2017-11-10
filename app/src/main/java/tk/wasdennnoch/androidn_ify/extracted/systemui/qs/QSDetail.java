@@ -23,7 +23,10 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.drawable.Animatable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.InsetDrawable;
 import android.util.AttributeSet;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -42,6 +45,7 @@ import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.NonInterceptingScrollView;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.ResizingSpace;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationPanelHooks;
+import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
@@ -125,6 +129,7 @@ public class QSDetail extends LinearLayout {
         mQsDetailHeader.setVisibility(VISIBLE);
         mQsDetailHeaderProgress.setImageDrawable(mContext.getDrawable(mContext.getResources().getIdentifier("indeterminate_anim", "drawable", PACKAGE_SYSTEMUI)));
         mQsDetailHeaderProgress.setBackground(mContext.getDrawable(mContext.getResources().getIdentifier("qs_detail_progress_track", "color", PACKAGE_SYSTEMUI)));
+        mQsDetailHeaderTitle.setTextColor(ColorUtils.getColorAttr(mContext, android.R.attr.textColorPrimary));
 
         updateDetailText();
 
@@ -182,10 +187,20 @@ public class QSDetail extends LinearLayout {
         //mDetailDoneButton.setText(R.string.quick_settings_done);
         //mDetailSettingsButton.setText(R.string.quick_settings_more_settings);
         int buttonPadding = ResourceUtils.getInstance(mContext).getDimensionPixelSize(R.dimen.qs_detail_button_padding);
-        mDetailDoneButton.setBackground(ResourceUtils.getInstance(mContext).getDrawable(R.drawable.qs_btn_borderless_rect));
-        mDetailSettingsButton.setBackground(ResourceUtils.getInstance(mContext).getDrawable(R.drawable.qs_btn_borderless_rect));
+        int textColorSecondary = ColorUtils.getColorAttr(mContext, android.R.attr.textColorSecondary);
+        mDetailDoneButton.setBackground(getRippleDrawable());
+        mDetailSettingsButton.setBackground(getRippleDrawable());
         mDetailDoneButton.setPadding(buttonPadding, buttonPadding, buttonPadding, buttonPadding);
         mDetailSettingsButton.setPadding(buttonPadding, buttonPadding, buttonPadding, buttonPadding);
+        mDetailDoneButton.setTextColor(textColorSecondary);
+        mDetailSettingsButton.setTextColor(textColorSecondary);
+    }
+
+    private Drawable getRippleDrawable() {
+        int backgroundId = mContext.getResources().getIdentifier("btn_borderless_rect", "drawable", PACKAGE_SYSTEMUI);
+        int inset = (int) (TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 4,
+                getResources().getDisplayMetrics()));
+        return new InsetDrawable(mContext.getDrawable(backgroundId), 0, inset, 0, inset);
     }
 
     public void updateResources() {

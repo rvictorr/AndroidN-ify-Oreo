@@ -4,4 +4,7 @@
     <integer name="quick_settings_num_columns">3</integer>
     <integer name="quick_settings_num_rows">1</integer>
     <bool name="quick_settings_show_full_alarm">false</bool>
+
+    <!-- Doze: alpha to apply to small icons when dozing -->
+    <integer name="doze_small_icon_alpha">222</integer><!-- 87% of 0xff -->
 </resources>

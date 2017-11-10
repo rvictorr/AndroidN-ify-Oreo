@@ -26,6 +26,7 @@ import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.NekoTile;
 import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.PartialScreenshotTile;
 import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.QSTile;
 import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.misc.BatteryMeterDrawable;
+import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 import tk.wasdennnoch.androidn_ify.utils.RomUtils;
@@ -78,25 +79,32 @@ public class TilesManager {
 
     @SuppressWarnings("deprecation")
     static Drawable getIcon(Context context, String spec) throws Exception {
+        Drawable icon;
         switch (spec) {
             case AndroidN_ifyTile.TILE_SPEC:
-                return ResourceUtils.getInstance(context).getDrawable(R.drawable.ic_stat_n);
+                icon = ResourceUtils.getInstance(context).getDrawable(R.drawable.ic_stat_n);
+                break;
             case BatteryTile.TILE_SPEC:
-                BatteryMeterDrawable batteryMeterDrawable = new BatteryMeterDrawable(context, new Handler(), context.getResources().getColor(
-                        context.getResources().getIdentifier("batterymeter_frame_color", "color", XposedHook.PACKAGE_SYSTEMUI)));
+                BatteryMeterDrawable batteryMeterDrawable = new BatteryMeterDrawable(context, new Handler(), ResourceUtils.getInstance(context).getColor(R.color.qs_batterymeter_frame_color));
                 batteryMeterDrawable.setLevel(100);
                 batteryMeterDrawable.onPowerSaveChanged(false);
                 batteryMeterDrawable.setShowPercent(false);
-                return batteryMeterDrawable;
+                icon =  batteryMeterDrawable;
+                break;
             case NekoTile.TILE_SPEC:
-                Drawable icon =  ResourceUtils.getInstance(context).getDrawable(R.drawable.stat_icon);
-                icon.setTint(0x4DFFFFFF);
-                return icon;
+                Drawable nekoIcon =  ResourceUtils.getInstance(context).getDrawable(R.drawable.stat_icon);
+                nekoIcon.setTint(0x4DFFFFFF);
+                icon =  nekoIcon;
+                break;
             case PartialScreenshotTile.TILE_SPEC:
-                return ResourceUtils.getInstance(context).getDrawable(R.drawable.ic_crop);
+                icon = ResourceUtils.getInstance(context).getDrawable(R.drawable.ic_crop);
+                break;
             default:
                 throw new Exception("No icon for spec '" + spec + "'!");
         }
+        icon.setTint(ColorUtils.getColorAttr(context, android.R.attr.textColorPrimary));
+        icon.setTintMode(android.graphics.PorterDuff.Mode.SRC_ATOP);//TODO theming see what we do with the battery icon
+        return icon;
     }
 
     TilesManager(Object qsTileHost) {

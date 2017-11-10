@@ -13,4 +13,9 @@
     <declare-styleable name="AutoSizingList">
         <attr name="itemHeight" format="dimension" />
     </declare-styleable>
+    <declare-styleable name="HybridNotificationTheme">
+        <attr name="hybridNotificationStyle" format="reference" />
+        <attr name="hybridNotificationTitleStyle" format="reference" />
+        <attr name="hybridNotificationTextStyle" format="reference" />
+    </declare-styleable>
 </resources>

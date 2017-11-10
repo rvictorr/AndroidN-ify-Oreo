@@ -24,6 +24,7 @@ import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
+import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
@@ -43,6 +44,7 @@ public class TileAdapter extends RecyclerView.Adapter<TileAdapter.TileViewHolder
 
     private static final String TAG = "TileAdapter";
     private final ItemTouchHelper mItemTouchHelper;
+    private final RecyclerView.ItemDecoration mDecoration;
     private final ListUpdateCallback mTileUpdateCallback = new TileUpdateCallback();
     private List<String> mSecureTiles = new ArrayList<>();
     private List<String> mPreviousSpecs = new ArrayList<>();
@@ -123,6 +125,7 @@ public class TileAdapter extends RecyclerView.Adapter<TileAdapter.TileViewHolder
             }
         };
         mItemTouchHelper = new CustomItemTouchHelper(mCallbacks);
+        mDecoration = new TileItemDecoration(context);
         XposedHelpers.setIntField(mCallbacks, "mCachedMaxScrollSpeed", ResourceUtils.getInstance(mContext).getDimensionPixelSize(R.dimen.lib_item_touch_helper_max_drag_scroll_per_frame));
     }
 
@@ -487,8 +490,12 @@ public class TileAdapter extends RecyclerView.Adapter<TileAdapter.TileViewHolder
         }
     };
 
-    private final RecyclerView.ItemDecoration mDecoration = new RecyclerView.ItemDecoration() {
-        private final ColorDrawable mDrawable = new ColorDrawable(0xff384248);
+    private class TileItemDecoration extends RecyclerView.ItemDecoration {
+        private final ColorDrawable mDrawable;
+
+        private TileItemDecoration(Context context) {
+            mDrawable = new ColorDrawable(ColorUtils.getColorAttr(context, android.R.attr.colorPrimaryDark)); //TODO finish theming this(see what to do since we're missing colorSecondary)
+        }
 
         @Override
         public void onDraw(Canvas canvas, RecyclerView recyclerview, RecyclerView.State state) {

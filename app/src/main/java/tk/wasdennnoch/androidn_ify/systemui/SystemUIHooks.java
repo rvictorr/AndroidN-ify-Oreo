@@ -144,7 +144,7 @@ public class SystemUIHooks {
 
     public static void hookResSystemUI(XC_InitPackageResources.InitPackageResourcesParam resparam, String modulePath) {
         XModuleResources modRes = XModuleResources.createInstance(modulePath, resparam.res);
-        R_drawable_ic_qs_data_disabled = resparam.res.addResource(modRes, R.drawable.ic_qs_data_disabled);
+        R_drawable_ic_qs_data_disabled = resparam.res.addResource(modRes, ConfigUtils.qs().enable_theming ? R.drawable.ic_qs_data_disabled_dark : R.drawable.ic_qs_data_disabled);
         R_drawable_stat_sys_data_disabled = resparam.res.addResource(modRes, R.drawable.stat_sys_data_disabled);
     }
 

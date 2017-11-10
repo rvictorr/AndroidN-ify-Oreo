@@ -41,4 +41,17 @@
     <item name="tile_label" type="id" />
     <item name="quick_qs_panel" type="id" />
     <item name="icon_frame" type="id" />
+
+    <item type="id" name="clip_children_tag" />
+    <item type="id" name="clip_children_set_tag" />
+    <item type="id" name="clip_to_padding_tag" />
+    <item type="id" name="image_icon_tag" />
+    <item type="id" name="transformation_start_x_tag"/>
+    <item type="id" name="transformation_start_y_tag"/>
+    <item type="id" name="transformation_start_scale_x_tag"/>
+    <item type="id" name="transformation_start_scale_y_tag"/>
+    <item type="id" name="contains_transformed_view" />
+
+    <item type="id" name="remote_input_tag" />
+
 </resources>

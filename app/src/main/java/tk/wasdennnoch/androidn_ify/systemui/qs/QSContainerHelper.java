@@ -2,6 +2,7 @@ package tk.wasdennnoch.androidn_ify.systemui.qs;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.content.Context;
 import android.graphics.Rect;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,6 +21,7 @@ import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSFooter;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSDetail;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
+import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
@@ -27,14 +29,17 @@ import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 public class QSContainerHelper {
 
     private static final String TAG = "QSContainerHelper";
+
     private static boolean reconfigureNotifPanel = false;
+
+    private static Context mContext;
     private static View mBackground;
     private static ViewGroup mNotificationPanelView;
     private static ViewGroup mHeader;
     private static ViewGroup mQSContainer;
     private static ViewGroup mQSPanel;
     private static QSFooter mQSFooter;
-    private static Object mNotificationStackScroller;
+    private static View mNotificationStackScroller;
     private static QSDetail mQSDetail;
     private static float mQsExpansion;
     private static float mFullElevation;
@@ -59,11 +64,14 @@ public class QSContainerHelper {
         mQSContainer.setPadding(0, 0, 0, 0);
         mQSDetail = StatusBarHeaderHooks.qsHooks.setupQsDetail(mQSPanel, mHeader, mQSFooter);
 
+        mContext = mQSContainer.getContext();
+
         mQSContainer.addView(mQSDetail);
+        mQSContainer.setBackgroundColor(ColorUtils.getColorAttr(mContext, android.R.attr.colorPrimary));
 
         mFullElevation = mQSPanel.getElevation();
 
-        ResourceUtils res = ResourceUtils.getInstance(qsContainer.getContext());
+        ResourceUtils res = ResourceUtils.getInstance(mContext);
         mHeaderHeight = res.getDimensionPixelSize(R.dimen.status_bar_header_height);
         mGutterHeight = res.getDimensionPixelSize(R.dimen.qs_gutter_height);
 
@@ -74,7 +82,7 @@ public class QSContainerHelper {
         qsPanel.setLayoutParams(qsPanelLp);
 
         //TODO fix landscape behavior
-        ViewGroup scrollView = mNotificationPanelView.findViewById(mQSContainer.getContext().getResources().getIdentifier("scroll_view", "id", XposedHook.PACKAGE_SYSTEMUI));
+        ViewGroup scrollView = mNotificationPanelView.findViewById(mContext.getResources().getIdentifier("scroll_view", "id", XposedHook.PACKAGE_SYSTEMUI));
         LinearLayout linearLayout = (LinearLayout) mQSContainer.getParent();
 
         linearLayout.removeAllViews();
@@ -87,9 +95,9 @@ public class QSContainerHelper {
         scrollView.setClipChildren(false);
         scrollView.setClipToPadding(false);
 
-        mBackground = new View(qsContainer.getContext());
+        mBackground = new View(mContext);
         mBackground.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        mBackground.setBackground(res.getDrawable(R.drawable.qs_background_primary));
+        mBackground.setBackgroundColor(ColorUtils.getColorAttr(mContext, android.R.attr.colorPrimary));
         mBackground.setElevation(res.getDimensionPixelSize(R.dimen.qs_container_elevation));
         mQSContainer.addView(mBackground, 0);
         mQSDetail.setElevation(res.getDimensionPixelSize(R.dimen.qs_container_elevation));
@@ -98,12 +106,13 @@ public class QSContainerHelper {
             reconfigureNotifPanel = true;
 
             mNotificationPanelView.removeView(mHeader);
-            mQSContainer.addView(mHeader, 1);
+            mQSContainer.addView(mHeader, 2);
             mQSContainer.setClipChildren(false);
             mQSContainer.setClipToPadding(false);
         }
 
         setUpOnLayout();
+        mNotificationStackScroller.setFocusable(false);
     }
 
     public static void setQsExpansion(float expansion, float headerTranslation) {
@@ -166,7 +175,7 @@ public class QSContainerHelper {
     }
 
     private void setUpOnLayout() {
-        mNotificationStackScroller = XposedHelpers.getObjectField(mNotificationPanelView, "mNotificationStackScroller");
+        mNotificationStackScroller = (View) XposedHelpers.getObjectField(mNotificationPanelView, "mNotificationStackScroller");
         mKeyguardStatusView = XposedHelpers.getObjectField(mNotificationPanelView, "mKeyguardStatusView");
         mClockView = (TextView) XposedHelpers.getObjectField(mNotificationPanelView, "mClockView");
     }
@@ -308,7 +317,7 @@ public class QSContainerHelper {
             return;
         }
         if (gutterEnabled) {
-            mGutterHeight = mQSContainer.getContext().getResources().getDimensionPixelSize(
+            mGutterHeight = mContext.getResources().getDimensionPixelSize(
                     R.dimen.qs_gutter_height);
         } else {
             mGutterHeight = 0;

@@ -58,7 +58,7 @@ public class QSDetailItemsHelper {
         mItemList.setOrientation(LinearLayout.VERTICAL);
         mItemList.setLayoutParams(new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        mEmpty = (LinearLayout) mQSDetailItems.findViewById(android.R.id.empty);
+        mEmpty = mQSDetailItems.findViewById(android.R.id.empty);
         mEmpty.setLayoutParams(new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER));
         mEmpty.setGravity(Gravity.CENTER);
 
@@ -121,7 +121,7 @@ public class QSDetailItemsHelper {
                         false);
             }
             view.setVisibility(mItemsVisible ? VISIBLE : INVISIBLE);
-            final ImageView iv = (ImageView) view.findViewById(android.R.id.icon);
+            final ImageView iv = view.findViewById(android.R.id.icon);
 
             iv.setImageResource(icon);
             iv.getOverlay().clear();
@@ -130,9 +130,9 @@ public class QSDetailItemsHelper {
                         overlay.getIntrinsicHeight());
                 iv.getOverlay().add(overlay);
             }
-            final TextView title = (TextView) view.findViewById(android.R.id.title);
+            final TextView title = view.findViewById(android.R.id.title);
             title.setText(line1);
-            final TextView summary = (TextView) view.findViewById(android.R.id.summary);
+            final TextView summary = view.findViewById(android.R.id.summary);
             final boolean twoLines = !TextUtils.isEmpty(line2);
             title.setMaxLines(twoLines ? 1 : 2);
             summary.setVisibility(twoLines ? VISIBLE : GONE);
@@ -145,7 +145,7 @@ public class QSDetailItemsHelper {
                     }
                 }
             });
-            final ImageView disconnect = (ImageView) view.findViewById(android.R.id.icon2);
+            final ImageView disconnect = view.findViewById(android.R.id.icon2);
             disconnect.setVisibility(canDisconnect ? VISIBLE : GONE);
             disconnect.setOnClickListener(new OnClickListener() {
                 @Override

@@ -2,6 +2,7 @@ package tk.wasdennnoch.androidn_ify.systemui.qs;
 
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;

@@ -146,13 +146,14 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
                 break;
             case PACKAGE_SYSTEMUI:
                 SystemUIHooks.hookSystemUI(lpparam.classLoader);
-                //SystemUIThemingHooks.hook(lpparam.classLoader);
+                SystemUIThemingHooks.hook(lpparam.classLoader);
                 ScreenshotHooks.hook(lpparam.classLoader);
                 StatusBarHeaderHooks.hook(lpparam.classLoader);
                 StatusBarHeaderHooks.hookKeyguard(lpparam.classLoader);
                 NotificationPanelHooks.hook(lpparam.classLoader);
                 StackScrollAlgorithmHooks.hook(lpparam.classLoader);
                 NotificationHooks.hookSystemUI(lpparam.classLoader);
+                //NotificationsStuff.hook(lpparam.classLoader);
                 ActivatableNotificationViewHooks.hook(lpparam.classLoader);
                 ScrimHooks.hook(lpparam.classLoader);
                 RecentsStackHooks.hookSystemUI(lpparam.classLoader);
@@ -241,6 +242,7 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
                     RecentsNavigation.hookResSystemui(resparam);
                 }
                 SystemUIHooks.hookResSystemUI(resparam, sModulePath);
+                SystemUIThemingHooks.hookRes(resparam, sModulePath);
                 break;
             case PACKAGE_PACKAGEINSTALLER:
             case PACKAGE_GOOGLEPACKAGEINSTALLER:

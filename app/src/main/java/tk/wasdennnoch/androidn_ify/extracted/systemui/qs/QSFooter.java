@@ -42,7 +42,7 @@ import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
-public class QSFooter extends LinearLayout {
+public class QSFooter extends FrameLayout {
 
     private static final float EXPAND_INDICATOR_THRESHOLD = 0.93f;
 

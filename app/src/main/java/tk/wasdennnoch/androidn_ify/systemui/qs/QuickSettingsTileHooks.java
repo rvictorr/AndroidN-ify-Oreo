@@ -25,6 +25,7 @@ import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
+import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.ButtonRelativeLayout;
 import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.QSTile;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
@@ -74,6 +75,7 @@ public class QuickSettingsTileHooks {
                 ViewGroup iconFrame = tileView.findViewById(R.id.icon_frame);
                 tileView.removeView(traffic);
                 iconFrame.addView(traffic);
+                traffic.setColorFilter(ColorUtils.getColorAttr(traffic.getContext(), android.R.attr.textColorSecondary)); //TODO finish theming add pref
             }
         });
     }
