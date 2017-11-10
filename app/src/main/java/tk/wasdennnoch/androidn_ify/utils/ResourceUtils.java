@@ -7,12 +7,14 @@ import android.annotation.LayoutRes;
 import android.annotation.NonNull;
 import android.annotation.StringRes;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.ColorInt;
 
+import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 
 public class ResourceUtils {
@@ -31,6 +33,19 @@ public class ResourceUtils {
         } catch (PackageManager.NameNotFoundException e) {
             throw new RuntimeException("Failed to instantiate own package context", e);
         }
+    }
+
+    public static Context getPackageContext(Context ctx) {
+        Context context;
+        try {
+            ApplicationInfo ai = ctx.getPackageManager()
+                    .getApplicationInfo(ctx.getPackageName(), PackageManager.GET_UNINSTALLED_PACKAGES);
+            context = (Context) XposedHelpers.callMethod(ctx, "createApplicationContext", ai,
+                    Context.CONTEXT_RESTRICTED);
+        } catch (PackageManager.NameNotFoundException e) {
+            context = null;
+        }
+        return context;
     }
 
     public static ResourceUtils getInstance() {

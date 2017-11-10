@@ -10,19 +10,39 @@ import android.view.View;
 import android.view.ViewOutlineProvider;
 import android.widget.FrameLayout;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
 import de.robv.android.xposed.XposedHelpers;
+import tk.wasdennnoch.androidn_ify.XposedHook;
+import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
+import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationUtils;
+
+import static tk.wasdennnoch.androidn_ify.extracted.systemui.StackStateAnimator.ANIMATION_DURATION_STANDARD;
+import static tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationStackScrollLayoutHooks.BACKGROUND_ALPHA_DIMMED;
 
 public class ExpandableOutlineViewHelper {
     private static final String TAG = "ExpandableOutlineViewHelper";
 
     public FrameLayout mExpandableView;
+    private ExpandableNotificationRowHelper mHelper;
+    private View mBackgroundNormal;
+    private View mBackgroundDimmed;
+
+    private static Field fieldBackgroundNormal;
+    private static Field fieldBackgroundDimmed;
+
+    private static Method methodUpdateBackground;
 
     private boolean mCustomOutline;
+    public boolean mClipToActualHeight = true;
     private float mOutlineAlpha = -1f;
     public float mNormalBackgroundVisibilityAmount;
     public float mDimmedBackgroundFadeInAmount = -1;
     public float mShadowAlpha = 1f;
     public float mBgAlpha = 1f;
+    private int mBgTint = 0;
     public int mCurrentBackgroundTint;
     public int mTargetTint;
     public int mStartTint;
@@ -36,7 +56,7 @@ public class ExpandableOutlineViewHelper {
             = new ValueAnimator.AnimatorUpdateListener() {
         @Override
         public void onAnimationUpdate(ValueAnimator animation) {
-            ActivatableNotificationViewHooks.setNormalBackgroundVisibilityAmount(mExpandableView, getBackgroundNormal().getAlpha());
+            setNormalBackgroundVisibilityAmount(getBackgroundNormal().getAlpha());
             mDimmedBackgroundFadeInAmount = getBackgroundDimmed().getAlpha();
         }
     };
@@ -47,25 +67,46 @@ public class ExpandableOutlineViewHelper {
             super.onAnimationEnd(animation);
             mFadeInFromDarkAnimator = null;
             mDimmedBackgroundFadeInAmount = -1;
-            ActivatableNotificationViewHooks.updateBackground(mExpandableView);
+            updateBackground();
         }
     };
     public ValueAnimator.AnimatorUpdateListener mUpdateOutlineListener
             = new ValueAnimator.AnimatorUpdateListener() {
         @Override
         public void onAnimationUpdate(ValueAnimator animation) {
-            ActivatableNotificationViewHooks.updateOutlineAlpha(ExpandableOutlineViewHelper.this);
+            updateOutlineAlpha();
         }
     };
 
     private ExpandableOutlineViewHelper(Object expandableView) {
-        XposedHelpers.setAdditionalInstanceField(expandableView, "mHelper", this);
+        XposedHelpers.setAdditionalInstanceField(expandableView, "mOutlineViewHelper", this);
         init(expandableView);
     }
 
     public static ExpandableOutlineViewHelper getInstance(Object expandableView) {
-        ExpandableOutlineViewHelper helper = (ExpandableOutlineViewHelper) XposedHelpers.getAdditionalInstanceField(expandableView, "mHelper");
+        ExpandableOutlineViewHelper helper = (ExpandableOutlineViewHelper) XposedHelpers.getAdditionalInstanceField(expandableView, "mOutlineViewHelper");
         return helper != null ? helper : new ExpandableOutlineViewHelper(expandableView);
+    }
+
+    public static void initFields(Class classActivatableNotificationView) {
+        fieldBackgroundNormal = XposedHelpers.findField(classActivatableNotificationView, "mBackgroundNormal");
+        fieldBackgroundDimmed = XposedHelpers.findField(classActivatableNotificationView, "mBackgroundDimmed");
+        methodUpdateBackground = XposedHelpers.findMethodBestMatch(classActivatableNotificationView, "updateBackground");
+    }
+
+    public void onFinishInflate() {
+        try {
+            mBackgroundNormal = (View) NotificationContentHelper.get(fieldBackgroundNormal, mExpandableView);
+            mBackgroundDimmed = (View) NotificationContentHelper.get(fieldBackgroundDimmed, mExpandableView);
+        } catch (Throwable ignore) {}
+    }
+
+    public void setContainingHelper(ExpandableNotificationRowHelper helper) {
+        mHelper = helper;
+    }
+
+    public ExpandableNotificationRowHelper getContainingHelper() {
+        return mHelper;
     }
 
     public void init(Object expandableView) {
@@ -73,7 +114,7 @@ public class ExpandableOutlineViewHelper {
         mProvider = new ViewOutlineProvider() {
             @Override
             public void getOutline(View view, Outline outline) {
-                int translation = (int) mExpandableView.getTranslationX();
+                int translation = (int) getTranslation();
                 if (!mCustomOutline) {
                     outline.setRect(translation,
                             XposedHelpers.getIntField(mExpandableView, "mClipTopAmount"),
@@ -88,12 +129,19 @@ public class ExpandableOutlineViewHelper {
         mExpandableView.setOutlineProvider(mProvider);
     }
 
+    public float getTranslation() {
+        if (NotificationHooks.getClassExpandableNotificationRow().isInstance(mExpandableView) && mHelper != null) {
+            return mHelper.getTranslation();
+        }
+        return mExpandableView.getTranslationX();
+    }
+
     public float getOutlineAlpha() {
         return mOutlineAlpha;
     }
 
     public int getOutlineTranslation() {
-        return mCustomOutline ? mOutlineRect.left : (int) mExpandableView.getTranslationX();
+        return mCustomOutline ? mOutlineRect.left : (int) getTranslation();
     }
 
     public void updateOutline() {
@@ -106,6 +154,16 @@ public class ExpandableOutlineViewHelper {
     public boolean isOutlineShowing() {
         ViewOutlineProvider op = mExpandableView.getOutlineProvider();
         return op != null;
+    }
+
+    public void setClipToActualHeight(boolean clipToActualHeight) {
+        mClipToActualHeight = clipToActualHeight;
+        //XposedHelpers.callMethod(mExpandableView, "updateClipping");
+        try {
+            ActivatableNotificationViewHooks.methodUpdateClipping.invoke(mExpandableView);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            XposedHook.logE(TAG, "Error in setClipToActualHeight: ", e);
+        }
     }
 
     protected void setOutlineRect(RectF rect) {
@@ -131,8 +189,15 @@ public class ExpandableOutlineViewHelper {
         mExpandableView.invalidateOutline();
     }
 
+    public float getShadowAlpha() {
+        return mShadowAlpha;
+    }
+
     public void setShadowAlpha(float shadowAlpha) {
-        mShadowAlpha = shadowAlpha;
+        if (shadowAlpha != mShadowAlpha) {
+            mShadowAlpha = shadowAlpha;
+            updateOutlineAlpha();
+        }
     }
 
     protected void setOutlineAlpha(float alpha) {
@@ -143,10 +208,131 @@ public class ExpandableOutlineViewHelper {
     }
 
     public View getBackgroundNormal() {
-        return (View) XposedHelpers.getObjectField(mExpandableView, "mBackgroundNormal");
+        if (mBackgroundNormal == null)
+            onFinishInflate();
+        return mBackgroundNormal;
     }
 
     public View getBackgroundDimmed() {
-        return (View) XposedHelpers.getObjectField(mExpandableView, "mBackgroundDimmed");
+        if (mBackgroundDimmed == null)
+            onFinishInflate();
+        return mBackgroundDimmed;
+    }
+
+    protected void updateOutlineAlpha() {
+        if (XposedHelpers.getBooleanField(mExpandableView, "mDark")) {
+            setOutlineAlpha(0f);
+            return;
+        }
+        float alpha = BACKGROUND_ALPHA_DIMMED;
+        alpha = (alpha + (1.0f - alpha) * mNormalBackgroundVisibilityAmount);
+        alpha *= mShadowAlpha;
+        if (mFadeInFromDarkAnimator != null) {
+            alpha *= mFadeInFromDarkAnimator.getAnimatedFraction();
+        }
+        setOutlineAlpha(alpha);
+    }
+
+    public void setNormalBackgroundVisibilityAmount( float normalBackgroundVisibilityAmount) {
+        mNormalBackgroundVisibilityAmount = normalBackgroundVisibilityAmount;
+        updateOutlineAlpha();
+    }
+
+    /**
+     * Sets the tint color of the background
+     */
+    public void setTintColor(int color) {
+        setTintColor(color, false);
+    }
+
+    /**
+     * Sets the tint color of the background
+     */
+    public void setTintColor(int color, boolean animated) {
+        XposedHelpers.setIntField(mExpandableView, "mBgTint", color);
+        mBgTint = color;
+        updateBackgroundTint(animated);
+    }
+
+    public int getBackgroundColorWithoutTint() {
+        return calculateBgColor(false /* withTint */);
+    }
+
+    public int calculateBgColor(boolean withTint) {
+        boolean mShowingLegacyBackground = XposedHelpers.getBooleanField(mExpandableView, "mShowingLegacyBackground");
+        boolean mIsBelowSpeedBump = XposedHelpers.getBooleanField(mExpandableView, "mIsBelowSpeedBump");
+        if (withTint && mBgTint != 0) {
+            return mBgTint;
+        } else if (mShowingLegacyBackground) {
+            return XposedHelpers.getIntField(mExpandableView, "mLegacyColor");
+        } else if (mIsBelowSpeedBump) {
+            return XposedHelpers.getIntField(mExpandableView, "mLowPriorityColor");
+        } else {
+            return XposedHelpers.getIntField(mExpandableView, "mNormalColor");
+        }
+    }
+
+    public void updateBackgroundTint(boolean animated) {
+        if (mBackgroundColorAnimator != null) {
+            mBackgroundColorAnimator.cancel();
+        }
+        int rippleColor = (int) XposedHelpers.callMethod(mExpandableView, "getRippleColor");
+        XposedHelpers.callMethod(getBackgroundDimmed(), "setRippleColor", rippleColor);
+        XposedHelpers.callMethod(getBackgroundNormal(), "setRippleColor", rippleColor);
+        int color = calculateBgColor(true);
+        if (!animated) {
+            setBackgroundTintColor(color);
+        } else if (color != mCurrentBackgroundTint) {
+            mStartTint = mCurrentBackgroundTint;
+            mTargetTint = color;
+            mBackgroundColorAnimator = ValueAnimator.ofFloat(0.0f, 1.0f);
+            mBackgroundColorAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    int newColor = NotificationUtils.interpolateColors(mStartTint, mTargetTint,
+                            animation.getAnimatedFraction());
+                    setBackgroundTintColor(newColor);
+                }
+            });
+            mBackgroundColorAnimator.setDuration(ANIMATION_DURATION_STANDARD);
+            mBackgroundColorAnimator.setInterpolator(Interpolators.LINEAR);
+            mBackgroundColorAnimator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    mBackgroundColorAnimator = null;
+                }
+            });
+            mBackgroundColorAnimator.start();
+        }
+        if (getContainingHelper() != null && NotificationHooks.getClassExpandableNotificationRow().isInstance(mExpandableView))
+            getContainingHelper().updateBackgroundTint();
+    }
+
+    public void setBackgroundTintColor(int color) {
+        mCurrentBackgroundTint = color;
+        if (color == XposedHelpers.getIntField(mExpandableView, "mNormalColor")) {
+            // We don't need to tint a normal notification
+            color = 0;
+        }
+        XposedHelpers.callMethod(getBackgroundDimmed(), "setTint", color);
+        XposedHelpers.callMethod(getBackgroundNormal(), "setTint", color);
+    }
+
+    public void resetBackgroundAlpha() {
+        updateBackgroundAlpha(0f /* transformationAmount */);
+    }
+
+    public void updateBackgroundAlpha(float transformationAmount) {
+        mBgAlpha =  /*isChildInGroup() && XposedHelpers.getBooleanField(mExpandableView, "mDimmed") ? transformationAmount : */1f;
+        if (mDimmedBackgroundFadeInAmount != -1) {
+            mBgAlpha *= mDimmedBackgroundFadeInAmount;
+        }
+        getBackgroundDimmed().setAlpha(mBgAlpha);
+    }
+
+    public void updateBackground() {
+        try {
+            methodUpdateBackground.invoke(mExpandableView);
+        } catch (IllegalAccessException | InvocationTargetException ignore) {}
     }
 }

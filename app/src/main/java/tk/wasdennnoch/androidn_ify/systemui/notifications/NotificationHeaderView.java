@@ -44,7 +44,10 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 
+import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
+import tk.wasdennnoch.androidn_ify.XposedHook;
+import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationExpandButton;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
@@ -70,6 +73,7 @@ public class NotificationHeaderView extends ViewGroup {
     private int mOriginalNotificationColor;
     private boolean mExpanded;
     private boolean mShowWorkBadgeAtEnd;
+    private boolean mAcceptAllTouches;
     private Drawable mBackground;
     private final int mHeaderBackgroundHeight;
 
@@ -96,7 +100,7 @@ public class NotificationHeaderView extends ViewGroup {
         ViewGroup.MarginLayoutParams iconLp = new MarginLayoutParams(iconSize, iconSize);
         iconLp.setMarginEnd(iconMarginEnd);
         ImageView icon = new ImageView(context);
-        icon.setId(R.id.icon);
+        icon.setId(android.R.id.icon);
         icon.setLayoutParams(iconLp);
         headerView.addView(icon);
 
@@ -154,7 +158,7 @@ public class NotificationHeaderView extends ViewGroup {
         int expandButtonPaddingTop = res.getDimensionPixelSize(R.dimen.notification_header_expand_button_padding_top);
 
         MarginLayoutParams expandButtonLp = new MarginLayoutParams(WRAP_CONTENT, WRAP_CONTENT);
-        ImageView expandButton = new ImageView(context);
+        ImageView expandButton = new NotificationExpandButton(context);
         expandButton.setId(R.id.expand_button);
         expandButton.setLayoutParams(expandButtonLp);
         expandButton.setVisibility(GONE);
@@ -264,7 +268,7 @@ public class NotificationHeaderView extends ViewGroup {
         if (mExpandButton != null) {
             mExpandButton.setAccessibilityDelegate(mExpandDelegate);
         }
-        mIcon = findViewById(com.android.internal.R.id.icon);
+        mIcon = findViewById(android.R.id.icon);
         mProfileBadge = findViewById(R.id.profile_badge);
 
         post(new Runnable() {
@@ -477,6 +481,10 @@ public class NotificationHeaderView extends ViewGroup {
         return mProfileBadge;
     }
 
+    public View getIcon() {
+        return mIcon;
+    }
+
     public class HeaderTouchListener implements View.OnTouchListener {
 
         private final ArrayList<Rect> mTouchRects = new ArrayList<>();
@@ -558,6 +566,9 @@ public class NotificationHeaderView extends ViewGroup {
         }
 
         private boolean isInside(float x, float y) {
+            if (mAcceptAllTouches) {
+                return true;
+            }
             for (int i = 0; i < mTouchRects.size(); i++) {
                 Rect r = mTouchRects.get(i);
                 if (r.contains((int) x, (int) y)) {
@@ -591,5 +602,10 @@ public class NotificationHeaderView extends ViewGroup {
 
     public boolean isInTouchRect(float x, float y) {
         return mExpandClickListener != null && mTouchListener.isInside(x, y);
+    }
+
+    @RemotableViewMethod
+    public void setAcceptAllTouches(boolean acceptAllTouches) {
+        mAcceptAllTouches = acceptAllTouches;
     }
 }

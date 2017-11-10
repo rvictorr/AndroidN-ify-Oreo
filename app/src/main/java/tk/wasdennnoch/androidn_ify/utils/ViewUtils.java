@@ -16,7 +16,9 @@ import android.widget.TextView;
 
 import java.util.Locale;
 
+import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
+import tk.wasdennnoch.androidn_ify.XposedHook;
 
 @SuppressWarnings("SameParameterValue")
 public class ViewUtils {
@@ -117,5 +119,11 @@ public class ViewUtils {
         loc1[1] += view.getTop();
         if (!(view.getParent() instanceof ViewRootImpl))
             getRelativePositionInt(loc1, (View) view.getParent(), parent);
+    }
+
+    public static boolean isTemporarilyDetached(View view) {
+        int mPrivateFlags3 = XposedHelpers.getIntField(view, "mPrivateFlags3");
+        //XposedHook.logI("viewutils", "isTemporarilyDetached called, result: " + ((mPrivateFlags3 & 0x2000000) != 0));
+        return (mPrivateFlags3 & 0x2000000/* PFLAG3_TEMPORARY_DETACH*/) != 0;
     }
 }

@@ -11,6 +11,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
@@ -37,6 +38,8 @@ public class StackScrollAlgorithmHooks {
 
     private static final int MAX_ITEMS_IN_BOTTOM_STACK = 3;
 
+    private static final String CHILD_NOT_FOUND_TAG = "StackScrollStateNoSuchChild";
+
     private static final Rect mClipBounds = new Rect();
     public static ViewGroup mStackScrollLayout;
     private static Object mStackScrollAlgorithm;
@@ -46,6 +49,7 @@ public class StackScrollAlgorithmHooks {
     private static boolean mQsExpanded;
 
     private static int mLayoutMinHeight = 0;
+    private static float mAlpha;
 
     private static Field fieldQsExpanded;
 
@@ -56,14 +60,21 @@ public class StackScrollAlgorithmHooks {
     private static Field fieldYTranslation;
     private static Field fieldLocation;
     private static Field fieldHeight;
+    private static Field fieldBelowSpeedBump;
+    private static Field fieldHideSensitive;
+    private static Field fieldDimmed;
+    private static Field fieldDark;
+    private static Field fieldAlpha;
     private static Field fieldBottomStackSlowDownLength;
     private static Field fieldPaddingBetweenElements;
 
+    private static Field fieldBottomStackIndentationFunctor;
     private static Field fieldTempAlgorithmState;
     private static Field fieldZDistanceBetweenElements;
     private static Field fieldZBasicHeight;
     private static Field fieldIsHeadsUp;
     private static Field fieldClipTopAmount;
+    private static Field fieldGone;
     private static Field fieldItemsInBottomStack;
     private static Field fieldPartialInBottom;
     private static Field fieldZTranslation;
@@ -96,11 +107,19 @@ public class StackScrollAlgorithmHooks {
     private static Method methodGetOverScrollAmount;
     private static Method methodGetHeight;
     private static Method methodGetIntrinsicHeight;
+    private static Method methodGetActualHeight;
+    private static Method methodSetActualHeight;
+    private static Method methodSetDimmed;
+    private static Method methodSetHideSensitive;
+    private static Method methodSetBelowSpeedBump;
+    private static Method methodSetDark;
+
     private static Method methodGetHeadsUpHeight;
     private static Method methodGetMaxHeadsUpTranslation;
     private static Method methodUpdateStateForChildTransitioningInBottom;
     private static Method methodUpdateStateForChildFullyInBottomStack;
     private static Method methodApplyState;
+    private static Method methodApplyViewState;
     private static Method methodPerformVisibilityAnimationDismissView;
     private static Method methodWillBeGoneDismissView;
     private static Method methodPerformVisibilityAnimationEmptyShade;
@@ -108,12 +127,16 @@ public class StackScrollAlgorithmHooks {
     private static Method methodUpdateVisibleChildren;
     private static Method methodSetLayoutHeight;
     private static Method methodSetTopPadding;
+    private static Method methodGetClipTopAmount;
+    private static Method methodSetClipTopAmount;
+    private static Method methodApplyChildrenState;
 
     private static Class<?> classNotificationStackScrollLayout;
     private static Class<?> classStackScrollAlgorithm;
     private static Class<?> classStackScrollAlgorithmState;
     private static Class<?> classStackScrollState;
     private static Class<?> classStackViewState;
+    private static Class<?> classViewState;
     private static Class<?> classAmbientState;
     private static Class<?> classExpandableNotificationRow;
     private static Class<?> classExpandableView;
@@ -155,6 +178,7 @@ public class StackScrollAlgorithmHooks {
             classStackScrollAlgorithmState = XposedHelpers.findClass("com.android.systemui.statusbar.stack.StackScrollAlgorithm.StackScrollAlgorithmState", classLoader);
             classStackScrollState = XposedHelpers.findClass("com.android.systemui.statusbar.stack.StackScrollState", classLoader);
             classStackViewState = XposedHelpers.findClass("com.android.systemui.statusbar.stack.StackViewState", classLoader);
+            classViewState = XposedHelpers.findClass("com.android.systemui.statusbar.stack.ViewState", classLoader);
             classAmbientState = XposedHelpers.findClass("com.android.systemui.statusbar.stack.AmbientState", classLoader);
             classExpandableNotificationRow = XposedHelpers.findClass("com.android.systemui.statusbar.ExpandableNotificationRow", classLoader);
             classExpandableView = XposedHelpers.findClass("com.android.systemui.statusbar.ExpandableView", classLoader);
@@ -172,15 +196,22 @@ public class StackScrollAlgorithmHooks {
             fieldYTranslation = XposedHelpers.findField(classStackViewState, "yTranslation");
             fieldLocation = XposedHelpers.findField(classStackViewState, "location");
             fieldHeight = XposedHelpers.findField(classStackViewState, "height");
+            fieldBelowSpeedBump = XposedHelpers.findField(classStackViewState, "belowSpeedBump");
+            fieldHideSensitive = XposedHelpers.findField(classStackViewState, "hideSensitive");
+            fieldDimmed = XposedHelpers.findField(classStackViewState, "dimmed");
+            fieldDark = XposedHelpers.findField(classStackViewState, "dark");
+            fieldAlpha = XposedHelpers.findField(classStackViewState, "alpha");
             fieldBottomStackSlowDownLength = XposedHelpers.findField(classStackScrollAlgorithm, "mBottomStackSlowDownLength");
             fieldPaddingBetweenElements = XposedHelpers.findField(classStackScrollAlgorithm, "mPaddingBetweenElements");
 
+            fieldBottomStackIndentationFunctor = XposedHelpers.findField(classStackScrollAlgorithm, "mBottomStackIndentationFunctor");
             fieldTempAlgorithmState = XposedHelpers.findField(classStackScrollAlgorithm, "mTempAlgorithmState");
             fieldZDistanceBetweenElements = XposedHelpers.findField(classStackScrollAlgorithm, "mZDistanceBetweenElements");
             fieldZBasicHeight = XposedHelpers.findField(classStackScrollAlgorithm, "mZBasicHeight");
             fieldZTranslation = XposedHelpers.findField(classStackViewState, "zTranslation");
             fieldIsHeadsUp = XposedHelpers.findField(classExpandableNotificationRow, "mIsHeadsUp");
             fieldClipTopAmount = XposedHelpers.findField(classStackViewState, "clipTopAmount");
+            fieldGone = XposedHelpers.findField(classStackViewState, "gone");
             fieldItemsInBottomStack = XposedHelpers.findField(classStackScrollAlgorithmState, "itemsInBottomStack");
             fieldPartialInBottom = XposedHelpers.findField(classStackScrollAlgorithmState, "partialInBottom");
             fieldBottomStackPeekSize = XposedHelpers.findField(classStackScrollAlgorithm, "mBottomStackPeekSize");
@@ -216,9 +247,18 @@ public class StackScrollAlgorithmHooks {
             methodIsTransparent = XposedHelpers.findMethodBestMatch(classExpandableView, "isTransparent");
             methodGetHeight = XposedHelpers.findMethodBestMatch(classExpandableView, "getHeight");
             methodGetIntrinsicHeight = XposedHelpers.findMethodBestMatch(classExpandableView, "getIntrinsicHeight");
+            methodGetActualHeight = XposedHelpers.findMethodBestMatch(classExpandableView, "getActualHeight");
+            methodSetActualHeight = XposedHelpers.findMethodBestMatch(classExpandableView, "setActualHeight", int.class, boolean.class);
+            methodSetDimmed = XposedHelpers.findMethodBestMatch(classExpandableView, "setDimmed", boolean.class, boolean.class);
+            methodSetHideSensitive = XposedHelpers.findMethodBestMatch(classExpandableView, "setHideSensitive", boolean.class, boolean.class, long.class, long.class);
+            methodSetBelowSpeedBump = XposedHelpers.findMethodBestMatch(classExpandableView, "setBelowSpeedBump", boolean.class);
+            methodSetDark = XposedHelpers.findMethodBestMatch(classExpandableView, "setDark", boolean.class, boolean.class, long.class);
+            methodGetClipTopAmount = XposedHelpers.findMethodBestMatch(classExpandableView, "getClipTopAmount");
+            methodSetClipTopAmount = XposedHelpers.findMethodBestMatch(classExpandableView, "setClipTopAmount", int.class);
 
             methodIsPinned = XposedHelpers.findMethodBestMatch(classExpandableNotificationRow, "isPinned");
             methodGetHeadsUpHeight = XposedHelpers.findMethodBestMatch(classExpandableNotificationRow, "getHeadsUpHeight");
+            methodApplyChildrenState = XposedHelpers.findMethodBestMatch(classExpandableNotificationRow, "applyChildrenState", classStackScrollState);
 
             methodResetViewStates = XposedHelpers.findMethodBestMatch(classStackScrollState, "resetViewStates");
 
@@ -229,6 +269,7 @@ public class StackScrollAlgorithmHooks {
                     classStackScrollAlgorithmState, float.class, classStackViewState, int.class, classAmbientState);
 
             methodApplyState = XposedHelpers.findMethodBestMatch(classStackScrollState, "applyState", classExpandableView, classStackViewState);
+            methodApplyViewState = XposedHelpers.findMethodBestMatch(classStackScrollState, "applyViewState", View.class, classViewState);
             methodPerformVisibilityAnimationDismissView = XposedHelpers.findMethodBestMatch(classDismissView, "performVisibilityAnimation", boolean.class);
             methodWillBeGoneDismissView = XposedHelpers.findMethodBestMatch(classDismissView, "willBeGone");
             methodPerformVisibilityAnimationEmptyShade = XposedHelpers.findMethodBestMatch(classEmptyShadeView, "performVisibilityAnimation", boolean.class);
@@ -251,19 +292,41 @@ public class StackScrollAlgorithmHooks {
             XposedBridge.hookAllMethods(classStackScrollAlgorithm, "onExpansionStopped", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(classStackScrollAlgorithm, "notifyChildrenChanged", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(classStackScrollAlgorithm, "updateStateForChildFullyInBottomStack", new XC_MethodHook() {
+                /*@Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    Object childViewState = param.args[2];
+                    mAlpha = fieldAlpha.getFloat(childViewState);
+                }*/
+
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    int collapsedHeight = (int) param.args[3];
+                    Object algorithmState = param.args[0];
                     Object childViewState = param.args[2];
+                    int collapsedHeight = (int) param.args[3];
+                    /*float itemsInBottomStack = getFloat(fieldItemsInBottomStack, algorithmState);
+                    if (itemsInBottomStack >= MAX_ITEMS_IN_BOTTOM_STACK) {
+                        if (itemsInBottomStack > MAX_ITEMS_IN_BOTTOM_STACK + 2) {
+                            XposedHelpers.setAdditionalInstanceField(childViewState, "hidden", true);
+                            XposedHelpers.setAdditionalInstanceField(childViewState, "shadowAlpha", 0.0f);
+                        } else if (itemsInBottomStack > MAX_ITEMS_IN_BOTTOM_STACK + 1) {
+                            XposedHelpers.setAdditionalInstanceField(childViewState, "shadowAlpha", 1.0f - (float) fieldPartialInBottom.get(algorithmState));
+                        }
+                    }*/
                     setInt(fieldHeight, childViewState, collapsedHeight);
+                    //setFloat(fieldAlpha, childViewState, mAlpha);
                 }
             });
+
             XposedBridge.hookAllMethods(classStackScrollAlgorithm, "updateStateForChildTransitioningInBottom", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     XposedHelpers.setBooleanField(param.thisObject, "mIsSmallScreen", true);
                 }
             });
+
+            /*XposedBridge.hookAllMethods(classStackViewState, "copyFrom", copyFromHook);
+            XposedBridge.hookAllMethods(classStackScrollState, "resetViewState", resetViewStateHook);*/
+            XposedBridge.hookAllMethods(classStackScrollState, "applyState", applyState);
 
 
         } catch (Throwable t) {
@@ -350,6 +413,90 @@ public class StackScrollAlgorithmHooks {
             invoke(methodUpdateSpeedBumpState, mStackScrollAlgorithm, resultState, algorithmState, invoke(methodGetSpeedBumpIndex, ambientState));
             invoke(methodGetNotificationChildrenStates, mStackScrollAlgorithm, resultState, algorithmState);
             return null;
+        }
+    };
+
+    private static final XC_MethodHook copyFromHook = new XC_MethodHook() {
+        @Override
+        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            Object viewState = param.args[0];
+            if (classStackViewState.isInstance(viewState)) {
+                XposedHelpers.setAdditionalInstanceField(param.thisObject, "isBottomClipped", XposedHelpers.getAdditionalInstanceField(viewState, "isBottomClipped"));
+                XposedHelpers.setAdditionalInstanceField(param.thisObject, "shadowAlpha", XposedHelpers.getAdditionalInstanceField(viewState, "shadowAlpha"));
+            }
+        }
+    };
+
+    private static final XC_MethodHook resetViewStateHook = new XC_MethodHook() {
+        @Override
+        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            View view = (View) param.args[0];
+            Map mStateMap = (Map) fieldStateMap.get(param.thisObject);
+            Object viewState = mStateMap.get(view);
+            XposedHelpers.setAdditionalInstanceField(viewState, "shadowAlpha",  1f);
+            XposedHelpers.setAdditionalInstanceField(viewState, "hidden",  false);
+        }
+    };
+
+    private static final XC_MethodReplacement applyState = new XC_MethodReplacement() {
+        @Override
+        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+            View view = (View) param.args[0];
+            Object state = param.args[1];
+            //ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(view);
+            if (state == null) {
+                XposedHook.logW(CHILD_NOT_FOUND_TAG, "No child state was found when applying this state " +
+                        "to the hostView");
+                return false;
+            }
+            if (getBoolean(fieldGone, state)) {
+                return false;
+            }
+            methodApplyViewState.invoke(param.thisObject, view, state);
+
+            int height = (int) methodGetActualHeight.invoke(view);
+            int newHeight = getInt(fieldHeight, state);
+
+            // apply height
+            if (height != newHeight) {
+                methodSetActualHeight.invoke(view, newHeight, false /* notifyListeners */);
+            }
+
+            /*float shadowAlpha = helper.getShadowAlpha();
+            float newShadowAlpha = (float) XposedHelpers.getAdditionalInstanceField(state, "shadowAlpha");
+
+            // apply shadowAlpha
+            if (shadowAlpha != newShadowAlpha) {
+                helper.setShadowAlpha(newShadowAlpha);
+            }*/
+
+            // apply dimming
+            methodSetDimmed.invoke(view, fieldDimmed.get(state), false /* animate */);
+
+            // apply hiding sensitive
+            methodSetHideSensitive.invoke(view, fieldHideSensitive.get(state), false /* animated */, 0 /* delay */, 0 /* duration */);
+
+            // apply speed bump state
+            methodSetBelowSpeedBump.invoke(view, fieldBelowSpeedBump.get(state));
+
+            // apply dark
+            methodSetDark.invoke(view, fieldDark.get(state), false /* animate */, 0 /* delay */);
+
+            // apply clipping
+            float oldClipTopAmount = (int) methodGetClipTopAmount.invoke(view);
+            if (oldClipTopAmount != (int) fieldClipTopAmount.get(state)) {
+                methodSetClipTopAmount.invoke(view, fieldClipTopAmount.get(state));
+            }
+
+            if (classExpandableNotificationRow.isInstance(view)) {
+                Object row = view;
+                /*Object isBottomClipped = XposedHelpers.getAdditionalInstanceField(state, "isBottomClipped");
+                if ((isBottomClipped != null) && (boolean) isBottomClipped) {
+                    ExpandableNotificationRowHelper.getInstance(row).setClipToActualHeight(true);
+                }*/
+                methodApplyChildrenState.invoke(row, param.thisObject);
+            }
+            return true;
         }
     };
 

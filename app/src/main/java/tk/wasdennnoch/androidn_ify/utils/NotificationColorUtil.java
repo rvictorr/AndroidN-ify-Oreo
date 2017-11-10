@@ -59,6 +59,7 @@ public class NotificationColorUtil {
     private static final Object sLock = new Object();
     private static NotificationColorUtil sInstance;
     private static Context mContext;
+    private static ResourceUtils res;
 
     private final ImageUtils mImageUtils = new ImageUtils();
     private final WeakHashMap<Bitmap, Pair<Boolean, Integer>> mGrayscaleBitmapCache =
@@ -83,6 +84,7 @@ public class NotificationColorUtil {
 
     public static void setContext(Context context) {
         mContext = ResourceUtils.createOwnContext(context);
+        res = ResourceUtils.getInstance(mContext);
     }
 
     /**
@@ -280,6 +282,81 @@ public class NotificationColorUtil {
     }
 
     /**
+     * Finds a suitable alpha such that there's enough contrast.
+     *
+     * @param color the color to start searching from.
+     * @param backgroundColor the color to ensure contrast against.
+     * @param minRatio the minimum contrast ratio required.
+     * @return the same color as {@param color} with potentially modified alpha to meet contrast
+     */
+    public static int findAlphaToMeetContrast(int color, int backgroundColor, double minRatio) {
+        int fg = color;
+        int bg = backgroundColor;
+        if (ColorUtilsFromCompat.calculateContrast(fg, bg) >= minRatio) {
+            return color;
+        }
+        int startAlpha = Color.alpha(color);
+        int r = Color.red(color);
+        int g = Color.green(color);
+        int b = Color.blue(color);
+
+        int low = startAlpha, high = 255;
+        for (int i = 0; i < 15 && high - low > 0; i++) {
+            final int alpha = (low + high) / 2;
+            fg = Color.argb(alpha, r, g, b);
+            if (ColorUtilsFromCompat.calculateContrast(fg, bg) > minRatio) {
+                high = alpha;
+            } else {
+                low = alpha;
+            }
+        }
+        return Color.argb(high, r, g, b);
+    }
+
+    /**
+     * Finds a suitable color such that there's enough contrast.
+     *
+     * @param color the color to start searching from.
+     * @param other the color to ensure contrast against. Assumed to be darker than {@param color}
+     * @param findFg if true, we assume {@param color} is a foreground, otherwise a background.
+     * @param minRatio the minimum contrast ratio required.
+     * @return a color with the same hue as {@param color}, potentially darkened to meet the
+     *          contrast ratio.
+     */
+    public static int findContrastColorAgainstDark(int color, int other, boolean findFg,
+                                                   double minRatio) {
+        int fg = findFg ? color : other;
+        int bg = findFg ? other : color;
+        if (ColorUtilsFromCompat.calculateContrast(fg, bg) >= minRatio) {
+            return color;
+        }
+
+        float[] hsl = new float[3];
+        ColorUtilsFromCompat.colorToHSL(findFg ? fg : bg, hsl);
+
+        float low = hsl[2], high = 1;
+        for (int i = 0; i < 15 && high - low > 0.00001; i++) {
+            final float l = (low + high) / 2;
+            hsl[2] = l;
+            if (findFg) {
+                fg = ColorUtilsFromCompat.HSLToColor(hsl);
+            } else {
+                bg = ColorUtilsFromCompat.HSLToColor(hsl);
+            }
+            if (ColorUtilsFromCompat.calculateContrast(fg, bg) > minRatio) {
+                high = l;
+            } else {
+                low = l;
+            }
+        }
+        return findFg ? fg : bg;
+    }
+
+    public static int ensureTextContrastOnBlack(int color) {
+        return findContrastColorAgainstDark(color, Color.BLACK, true /* fg */, 12);
+    }
+
+    /**
      * Finds a text color with sufficient contrast over bg that has the same hue as the original
      * color, assuming it is for large text.
      */
@@ -350,6 +427,121 @@ public class NotificationColorUtil {
             }
         }
         return color;
+    }
+
+    /**
+     * Change a color by a specified value
+     * @param baseColor the base color to lighten
+     * @param amount the amount to lighten the color from 0 to 100. This corresponds to the L
+     *               increase in the LAB color space. A negative value will darken the color and
+     *               a positive will lighten it.
+     * @return the changed color
+     */
+    public static int changeColorLightness(int baseColor, int amount) {
+        final double[] result = ColorUtilsFromCompat.getTempDouble3Array();
+        ColorUtilsFromCompat.colorToLAB(baseColor, result);
+        result[0] = Math.max(Math.min(100, result[0] + amount), 0);
+        return ColorUtilsFromCompat.LABToColor(result[0], result[1], result[2]);
+    }
+
+    public static int resolveAmbientColor(int notificationColor) {
+        final int resolvedColor = resolveColor(notificationColor);
+
+        int color = resolvedColor;
+        color = NotificationColorUtil.ensureTextContrastOnBlack(color);
+
+        if (color != resolvedColor) {
+            if (DEBUG){
+                Log.w(TAG, String.format(
+                        "Ambient contrast of notification for %s is %s (over black)"
+                                + " by changing #%s to #%s",
+                        mContext.getPackageName(),
+                        NotificationColorUtil.contrastChange(resolvedColor, color, Color.BLACK),
+                        Integer.toHexString(resolvedColor), Integer.toHexString(color)));
+            }
+        }
+        return color;
+    }
+
+    public static int resolvePrimaryColor(int backgroundColor) {
+        boolean useDark = shouldUseDark(backgroundColor);
+        if (useDark) {
+            return res.getColor(
+                    R.color.notification_primary_text_color_light);
+        } else {
+            return res.getColor(
+                    R.color.notification_primary_text_color_dark);
+        }
+    }
+
+    public static int resolveSecondaryColor(int backgroundColor) {
+        boolean useDark = shouldUseDark(backgroundColor);
+        if (useDark) {
+            return res.getColor(
+                    R.color.notification_secondary_text_color_light);
+        } else {
+            return res.getColor(
+                    R.color.notification_secondary_text_color_dark);
+        }
+    }
+
+    public static int resolveActionBarColor(int backgroundColor) {
+        if (backgroundColor == Notification.COLOR_DEFAULT) {
+            return res.getColor(R.color.notification_action_list);
+        }
+        return getShiftedColor(backgroundColor, 7);
+    }
+
+    /**
+     * Get a color that stays in the same tint, but darkens or lightens it by a certain
+     * amount.
+     * This also looks at the lightness of the provided color and shifts it appropriately.
+     *
+     * @param color the base color to use
+     * @param amount the amount from 1 to 100 how much to modify the color
+     * @return the now color that was modified
+     */
+    public static int getShiftedColor(int color, int amount) {
+        final double[] result = ColorUtilsFromCompat.getTempDouble3Array();
+        ColorUtilsFromCompat.colorToLAB(color, result);
+        if (result[0] >= 4) {
+            result[0] = Math.max(0, result[0] - amount);
+        } else {
+            result[0] = Math.min(100, result[0] + amount);
+        }
+        return ColorUtilsFromCompat.LABToColor(result[0], result[1], result[2]);
+    }
+
+    private static boolean shouldUseDark(int backgroundColor) {
+        boolean useDark = backgroundColor == Notification.COLOR_DEFAULT;
+        if (!useDark) {
+            useDark = ColorUtilsFromCompat.calculateLuminance(backgroundColor) > 0.5;
+        }
+        return useDark;
+    }
+
+    public static double calculateLuminance(int backgroundColor) {
+        return ColorUtilsFromCompat.calculateLuminance(backgroundColor);
+    }
+
+
+    public static double calculateContrast(int foregroundColor, int backgroundColor) {
+        return ColorUtilsFromCompat.calculateContrast(foregroundColor, backgroundColor);
+    }
+
+    public static boolean satisfiesTextContrast(int backgroundColor, int foregroundColor) {
+        return NotificationColorUtil.calculateContrast(foregroundColor, backgroundColor) >= 4.5;
+    }
+
+    /**
+     * Composite two potentially translucent colors over each other and returns the result.
+     */
+    public static int compositeColors(int foreground, int background) {
+        return ColorUtilsFromCompat.compositeColors(foreground, background);
+    }
+
+    public static boolean isColorLight(int backgroundColor) {
+        return calculateLuminance(backgroundColor) > 0.5f;
     }
 
     /**
@@ -640,6 +832,10 @@ public class NotificationColorUtil {
             return amount < low ? low : (amount > high ? high : amount);
         }
 
+        private static float constrain(float amount, float low, float high) {
+            return amount < low ? low : (amount > high ? high : amount);
+        }
+
         private static double pivotXyzComponent(double component) {
             return component > XYZ_EPSILON
                     ? Math.pow(component, 1 / 3.0)
@@ -653,6 +849,140 @@ public class NotificationColorUtil {
                 TEMP_ARRAY.set(result);
             }
             return result;
+        }
+
+        /**
+         * Convert HSL (hue-saturation-lightness) components to a RGB color.
+         * <ul>
+         * <li>hsl[0] is Hue [0 .. 360)</li>
+         * <li>hsl[1] is Saturation [0...1]</li>
+         * <li>hsl[2] is Lightness [0...1]</li>
+         * </ul>
+         * If hsv values are out of range, they are pinned.
+         *
+         * @param hsl 3-element array which holds the input HSL components
+         * @return the resulting RGB color
+         */
+        @ColorInt
+        public static int HSLToColor(@NonNull float[] hsl) {
+            final float h = hsl[0];
+            final float s = hsl[1];
+            final float l = hsl[2];
+
+            final float c = (1f - Math.abs(2 * l - 1f)) * s;
+            final float m = l - 0.5f * c;
+            final float x = c * (1f - Math.abs((h / 60f % 2f) - 1f));
+
+            final int hueSegment = (int) h / 60;
+
+            int r = 0, g = 0, b = 0;
+
+            switch (hueSegment) {
+                case 0:
+                    r = Math.round(255 * (c + m));
+                    g = Math.round(255 * (x + m));
+                    b = Math.round(255 * m);
+                    break;
+                case 1:
+                    r = Math.round(255 * (x + m));
+                    g = Math.round(255 * (c + m));
+                    b = Math.round(255 * m);
+                    break;
+                case 2:
+                    r = Math.round(255 * m);
+                    g = Math.round(255 * (c + m));
+                    b = Math.round(255 * (x + m));
+                    break;
+                case 3:
+                    r = Math.round(255 * m);
+                    g = Math.round(255 * (x + m));
+                    b = Math.round(255 * (c + m));
+                    break;
+                case 4:
+                    r = Math.round(255 * (x + m));
+                    g = Math.round(255 * m);
+                    b = Math.round(255 * (c + m));
+                    break;
+                case 5:
+                case 6:
+                    r = Math.round(255 * (c + m));
+                    g = Math.round(255 * m);
+                    b = Math.round(255 * (x + m));
+                    break;
+            }
+
+            r = constrain(r, 0, 255);
+            g = constrain(g, 0, 255);
+            b = constrain(b, 0, 255);
+
+            return Color.rgb(r, g, b);
+        }
+
+        /**
+         * Convert the ARGB color to its HSL (hue-saturation-lightness) components.
+         * <ul>
+         * <li>outHsl[0] is Hue [0 .. 360)</li>
+         * <li>outHsl[1] is Saturation [0...1]</li>
+         * <li>outHsl[2] is Lightness [0...1]</li>
+         * </ul>
+         *
+         * @param color  the ARGB color to convert. The alpha component is ignored
+         * @param outHsl 3-element array which holds the resulting HSL components
+         */
+        public static void colorToHSL(@ColorInt int color, @NonNull float[] outHsl) {
+            RGBToHSL(Color.red(color), Color.green(color), Color.blue(color), outHsl);
+        }
+
+        /**
+         * Convert RGB components to HSL (hue-saturation-lightness).
+         * <ul>
+         * <li>outHsl[0] is Hue [0 .. 360)</li>
+         * <li>outHsl[1] is Saturation [0...1]</li>
+         * <li>outHsl[2] is Lightness [0...1]</li>
+         * </ul>
+         *
+         * @param r      red component value [0..255]
+         * @param g      green component value [0..255]
+         * @param b      blue component value [0..255]
+         * @param outHsl 3-element array which holds the resulting HSL components
+         */
+        public static void RGBToHSL(@IntRange(from = 0x0, to = 0xFF) int r,
+                                    @IntRange(from = 0x0, to = 0xFF) int g, @IntRange(from = 0x0, to = 0xFF) int b,
+                                    @NonNull float[] outHsl) {
+            final float rf = r / 255f;
+            final float gf = g / 255f;
+            final float bf = b / 255f;
+
+            final float max = Math.max(rf, Math.max(gf, bf));
+            final float min = Math.min(rf, Math.min(gf, bf));
+            final float deltaMaxMin = max - min;
+
+            float h, s;
+            float l = (max + min) / 2f;
+
+            if (max == min) {
+                // Monochromatic
+                h = s = 0f;
+            } else {
+                if (max == rf) {
+                    h = ((gf - bf) / deltaMaxMin) % 6f;
+                } else if (max == gf) {
+                    h = ((bf - rf) / deltaMaxMin) + 2f;
+                } else {
+                    h = ((rf - gf) / deltaMaxMin) + 4f;
+                }
+
+                s = deltaMaxMin / (1f - Math.abs(2f * l - 1f));
+            }
+
+            h = (h * 60f) % 360f;
+            if (h < 0) {
+                h += 360f;
+            }
+
+            outHsl[0] = constrain(h, 0f, 360f);
+            outHsl[1] = constrain(s, 0f, 1f);
+            outHsl[2] = constrain(l, 0f, 1f);
         }
 
     }

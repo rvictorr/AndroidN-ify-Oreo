@@ -22,6 +22,7 @@ import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
 import android.view.ViewTreeObserver;
 import android.view.WindowInsets;
+import android.view.accessibility.AccessibilityEvent;
 import android.view.animation.Interpolator;
 import android.widget.FrameLayout;
 import android.widget.OverScroller;
@@ -39,7 +40,10 @@ import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.FakeShadowView;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
 import tk.wasdennnoch.androidn_ify.misc.SafeOnPreDrawListener;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.ExpandableNotificationRowHelper;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.ExpandableOutlineViewHelper;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationPanelHooks;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ScrimHelper;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
@@ -190,6 +194,13 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                         Canvas canvas = (Canvas) param.args[0];
                         canvas.drawRect(0, mCurrentBounds.top, mStackScrollLayout.getWidth(), mCurrentBounds.bottom, mBackgroundPaint);
                     }
+                }
+            });
+            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "onViewRemovedInternal", View.class, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    // Make sure the clipRect we might have set is removed
+                    XposedHelpers.callMethod(param.args[0], "setClipTopAmount", 0);
                 }
             });
             XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "startAnimationToState", new XC_MethodHook() {
@@ -431,6 +442,30 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     return null;
                 }
             });
+
+            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "changeViewPosition", View.class, int.class, new XC_MethodReplacement() {
+                @Override
+                protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                    View child = (View) param.args[0];
+                    int newIndex = (int) param.args[1];
+                    int currentIndex = (int) XposedHelpers.callMethod(param.thisObject, "indexOfChild", child);
+                    ArrayList mChildrenChangingPositions = (ArrayList) XposedHelpers.getObjectField(param.thisObject, "mChildrenChangingPositions");
+                    if (child != null && child.getParent() == param.thisObject && currentIndex != newIndex) {
+                        XposedHelpers.setBooleanField(param.thisObject, "mChangePositionInProgress", true);
+                        NotificationsStuff.setChangingPosition(child, true);
+                        mStackScrollLayout.removeView(child);
+                        mStackScrollLayout.addView(child, newIndex);
+                        NotificationsStuff.setChangingPosition(child, false);
+                        XposedHelpers.setBooleanField(param.thisObject, "mChangePositionInProgress", false);
+                        if (mIsExpanded && mAnimationsEnabled && child.getVisibility() != View.GONE) {
+                            mChildrenChangingPositions.add(child);
+                            XposedHelpers.setBooleanField(param.thisObject, "mNeedsAnimation", true);
+                        }
+                    }
+                    return null;
+                }
+            });
+
             classActivatableNotificationView = XposedHelpers.findClass("com.android.systemui.statusbar.ActivatableNotificationView", classLoader);
             classStackStateAnimator = XposedHelpers.findClass("com.android.systemui.statusbar.stack.StackStateAnimator", classLoader);
         } catch (Throwable t) {
@@ -447,8 +482,235 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     param.setResult(false);
             }
         };
-        XposedHelpers.findAndHookMethod(classSwipeHelper, "onTouchEvent", MotionEvent.class, touchEventHook);
         XposedHelpers.findAndHookMethod(classSwipeHelper, "onInterceptTouchEvent", MotionEvent.class, touchEventHook);
+        XposedHelpers.findAndHookMethod(classSwipeHelper, "onTouchEvent", MotionEvent.class, touchEventHook);
+        XposedHelpers.findAndHookMethod(classSwipeHelper, "setTranslation", View.class, float.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                View view = (View) param.args[0];
+                float translate = (float) param.args[1];
+                ExpandableNotificationRowHelper.getInstance(view).setTranslation(translate);
+                return null;
+            }
+        });
+        XposedHelpers.findAndHookMethod(classSwipeHelper, "getTranslation", View.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                View view = (View) param.args[0];
+                return ExpandableNotificationRowHelper.getInstance(view).getTranslation();
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(classSwipeHelper, "getSwipeProgressForOffset", View.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                View view = (View) param.args[0];
+                float translation = (float) XposedHelpers.callMethod(param.thisObject, "getTranslation", view);
+
+                float viewSize = (float) XposedHelpers.callMethod(param.thisObject, "getSize", view);
+                float result = Math.abs(translation / viewSize);
+                return Math.min(Math.max(XposedHelpers.getFloatField(param.thisObject, "mMinSwipeProgress"), result), XposedHelpers.getFloatField(param.thisObject, "mMaxSwipeProgress"));
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(classSwipeHelper, "createTranslationAnimation", View.class, float.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                final Object swipeHelper = param.thisObject;
+                final View v = (View) param.args[0];
+                float target = (float) param.args[1];
+                final boolean canBeDismissed = (boolean) XposedHelpers.callMethod(XposedHelpers.getObjectField(swipeHelper, "mCallback"), "canChildBeDismissed", v);
+                ValueAnimator.AnimatorUpdateListener updateListener = new ValueAnimator.AnimatorUpdateListener() {
+                    public void onAnimationUpdate(ValueAnimator animation) {
+                        XposedHelpers.callMethod(swipeHelper, "updateSwipeProgressFromOffset", v, canBeDismissed);
+                    }
+                };
+                return ExpandableNotificationRowHelper.getInstance(v).getTranslateViewAnimator(target, updateListener);
+            }
+        });
+        /*XposedHelpers.findAndHookMethod(classSwipeHelper, "onTouchEvent", MotionEvent.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                MotionEvent ev = (MotionEvent) param.args[0];
+                Object mVelocityTracker = XposedHelpers.getObjectField(param.thisObject, "mVelocityTracker");
+                View mCurrView = (View) XposedHelpers.getObjectField(param.thisObject, "mCurrView");
+                Object mCallback = XposedHelpers.getObjectField(param.thisObject, "mCallback");
+                if (XposedHelpers.getBooleanField(param.thisObject, "mLongPressSent")) {
+                    return true;
+                }
+
+                if (!XposedHelpers.getBooleanField(param.thisObject, "mDragging")) {
+                    if (XposedHelpers.callMethod(mCallback, "getChildAtPosition", ev) != null) {
+                        // We are dragging directly over a card, make sure that we also catch the gesture
+                        // even if nobody else wants the touch event.
+                        XposedHelpers.callMethod(param.thisObject, "onInterceptTouchEvent", ev);
+                        return true;
+                    } else {
+                        // We are not doing anything, make sure the long press callback
+                        // is not still ticking like a bomb waiting to go off.
+                        XposedHelpers.callMethod(param.thisObject, "removeLongPressCallback");
+                        return false;
+                    }
+                }
+
+                XposedHelpers.callMethod(mVelocityTracker, "addMovement", ev);
+                final int action = ev.getAction();
+                switch (action) {
+                    case MotionEvent.ACTION_OUTSIDE:
+                    case MotionEvent.ACTION_MOVE:
+                        if (mCurrView != null) {
+                            float delta = (float) XposedHelpers.callMethod(param.thisObject, "getPos", ev) - XposedHelpers.getFloatField(param.thisObject, "mInitialTouchPos");
+                            float absDelta = Math.abs(delta);
+                            if (absDelta >= (int) XposedHelpers.callMethod(param.thisObject, "getFalsingThreshold")) {
+                                XposedHelpers.setBooleanField(param.thisObject, "mTouchAboveFalsingThreshold", true);
+                            }
+                            // don't let items that can't be dismissed be dragged more than
+                            // maxScrollDistance
+                            if (!(boolean) XposedHelpers.callMethod(mCallback, "canChildBeDismissed", mCurrView)) {
+                                float size = (float) XposedHelpers.callMethod(param.thisObject, "getSize", mCurrView);
+                                float maxScrollDistance = 0.25f * size;
+                                if (absDelta >= size) {
+                                    delta = delta > 0 ? maxScrollDistance : -maxScrollDistance;
+                                } else {
+                                    delta = maxScrollDistance * (float) Math.sin((delta/size)*(Math.PI/2));
+                                }
+                            }
+                            XposedHelpers.callMethod(param.thisObject, "setTranslation", mCurrView,
+                                    (float) XposedHelpers.getAdditionalInstanceField(param.thisObject, "mTranslation") + delta);
+                            XposedHelpers.callMethod(param.thisObject, "updateSwipeProgressFromOffset", mCurrView,
+                                    XposedHelpers.getBooleanField(param.thisObject, "mCanCurrViewBeDimissed"));
+                            //onMoveUpdate(mCurrView, mTranslation + delta, delta);
+                        }
+                        break;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        if (mCurrView == null) {
+                            break;
+                        }
+                        float maxVelocity = 4000*//*MAX_DISMISS_VELOCITY*//* * XposedHelpers.getFloatField(param.thisObject, "mDensityScale");
+                        XposedHelpers.callMethod(mVelocityTracker, "computeCurrentVelocity", 1000 *//* px/sec *//*, maxVelocity);
+
+                        float escapeVelocity = 100f *//*SWIPE_ESCAPE_VELOCITY*//* * XposedHelpers.getFloatField(param.thisObject, "mDensityScale");
+                        float velocity = (float) XposedHelpers.callMethod(param.thisObject, "getVelocity", mVelocityTracker);
+                        float perpendicularVelocity = (float) XposedHelpers.callMethod(param.thisObject, "getPerpendicularVelocity", mVelocityTracker);
+                        // Decide whether to dismiss the current view
+                        boolean childSwipedFarEnough = Math.abs((float) XposedHelpers.callMethod(param.thisObject, "getTranslation", mCurrView)) > 0.4
+                                * (float) XposedHelpers.callMethod(param.thisObject, "getSize", mCurrView);
+                        boolean childSwipedFastEnough = (Math.abs(velocity) > escapeVelocity) &&
+                                (Math.abs(velocity) > Math.abs(perpendicularVelocity)) &&
+                                (velocity > 0) == ((float) XposedHelpers.callMethod(param.thisObject, "getTranslation", mCurrView) > 0);
+                        boolean falsingDetected = (boolean) XposedHelpers.callMethod(mCallback, "isAntiFalsingNeeded")
+                                && !XposedHelpers.getBooleanField(param.thisObject, "mTouchAboveFalsingThreshold");
+
+                        boolean dismissChild = (boolean) XposedHelpers.callMethod(mCallback, "canChildBeDismissed", mCurrView)
+                                && !falsingDetected && (childSwipedFastEnough || childSwipedFarEnough)
+                                && ev.getActionMasked() == MotionEvent.ACTION_UP;
+
+                        if (dismissChild) {
+                                // flingadingy
+                                XposedHelpers.callMethod(param.thisObject, "dismissChild", mCurrView, childSwipedFastEnough ? velocity : 0f);
+                            } else {
+                                // snappity
+                                XposedHelpers.callMethod(mCallback, "onDragCancelled", mCurrView);
+                                XposedHelpers.callMethod(param.thisObject, "snapChild", mCurrView, velocity);
+                            XposedHelpers.setObjectField(param.thisObject, "mCurrView",  null);
+                        }
+                        XposedHelpers.setBooleanField(param.thisObject, "mDragging", false);
+                        break;
+                }
+                return true;
+            }
+        });
+        XposedHelpers.findAndHookMethod(classSwipeHelper, "onInterceptTouchEvent", MotionEvent.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                final MotionEvent ev = (MotionEvent) param.args[0];
+                final Object swipeHelper = param.thisObject;
+                final Object mLongPressListener = XposedHelpers.getObjectField(param.thisObject, "mLongPressListener");
+                final int[] mTmpPos = (int[]) XposedHelpers.getObjectField(param.thisObject, "mTmpPos");
+                Object mHandler = XposedHelpers.getObjectField(param.thisObject, "mHandler");
+                Object mVelocityTracker = XposedHelpers.getObjectField(param.thisObject, "mVelocityTracker");
+                Object mCallback = XposedHelpers.getObjectField(param.thisObject, "mCallback");
+                Object mWatchLongPress = XposedHelpers.getObjectField(param.thisObject, "mWatchLongPress");
+                long mLongPressTimeout = XposedHelpers.getLongField(param.thisObject, "mLongPressTimeout");
+                final int action = ev.getAction();
+
+                switch (action) {
+                    case MotionEvent.ACTION_DOWN:
+                        XposedHelpers.setBooleanField(param.thisObject, "mTouchAboveFalsingThreshold",false);
+                        XposedHelpers.setBooleanField(param.thisObject, "mDragging", false);
+                        XposedHelpers.setBooleanField(param.thisObject, "mLongPressSent", false);
+
+                        XposedHelpers.callMethod(mVelocityTracker, "clear");
+                        final View mCurrView = (View) XposedHelpers.callMethod(mCallback, "getChildAtPosition", ev);
+                        XposedHelpers.setObjectField(param.thisObject, "mCurrView", XposedHelpers.callMethod(mCallback, "getChildAtPosition", ev));
+
+                        if (mCurrView != null) {
+                            XposedHelpers.setBooleanField(param.thisObject, "mCanCurrViewBeDimissed", (boolean) XposedHelpers.callMethod(mCallback, "canChildBeDismissed", mCurrView));
+                            XposedHelpers.callMethod(mVelocityTracker, "addMovement", ev);
+                            XposedHelpers.setFloatField(param.thisObject, "mInitialTouchPos", (float) XposedHelpers.callMethod(param.thisObject, "getPos", ev));
+                            XposedHelpers.setAdditionalInstanceField(param.thisObject, "mPerpendicularInitialTouchPos", getPerpendicularPos(param.thisObject, ev));
+                            XposedHelpers.setAdditionalInstanceField(param.thisObject, "mTranslation", XposedHelpers.callMethod(param.thisObject, "getTranslation", mCurrView));
+
+                            if (XposedHelpers.getObjectField(param.thisObject, "mLongPressListener") != null) {
+                                if (XposedHelpers.getObjectField(param.thisObject, "mWatchLongPress") == null) {
+                                    XposedHelpers.setObjectField(param.thisObject, "mWatchLongPress", new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            if (mCurrView != null && !XposedHelpers.getBooleanField(swipeHelper, "mLongPressSent")) {
+                                                XposedHelpers.setBooleanField(swipeHelper, "mLongPressSent", true);
+                                                mCurrView.sendAccessibilityEvent(
+                                                        AccessibilityEvent.TYPE_VIEW_LONG_CLICKED);
+                                                mCurrView.getLocationOnScreen(mTmpPos);
+                                                final int x = (int) ev.getRawX() - mTmpPos[0];
+                                                final int y = (int) ev.getRawY() - mTmpPos[1];
+                                                XposedHelpers.callMethod(mLongPressListener, "onLongPress", mCurrView, x, y);
+                                            }
+                                        }
+                                    });
+                                }
+                                XposedHelpers.callMethod(mHandler, "postDelayed", mWatchLongPress, mLongPressTimeout);
+                            }
+                        }
+                        break;
+
+                    case MotionEvent.ACTION_MOVE:
+                        Object currView = XposedHelpers.getObjectField(param.thisObject, "mCurrView");
+                        if (currView != null && !XposedHelpers.getBooleanField(param.thisObject, "mLongPressSent")) {
+                            XposedHelpers.callMethod(mVelocityTracker, "addMovement", ev);
+                            float pos = (float) XposedHelpers.callMethod(param.thisObject, "getPos", ev);
+                            float perpendicularPos = getPerpendicularPos(param.thisObject, ev);
+                            float deltaPerpendicular = perpendicularPos - (float) XposedHelpers.getAdditionalInstanceField(param.thisObject, "mPerpendicularInitialTouchPos");
+                            float delta = pos - XposedHelpers.getFloatField(param.thisObject, "mInitialTouchPos");
+                            if (Math.abs(delta) > XposedHelpers.getFloatField(param.thisObject, "mPagingTouchSlop")
+                                    && Math.abs(delta) > Math.abs(deltaPerpendicular)) {
+                                XposedHelpers.callMethod(mCallback, "onBeginDrag", currView);
+                                XposedHelpers.setBooleanField(param.thisObject, "mDragging", true);
+                                XposedHelpers.setFloatField(param.thisObject, "mInitialTouchPos", (float) XposedHelpers.callMethod(param.thisObject, "getPos" , ev));
+                                XposedHelpers.setAdditionalInstanceField(param.thisObject, "mTranslation", XposedHelpers.callMethod(param.thisObject, "getTranslation", currView));
+                                XposedHelpers.callMethod(param.thisObject, "removeLongPressCallback");
+                            }
+                        }
+                        break;
+
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        final boolean captured = (XposedHelpers.getBooleanField(param.thisObject, "mDragging")
+                                || XposedHelpers.getBooleanField(param.thisObject, "mLongPressSent"));
+                        XposedHelpers.setBooleanField(param.thisObject, "mDragging", false);
+                        XposedHelpers.setObjectField(param.thisObject, "mCurrView", null);
+                        XposedHelpers.setBooleanField(param.thisObject, "mLongPressSent", false);
+                        XposedHelpers.callMethod(param.thisObject, "removeLongPressCallback");
+                        if (captured) return true;
+                        break;
+                }
+                return XposedHelpers.getBooleanField(param.thisObject, "mDragging") || XposedHelpers.getBooleanField(param.thisObject, "mLongPressSent");
+            }
+        });*/
+    }
+
+    private float getPerpendicularPos(Object swipeHelper, MotionEvent ev) {
+        return XposedHelpers.getIntField(swipeHelper, "mSwipeDirection") == 0 /*X*/ ? ev.getY() : ev.getX();
     }
 
     private void updateFirstAndLastBackgroundViews() {
@@ -472,6 +734,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
         mBackgroundPaint.setXfermode(mSrcMode);
         mStackScrollLayout.setWillNotDraw(false);
         mStackScrollLayout.setOnApplyWindowInsetsListener(NotificationStackScrollLayoutHooks.this);
+        mStackScrollLayout.setFocusable(true);
     }
 
     private void updateBackground() {
@@ -851,26 +1114,13 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                         expandableView.getTranslationY();
                 setFakeShadowIntensity(expandableView,
                         diff / FakeShadowView.SHADOW_SIBLING_TRESHOLD,
-                        1, (int) yLocation,
-                        getOutlineTranslation(previous));
+                        ExpandableOutlineViewHelper.getInstance(previous).getOutlineAlpha(), (int) yLocation,
+                        ExpandableOutlineViewHelper.getInstance(previous).getOutlineTranslation());
             }
             previous = expandableView;
         }
 
         mTmpSortedChildren.clear();
-    }
-
-    private int getOutlineTranslation(View expandableOutlineView) {
-        try {
-            if (XposedHelpers.getBooleanField(expandableOutlineView, "mCustomOutline")) {
-                return (int) expandableOutlineView.getTranslationX();
-            } else {
-                Rect mOutlineRect = (Rect) XposedHelpers.getObjectField(expandableOutlineView, "mOutlineRect");
-                return mOutlineRect.left;
-            }
-        } catch (Throwable t) {
-            return 0;
-        }
     }
 
     private void setFakeShadowIntensity(View activatableNotificationView, float shadowIntensity, float outlineAlpha, int shadowYEnd,

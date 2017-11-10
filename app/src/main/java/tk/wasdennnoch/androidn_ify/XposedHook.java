@@ -28,6 +28,7 @@ import tk.wasdennnoch.androidn_ify.systemui.notifications.ActivatableNotificatio
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationPanelHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationPanelViewHooks;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ScrimHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.StackScrollAlgorithmHooks;
@@ -153,7 +154,7 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
                 NotificationPanelHooks.hook(lpparam.classLoader);
                 StackScrollAlgorithmHooks.hook(lpparam.classLoader);
                 NotificationHooks.hookSystemUI(lpparam.classLoader);
-                //NotificationsStuff.hook(lpparam.classLoader);
+                NotificationsStuff.hook(lpparam.classLoader);
                 ActivatableNotificationViewHooks.hook(lpparam.classLoader);
                 ScrimHooks.hook(lpparam.classLoader);
                 RecentsStackHooks.hookSystemUI(lpparam.classLoader);

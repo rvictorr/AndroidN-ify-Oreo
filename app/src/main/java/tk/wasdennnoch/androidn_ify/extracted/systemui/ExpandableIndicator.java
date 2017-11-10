@@ -34,8 +34,7 @@ public class ExpandableIndicator extends ImageView {
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        final int res = getDrawableResourceId(mExpanded);
-        setImageDrawable(mRes.getDrawable(res));
+        updateIndicatorDrawable();
         setContentDescription(getContentDescription(mExpanded));
     }
 
@@ -64,5 +63,10 @@ public class ExpandableIndicator extends ImageView {
     private String getContentDescription(boolean expanded) {
         return expanded ? ResourceUtils.getInstance(getContext()).getString(R.string.accessibility_quick_settings_collapse)
                 : ResourceUtils.getInstance(getContext()).getString(R.string.accessibility_quick_settings_expand);
+    }
+
+    private void updateIndicatorDrawable() {
+        final int res = getDrawableResourceId(mExpanded);
+        setImageResource(res);
     }
 }
