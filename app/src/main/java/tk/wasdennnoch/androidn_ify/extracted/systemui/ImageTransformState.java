@@ -24,7 +24,7 @@ import android.widget.ImageView;
 import java.util.Objects;
 
 import tk.wasdennnoch.androidn_ify.R;
-import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationContentHelper;
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 
 /**
  * A transform state of a image view.
@@ -132,21 +132,21 @@ public class ImageTransformState extends TransformState {
         if (otherIcon == thisIcon) {
             return true;
         }
-        if (NotificationContentHelper.get(fieldType, thisIcon) != NotificationContentHelper.get(fieldType, otherIcon)) {
+        if (get(fieldType, thisIcon) != get(fieldType, otherIcon)) {
             return false;
         }
-        switch ((int) NotificationContentHelper.get(fieldType, thisIcon)) {
+        switch (getInt(fieldType, thisIcon)) {
             case 1 /*TYPE_BITMAP*/:
-                return NotificationContentHelper.invoke(methodGetBitmap, thisIcon) == NotificationContentHelper.invoke(methodGetBitmap, otherIcon);
+                return invoke(methodGetBitmap, thisIcon) == invoke(methodGetBitmap, otherIcon);
             case 3 /*TYPE_DATA*/:
-                return NotificationContentHelper.invoke(methodGetDataLength, thisIcon) == NotificationContentHelper.invoke(methodGetDataLength, otherIcon)
-                        && NotificationContentHelper.invoke(methodGetDataOffset, thisIcon) == NotificationContentHelper.invoke(methodGetDataOffset, otherIcon)
-                        && NotificationContentHelper.invoke(methodGetDataBytes, thisIcon) == NotificationContentHelper.invoke(methodGetDataBytes, otherIcon);
+                return invoke(methodGetDataLength, thisIcon) == invoke(methodGetDataLength, otherIcon)
+                        && invoke(methodGetDataOffset, thisIcon) == invoke(methodGetDataOffset, otherIcon)
+                        && invoke(methodGetDataBytes, thisIcon) == invoke(methodGetDataBytes, otherIcon);
             case 2 /*TYPE_RESOURCE*/:
-                return NotificationContentHelper.invoke(methodGetResId, thisIcon) == NotificationContentHelper.invoke(methodGetResId, otherIcon)
-                        && Objects.equals(NotificationContentHelper.invoke(methodGetResPackage, thisIcon), NotificationContentHelper.invoke(methodGetResPackage, otherIcon));
+                return invoke(methodGetResId, thisIcon) == invoke(methodGetResId, otherIcon)
+                        && Objects.equals(invoke(methodGetResPackage, thisIcon), invoke(methodGetResPackage, otherIcon));
             case 4 /*TYPE_URI*/:
-                return Objects.equals(NotificationContentHelper.invoke(methodGetUriString, thisIcon), NotificationContentHelper.invoke(methodGetUriString, otherIcon));
+                return Objects.equals(invoke(methodGetUriString, thisIcon), invoke(methodGetUriString, otherIcon));
         }
         return false;
     }

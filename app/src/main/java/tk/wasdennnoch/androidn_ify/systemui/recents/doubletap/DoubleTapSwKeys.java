@@ -9,13 +9,12 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.misc.SafeRunnable;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 
 public class DoubleTapSwKeys extends DoubleTapBase {
 
     private static final String TAG = "DoubleTapSwKeys";
-
-    private static final String CLASS_PHONE_STATUS_BAR = "com.android.systemui.statusbar.phone.PhoneStatusBar";
 
     private static Context mContext;
     private static Handler mHandler;
@@ -63,17 +62,17 @@ public class DoubleTapSwKeys extends DoubleTapBase {
         }
     };
 
-    public static void hook(ClassLoader classLoader) {
+    public static void hook() {
         try {
             ConfigUtils config = ConfigUtils.getInstance();
             if (Build.VERSION.SDK_INT >= 23 && !config.recents.alternative_method) return;
             loadPrefDoubleTapSpeed();
             if (config.recents.double_tap) {
                 try {
-                    XposedHelpers.findAndHookMethod(CLASS_PHONE_STATUS_BAR, classLoader, "prepareNavigationBarView", prepareNavigationBarViewHook);
+                    XposedHelpers.findAndHookMethod(Classes.SystemUI.PhoneStatusBar, "prepareNavigationBarView", prepareNavigationBarViewHook);
                 } catch (NoSuchMethodError e) {
                     // CM takes a boolean parameter
-                    XposedHelpers.findAndHookMethod(CLASS_PHONE_STATUS_BAR, classLoader, "prepareNavigationBarView", boolean.class, prepareNavigationBarViewHook);
+                    XposedHelpers.findAndHookMethod(Classes.SystemUI.PhoneStatusBar, "prepareNavigationBarView", boolean.class, prepareNavigationBarViewHook);
                 }
             }
         } catch (Throwable t) {

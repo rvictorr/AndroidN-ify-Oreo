@@ -10,6 +10,7 @@ import android.content.res.XModuleResources;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.util.TypedValue;
+import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -24,6 +25,7 @@ import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.android.pm.PackageManager;
 import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.QSTile;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
@@ -38,12 +40,12 @@ public class SystemUIThemingHooks {
 
     //private static final Context mContext;
 
-    public static void hook(final ClassLoader classLoader) {
+    public static void hook() {
 
         if (!ConfigUtils.qs().enable_theming)
             return;
 
-        XposedHelpers.findAndHookMethod(CLASS_SYSTEMUI_APPLICATION, classLoader, "onCreate", new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(Classes.SystemUI.SystemUIApplication, "onCreate", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 final Application app = (Application) param.thisObject;
@@ -60,7 +62,7 @@ public class SystemUIThemingHooks {
             }
         });
 
-        XposedHelpers.findAndHookMethod(QSTile.CLASS_RESOURCE_ICON, classLoader, "getDrawable", Context.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(QSTile.CLASS_RESOURCE_ICON, Classes.SystemUI.getClassLoader(), "getDrawable", Context.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 Context context = (Context) param.args[0];
@@ -69,7 +71,7 @@ public class SystemUIThemingHooks {
                 icon.setTintMode(android.graphics.PorterDuff.Mode.SRC_ATOP);
             }
         });
-        XposedHelpers.findAndHookMethod(QSTile.CLASS_ANIMATION_ICON, classLoader, "getDrawable", Context.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(QSTile.CLASS_ANIMATION_ICON, Classes.SystemUI.getClassLoader(), "getDrawable", Context.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 Context context = (Context) param.args[0];

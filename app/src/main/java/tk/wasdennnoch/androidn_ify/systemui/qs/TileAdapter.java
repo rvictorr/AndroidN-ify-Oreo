@@ -513,7 +513,7 @@ public class TileAdapter extends RecyclerView.Adapter<TileAdapter.TileViewHolder
                 }
             }
         }
-    };
+    }
 
     private class CustomItemTouchHelper extends ItemTouchHelper {
 

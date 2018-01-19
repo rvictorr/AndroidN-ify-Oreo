@@ -123,7 +123,7 @@ public class ViewUtils {
 
     public static boolean isTemporarilyDetached(View view) {
         int mPrivateFlags3 = XposedHelpers.getIntField(view, "mPrivateFlags3");
-        //XposedHook.logI("viewutils", "isTemporarilyDetached called, result: " + ((mPrivateFlags3 & 0x2000000) != 0));
+        XposedHook.logD("viewutils", "isTemporarilyDetached called, result: " + ((mPrivateFlags3 & 0x2000000) != 0));
         return (mPrivateFlags3 & 0x2000000/* PFLAG3_TEMPORARY_DETACH*/) != 0;
     }
 }

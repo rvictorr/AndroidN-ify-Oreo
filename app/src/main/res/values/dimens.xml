@@ -54,14 +54,15 @@
     <dimen name="notification_app_name_margin_end">2dp</dimen>
     <dimen name="notification_actions_margin_start">12dp</dimen>
     <dimen name="notification_content_margin_start">16dp</dimen>
+    <dimen name="notification_content_start_margin">16dp</dimen>
     <dimen name="notification_content_margin_end">16dp</dimen>
     <dimen name="notification_content_margin_top">37.5dp</dimen>
     <dimen name="notification_content_margin_bottom">16dp</dimen>
     <dimen name="notification_progressbar_container_margin">15dp</dimen>
     <dimen name="notification_header_height">53dp</dimen>
     <dimen name="notification_header_margin_top" tools:ignore="UnusedResources">10dp</dimen>
-    <dimen name="notification_large_icon_width">64dp</dimen>
-    <dimen name="notification_right_icon_size">40dp</dimen>
+    <dimen name="notification_large_icon_width" tools:override="true">64dp</dimen>
+    <dimen name="notification_right_icon_size" tools:override="true">40dp</dimen>
     <dimen name="notification_right_icon_margin_top">36dp</dimen>
     <dimen name="notification_right_icon_margin_end">16dp</dimen>
     <dimen name="notification_right_icon_margin_bottom">20dp</dimen>

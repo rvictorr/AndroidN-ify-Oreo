@@ -122,7 +122,7 @@ public class TilesManager {
             case AndroidN_ifyTile.TILE_SPEC:
                 return new AndroidN_ifyTile(this, mQSTileHost, key);
             case BatteryTile.TILE_SPEC:
-                return new BatteryTile(this, mQSTileHost, key);
+                return new BatteryTile(mContext, this, mQSTileHost, key);
             case LiveDisplayTile.TILE_SPEC:
                 return new LiveDisplayTile(this, mQSTileHost, key);
             case NekoTile.TILE_SPEC:
@@ -371,8 +371,9 @@ public class TilesManager {
 
     void onSecureTilesChanged(List<String> secureTiles) {
         mSecureTiles = secureTiles;
-        String s = "";
-        for (String sp : mSecureTiles) s += sp;
+        StringBuffer buffer = new StringBuffer();
+        for (String sp : mSecureTiles) buffer.append(sp);
+        String s = buffer.toString();
         XposedHook.logD(TAG, "onSecureTilesChanged called with specs: " + s);
         for (Map.Entry entry : mTiles.entrySet()) {
             BaseTile tile = (BaseTile) entry.getValue();

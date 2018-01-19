@@ -177,7 +177,7 @@ public class PagedTileLayout extends ViewPager implements QuickSettingsHooks.QST
             }
             XposedHook.logD(TAG, "Size: " + mNumPages);
             mPageIndicator.setNumPages(mNumPages);
-            mPageIndicator.setVisibility(mNumPages > 1 ? View.VISIBLE : View.GONE);
+            mDecorGroup.setVisibility(mNumPages > 1 ? View.VISIBLE : View.GONE);
             setAdapter(mAdapter);
             mAdapter.notifyDataSetChanged();
             setCurrentItem(0, false);

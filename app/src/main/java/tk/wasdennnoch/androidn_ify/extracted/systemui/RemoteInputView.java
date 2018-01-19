@@ -245,7 +245,6 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
         }
         mController.removeRemoteInput(mEntry, mToken);
         mController.removeSpinning((String) XposedHelpers.getObjectField(mEntry, "key"), mToken);
-        //RemoteInputHelper.setWindowManagerFocus(false);
     }
 
     public void setPendingIntent(PendingIntent pendingIntent) {
@@ -272,22 +271,10 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
     public void focus() {
         setVisibility(VISIBLE);
         mController.addRemoteInput(mEntry, mToken);
-        //RemoteInputHelper.setWindowManagerFocus(true);
         mEditText.setInnerFocusable(true);
         mEditText.mShowImeOnInputConnection = true;
         mEditText.setText((Spannable) XposedHelpers.getAdditionalInstanceField(mEntry, "remoteInputText"));
         mEditText.setSelection(mEditText.getText().length());
-        /*// Unblock focus
-        ViewParent ancestor = getParent();
-        while (ancestor instanceof ViewGroup) {
-            final ViewGroup vgAncestor = (ViewGroup) ancestor;
-            if (vgAncestor.getDescendantFocusability() == FOCUS_BLOCK_DESCENDANTS) {
-                vgAncestor.setDescendantFocusability(FOCUS_AFTER_DESCENDANTS);
-                break;
-            } else {
-                ancestor = vgAncestor.getParent();
-            }
-        }*/
         mEditText.requestFocus();
         updateSendButton();
     }
@@ -545,6 +532,7 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
 
         @Override
         public boolean onKeyDown(int keyCode, KeyEvent event) {
+            XposedHook.logI(TAG, "onKeyDown!");
             if (keyCode == KeyEvent.KEYCODE_BACK) {
                 // Eat the DOWN event here to prevent any default behavior.
                 return true;
@@ -554,6 +542,7 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
 
         @Override
         public boolean onKeyUp(int keyCode, KeyEvent event) {
+            XposedHook.logI(TAG, "onKeyUp!");
             if (keyCode == KeyEvent.KEYCODE_BACK) {
                 defocusIfNeeded(true  /*animate*/ );
                 return true;
@@ -561,16 +550,19 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
             return super.onKeyUp(keyCode, event);
         }
 
-        @Override
-        public boolean onKeyPreIme(int keyCode, KeyEvent event) {
-            if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
-                defocusIfNeeded(true  /*animate*/ );
-                final InputMethodManager imm = (InputMethodManager) callStaticMethod(InputMethodManager.class, "getInstance");
-                imm.hideSoftInputFromWindow(getWindowToken(), 0);
-                return true;
-            }
-            return super.onKeyPreIme(keyCode, event);
-        }
+//        @Override
+//        public boolean onKeyPreIme(int keyCode, KeyEvent event) {
+//            if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_DOWN) {
+//                return true;
+//            }
+//            if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
+//                defocusIfNeeded(true  /*animate*/ );
+//                final InputMethodManager imm = (InputMethodManager) callStaticMethod(InputMethodManager.class, "getInstance");
+//                imm.hideSoftInputFromWindow(getWindowToken(), 0);
+//                return true;
+//            }
+//            return super.onKeyPreIme(keyCode, event);
+//        }
 
         @Override
         public boolean onCheckIsTextEditor() {

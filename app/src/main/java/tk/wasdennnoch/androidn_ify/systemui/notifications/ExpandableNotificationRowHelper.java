@@ -4,6 +4,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.annotation.Nullable;
 import android.os.Build;
 import android.util.FloatProperty;
 import android.util.Property;
@@ -25,6 +26,8 @@ import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static android.view.View.LAYER_TYPE_NONE;
 import static tk.wasdennnoch.androidn_ify.XposedHook.PACKAGE_ANDROID;
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
+import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
 
 public class ExpandableNotificationRowHelper {
 
@@ -40,6 +43,8 @@ public class ExpandableNotificationRowHelper {
     public static Field fieldHeadsUpHeight;
     public static Field fieldHeadsUpManager;
 
+    private static Object mHeadsUpManager;
+
     private int mNotificationMinHeightLegacy;
     private int mMaxHeadsUpHeightLegacy;
     private int mMaxHeadsUpHeight;
@@ -50,7 +55,6 @@ public class ExpandableNotificationRowHelper {
     public FrameLayout mPublicLayout;
     public FrameLayout mPrivateLayout;
     public Object mEntry;
-    private Object mHeadsUpManager;
 
     public Animator mTranslateAnim;
     public ArrayList<View> mTranslateableViews;
@@ -85,14 +89,14 @@ public class ExpandableNotificationRowHelper {
                     mPrivateHelper.setFocusOnVisibilityChange();
                 }
                 boolean nowExpanded;
-                if (NotificationContentHelper.getBoolean(NotificationsStuff.fieldIsPinned, mExpandableRow)) {
+                if (getBoolean(NotificationsStuff.fieldIsPinned, mExpandableRow)) {
                     nowExpanded = !mExpandedWhenPinned;
                     mExpandedWhenPinned = nowExpanded;
                 } else {
-                    nowExpanded = !(boolean) NotificationContentHelper.invoke(NotificationsStuff.methodIsExpanded, mExpandableRow);
+                    nowExpanded = !(boolean) invoke(NotificationsStuff.methodIsExpanded, mExpandableRow);
                     XposedHelpers.callMethod(mExpandableRow, "setUserExpanded", nowExpanded);
                 }
-                NotificationContentHelper.invoke(NotificationsStuff.methodNotifyHeightChanged, mExpandableRow, true);
+                invoke(NotificationsStuff.methodNotifyHeightChanged, mExpandableRow, true);
                 mOnExpandClickListener.onExpandClicked(mEntry, nowExpanded);
                 MetricsLogger.action(mExpandableRow.getContext(), 407 /*MetricsEvent.ACTION_NOTIFICATION_EXPANDER*/,
                         nowExpanded);
@@ -138,13 +142,12 @@ public class ExpandableNotificationRowHelper {
         return mExpandableRow;
     }
 
-    public static void initFields(Class classExpandableNotificationRow) {
-        Class classHeadsUpManager = XposedHelpers.findClass(NotificationPanelViewHooks.CLASS_HEADSUP_MANAGER, classExpandableNotificationRow.getClassLoader());
-        fieldIsHeadsUp = XposedHelpers.findField(classExpandableNotificationRow, "mIsHeadsUp");
-        fieldHeadsUpHeight = XposedHelpers.findField(classExpandableNotificationRow, "mHeadsUpHeight");
-        fieldTrackingHeadsUp = XposedHelpers.findField(classHeadsUpManager, "mTrackingHeadsUp");
+    public static void initFields() {
+        fieldIsHeadsUp = XposedHelpers.findField(ExpandableNotificationRow, "mIsHeadsUp");
+        fieldHeadsUpHeight = XposedHelpers.findField(ExpandableNotificationRow, "mHeadsUpHeight");
+        fieldTrackingHeadsUp = XposedHelpers.findField(HeadsUpManager, "mTrackingHeadsUp");
 
-        methodGetShowingLayout = XposedHelpers.findMethodBestMatch(classExpandableNotificationRow, "getShowingLayout");
+        methodGetShowingLayout = XposedHelpers.findMethodBestMatch(ExpandableNotificationRow, "getShowingLayout");
     }
 
     public ExpandableOutlineViewHelper getOutlineHelper() {
@@ -172,7 +175,7 @@ public class ExpandableNotificationRowHelper {
             return mChildrenContainer.getIntrinsicHeight();
         }*/
         if(mExpandedWhenPinned) {
-            return Math.max((int) NotificationContentHelper.invoke(NotificationsStuff.methodGetMaxExpandHeight, mExpandableRow), mHeadsUpHeight);
+            return Math.max((int) invoke(NotificationsStuff.methodGetMaxExpandHeight, mExpandableRow), mHeadsUpHeight);
         } else if (atLeastMinHeight) {
             return Math.max(getCollapsedHeight(), mHeadsUpHeight);
         } else {
@@ -326,6 +329,11 @@ public class ExpandableNotificationRowHelper {
         return translateAnim;
     }
 
+    public void setOnClickListener(@Nullable View.OnClickListener l) {
+        mOnClickListener = l;
+        updateClickAndFocus();
+    }
+
     public void updateClickAndFocus() {
         boolean normalChild = true/*!isChildInGroup() || isGroupExpanded()*/;
         boolean clickable = mOnClickListener != null && normalChild;
@@ -337,7 +345,7 @@ public class ExpandableNotificationRowHelper {
         }
     }
 
-    public void setHeadsUpManager(Object headsUpManager) {
+    public static void setHeadsUpManager(Object headsUpManager) {
         mHeadsUpManager = headsUpManager;
     }
 
@@ -384,7 +392,7 @@ public class ExpandableNotificationRowHelper {
     }*/
 
     public void notifyHeightChanged(boolean needsAnimation) {
-        getShowingHelper().requestSelectLayout(needsAnimation || (boolean) NotificationContentHelper.invoke(NotificationsStuff.methodIsUserLocked, mExpandableRow));
+        getShowingHelper().requestSelectLayout(needsAnimation || (boolean) invoke(NotificationsStuff.methodIsUserLocked, mExpandableRow));
     }
 
     public void makeActionsVisibile() {
@@ -392,7 +400,7 @@ public class ExpandableNotificationRowHelper {
         /*if (isChildInGroup()) {
             mGroupManager.setGroupExpanded(mStatusBarNotification, true);
         }*/
-        NotificationContentHelper.invoke(NotificationsStuff.methodNotifyHeightChanged, mExpandableRow, false /* needsAnimation */);
+        invoke(NotificationsStuff.methodNotifyHeightChanged, mExpandableRow, false /* needsAnimation */);
     }
 
     /*public void setChildrenExpanded(boolean expanded, boolean animate) {
@@ -514,13 +522,13 @@ public class ExpandableNotificationRowHelper {
     }
 
     private void updateLimitsForView(NotificationContentHelper layoutHelper) {
-        boolean customView = ((View) NotificationContentHelper.invoke(NotificationsStuff.methodGetContractedChild, layoutHelper.getContentView())).getId()
+        boolean customView = ((View) invoke(NotificationsStuff.methodGetContractedChild, layoutHelper.getContentView())).getId()
                 != res.getResources().getIdentifier("status_bar_latest_event_content", "id", PACKAGE_ANDROID);
         boolean beforeN = XposedHelpers.getIntField(mEntry, "targetSdk") < Build.VERSION_CODES.N;
         int minHeight = customView && beforeN && !mIsSummaryWithChildren ?
                 mNotificationMinHeightLegacy : mNotificationMinHeight;
-        boolean headsUpCustom = NotificationContentHelper.invoke(NotificationsStuff.methodGetHeadsUpChild, layoutHelper.getContentView()) != null &&
-                ((View) NotificationContentHelper.invoke(NotificationsStuff.methodGetHeadsUpChild, layoutHelper.getContentView())).getId()
+        boolean headsUpCustom = invoke(NotificationsStuff.methodGetHeadsUpChild, layoutHelper.getContentView()) != null &&
+                ((View) invoke(NotificationsStuff.methodGetHeadsUpChild, layoutHelper.getContentView())).getId()
                         != res.getResources().getIdentifier("status_bar_latest_event_content", "id", PACKAGE_ANDROID);
         int headsUpheight = headsUpCustom && beforeN ? mMaxHeadsUpHeightLegacy
                 : mMaxHeadsUpHeight;
@@ -528,9 +536,9 @@ public class ExpandableNotificationRowHelper {
     }
 
     public void setClipToActualHeight(boolean clipToActualHeight) {
-        mOutlineHelper.setClipToActualHeight(clipToActualHeight || (boolean) NotificationContentHelper.invoke(NotificationsStuff.methodIsUserLocked, mExpandableRow));
+        mOutlineHelper.setClipToActualHeight(clipToActualHeight || (boolean) invoke(NotificationsStuff.methodIsUserLocked, mExpandableRow));
         NotificationContentHelper.getInstance(getShowingLayout())
-                .setClipToActualHeight(clipToActualHeight || (boolean) NotificationContentHelper.invoke(NotificationsStuff.methodIsUserLocked, mExpandableRow));
+                .setClipToActualHeight(clipToActualHeight || (boolean) invoke(NotificationsStuff.methodIsUserLocked, mExpandableRow));
     }
 
     public void setRemoteInputController(RemoteInputController r) {
@@ -555,7 +563,7 @@ public class ExpandableNotificationRowHelper {
     }
 
     public View getShowingLayout() {
-        return (View) NotificationContentHelper.invoke(methodGetShowingLayout, mExpandableRow);
+        return (View) invoke(methodGetShowingLayout, mExpandableRow);
     }
 
     public NotificationContentHelper getShowingHelper() {
@@ -568,14 +576,14 @@ public class ExpandableNotificationRowHelper {
     }
 
     public int getMinHeight() {
-        boolean isHeadsUp = NotificationContentHelper.getBoolean(fieldIsHeadsUp, mExpandableRow);
-        boolean trackingHeadsUp = NotificationContentHelper.getBoolean(fieldTrackingHeadsUp, mHeadsUpManager);
+        boolean isHeadsUp = getBoolean(fieldIsHeadsUp, mExpandableRow);
+        boolean trackingHeadsUp = getBoolean(fieldTrackingHeadsUp, mHeadsUpManager);
         if (isHeadsUp && trackingHeadsUp) {
             return getPinnedHeadsUpHeight(false /* atLeastMinHeight */);
         /*} else if (mIsSummaryWithChildren && !isGroupExpanded() && !mShowingPublic) {
             return mChildrenContainer.getMinHeight();*/
         } else if (isHeadsUp) {
-            return NotificationContentHelper.getInt(fieldIsHeadsUp, mExpandableRow);
+            return getInt(fieldHeadsUpHeight, mExpandableRow);
         }
         return getShowingHelper().getMinHeight();
     }

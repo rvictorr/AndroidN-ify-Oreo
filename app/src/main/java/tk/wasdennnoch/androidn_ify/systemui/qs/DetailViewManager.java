@@ -24,7 +24,6 @@ public class DetailViewManager {
 
     private static DetailViewManager sInstance;
 
-    private final Context mContext;
     private final ViewGroup mStatusBarHeaderView;
     private final ViewGroup mQsPanel;
     private final boolean mHasEditPanel;
@@ -35,18 +34,17 @@ public class DetailViewManager {
         return sInstance;
     }
 
-    public static void init(Context context, ViewGroup statusBarHeaderView, ViewGroup qsPanel, boolean hasEditPanel) {
-        sInstance = new DetailViewManager(context, statusBarHeaderView, qsPanel, hasEditPanel);
+    public static void init(ViewGroup statusBarHeaderView, ViewGroup qsPanel, boolean hasEditPanel) {
+        sInstance = new DetailViewManager(statusBarHeaderView, qsPanel, hasEditPanel);
     }
 
-    private DetailViewManager(Context context, ViewGroup statusBarHeaderView, ViewGroup qsPanel, boolean hasEditPanel) {
-        mContext = context;
+    private DetailViewManager(ViewGroup statusBarHeaderView, ViewGroup qsPanel, boolean hasEditPanel) {
         mStatusBarHeaderView = statusBarHeaderView;
         mQsPanel = qsPanel;
         mHasEditPanel = hasEditPanel;
     }
 
-    private void showDetailAdapter(Object adapter, int x, int y) {
+    private void showDetailAdapter(Context context, Object adapter, int x, int y) {
         if (mHasEditPanel)
             y += mStatusBarHeaderView.getHeight();
         if (!ConfigUtils.M) {
@@ -55,7 +53,7 @@ public class DetailViewManager {
             try {
                 XposedHelpers.callMethod(mQsPanel, "showDetailAdapter", true, adapter, new int[]{x, y});
             } catch (Throwable t) { // OOS3
-                ClassLoader classLoader = mContext.getClassLoader();
+                ClassLoader classLoader = context.getClassLoader();
                 Class<?> classRemoteSetting = XposedHelpers.findClass(XposedHook.PACKAGE_SYSTEMUI + ".qs.RemoteSetting", classLoader);
                 Object remoteSetting = Proxy.newProxyInstance(classLoader, new Class[]{classRemoteSetting}, new InvocationHandler() {
                     @Override
@@ -72,9 +70,9 @@ public class DetailViewManager {
         }
     }
 
-    public Object createProxy(final DetailAdapter adapter) {
-        Class<?> classDetailAdapter = XposedHelpers.findClass(CLASS_DETAIL_ADAPTER, mContext.getClassLoader());
-        return Proxy.newProxyInstance(mContext.getClassLoader(), new Class<?>[]{classDetailAdapter}, new InvocationHandler() {
+    public Object createProxy(Context context, final DetailAdapter adapter) {
+        Class<?> classDetailAdapter = XposedHelpers.findClass(CLASS_DETAIL_ADAPTER, context.getClassLoader());
+        return Proxy.newProxyInstance(context.getClassLoader(), new Class<?>[]{classDetailAdapter}, new InvocationHandler() {
             @Override
             public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
                 switch (method.getName()) {

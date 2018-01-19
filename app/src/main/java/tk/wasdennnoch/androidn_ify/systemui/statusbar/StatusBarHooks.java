@@ -13,6 +13,7 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.systemui.SystemUIHooks;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 
 import static tk.wasdennnoch.androidn_ify.XposedHook.PACKAGE_SYSTEMUI;
@@ -41,7 +42,8 @@ public class StatusBarHooks {
 
     private Object mPhone;
 
-    public static StatusBarHooks create(ClassLoader classLoader) {
+    public static StatusBarHooks create() {
+        ClassLoader classLoader = Classes.SystemUI.getClassLoader();
         if (ConfigUtils.M) {
             return new StatusBarHooks(classLoader);
         } else {

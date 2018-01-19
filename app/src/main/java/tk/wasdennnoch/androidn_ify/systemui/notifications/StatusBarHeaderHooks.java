@@ -14,6 +14,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.Animatable;
 import android.graphics.drawable.Drawable;
 import android.provider.AlarmClock;
+import android.service.notification.StatusBarNotification;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -32,6 +33,7 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
@@ -64,11 +66,14 @@ import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.hooks.BluetoothTileHook;
 import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.hooks.CellularTileHook;
 import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.hooks.DndTileHook;
 import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.hooks.WifiTileHook;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 import tk.wasdennnoch.androidn_ify.utils.RomUtils;
 import tk.wasdennnoch.androidn_ify.utils.ViewUtils;
+
+import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
 
 @SuppressLint("StaticFieldLeak")
 public class StatusBarHeaderHooks {
@@ -78,20 +83,9 @@ public class StatusBarHeaderHooks {
     private static final int WRAP_CONTENT = ViewGroup.LayoutParams.WRAP_CONTENT;
     private static final String PACKAGE_SYSTEMUI = XposedHook.PACKAGE_SYSTEMUI;
 
-    private static final String CLASS_STATUS_BAR_HEADER_VIEW = PACKAGE_SYSTEMUI + ".statusbar.phone.StatusBarHeaderView";
-    private static final String CLASS_TUNER_SERVICE = PACKAGE_SYSTEMUI + ".tuner.TunerService";
-    private static final String CLASS_LAYOUT_VALUES = CLASS_STATUS_BAR_HEADER_VIEW + "$LayoutValues";
-    private static final String CLASS_QS_DETAIL_ITEMS = PACKAGE_SYSTEMUI + ".qs.QSDetailItems";
-    private static final String CLASS_QS_PANEL = PACKAGE_SYSTEMUI + ".qs.QSPanel";
     private static final String CLASS_QS_DRAG_PANEL = PACKAGE_SYSTEMUI + ".qs.QSDragPanel";
-    private static final String CLASS_QS_TILE = PACKAGE_SYSTEMUI + ".qs.QSTile";
-    private static final String CLASS_QS_STATE = CLASS_QS_TILE + "$State";
-    private static final String CLASS_QS_TILE_VIEW = PACKAGE_SYSTEMUI + ".qs.QSTileView";
-    private static final String CLASS_DETAIL_ADAPTER = CLASS_QS_TILE + "$DetailAdapter";
 
-    private static Class classTunerService;
-    private static Class classCarrierText;
-    private static Class classStatusBarClock;
+    private static Method methodShouldShowOnKeyguard;
 
     private static boolean mCollapseAfterHideDetails = false;
     private static boolean mHideTunerIcon = false;
@@ -191,7 +185,7 @@ public class StatusBarHeaderHooks {
                 mSystemIconsSuperContainer = (ViewGroup) XposedHelpers.getObjectField(param.thisObject, "mSystemIconsSuperContainer");
                 mSystemIcons = (ViewGroup) XposedHelpers.getObjectField(param.thisObject, "mSystemIcons");
                 mBattery = mSystemIcons.findViewById(mContext.getResources().getIdentifier("battery", "id", PACKAGE_SYSTEMUI));
-                mBatteryLevel = mSystemIconsSuperContainer.findViewById(mContext.getResources().getIdentifier("battery_level", "id", PACKAGE_SYSTEMUI));
+                mBatteryLevel = (TextView) XposedHelpers.getObjectField(param.thisObject, "mBatteryLevel");
                 mDateGroup = (View) XposedHelpers.getObjectField(param.thisObject, "mDateGroup");
                 mClock = (View) XposedHelpers.getObjectField(param.thisObject, "mClock");
                 mMultiUserSwitch = (FrameLayout) XposedHelpers.getObjectField(param.thisObject, "mMultiUserSwitch");
@@ -220,7 +214,7 @@ public class StatusBarHeaderHooks {
             mHideTunerIcon = config.qs.hide_tuner_icon;
             mHideEditTiles = config.qs.hide_edit_tiles;
             mHideCarrierLabel = config.qs.hide_carrier_label;
-            mCarrierText = (TextView) XposedHelpers.newInstance(classCarrierText, mContext);
+            mCarrierText = (TextView) XposedHelpers.newInstance(Classes.Keyguard.CarrierText, mContext);
             try {
                 mWeatherContainer = (LinearLayout) XposedHelpers.getObjectField(param.thisObject, "mWeatherContainer");
                 mWeatherLine1 = (TextView) XposedHelpers.getObjectField(param.thisObject, "mWeatherLine1");
@@ -286,7 +280,8 @@ public class StatusBarHeaderHooks {
 
                 mSettingsButton.setImageDrawable(res.getDrawable(R.drawable.ic_settings_16dp));
                 mSettingsButton.setColorFilter(ColorUtils.getColorAttr(mContext, android.R.attr.colorForeground));
-                mSettingsTunerIcon.setColorFilter(ColorUtils.getColorAttr(mContext, android.R.attr.textColorTertiary));
+                if (mSettingsTunerIcon != null)
+                    mSettingsTunerIcon.setColorFilter(ColorUtils.getColorAttr(mContext, android.R.attr.textColorTertiary));
 
                 FrameLayout.LayoutParams rightContainerLp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                 rightContainerLp.setMarginEnd(res.getDimensionPixelSize(R.dimen.date_time_alarm_group_margin_end));
@@ -303,7 +298,7 @@ public class StatusBarHeaderHooks {
                 LinearLayout.LayoutParams settingsContainerLp = new LinearLayout.LayoutParams(rightIconWidth, rightIconHeight);
                 mSettingsContainer.setLayoutParams(settingsContainerLp);
 
-                TypedArray ta = mContext.obtainStyledAttributes(new int[] {android.R.attr.selectableItemBackground, android.R.attr.selectableItemBackgroundBorderless});
+                TypedArray ta = mContext.obtainStyledAttributes(new int[]{android.R.attr.selectableItemBackground, android.R.attr.selectableItemBackgroundBorderless});
                 int selectableItemBackground = ta.getResourceId(0, 0);
                 int selectableItemBackgroundBorderless = ta.getResourceId(1, 0);
                 ta.recycle();
@@ -348,7 +343,7 @@ public class StatusBarHeaderHooks {
                 mAlarmStatus.setVisibility(View.GONE);
 
                 LinearLayout.LayoutParams clockLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
-                mClock = (TextView) XposedHelpers.newInstance(classStatusBarClock, mContext);
+                mClock = (TextView) XposedHelpers.newInstance(StatusBarClock, mContext);
                 ((TextView) mClock).setSingleLine();
                 ((TextView) mClock).setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
                 ((TextView) mClock).setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimensionPixelSize(R.dimen.status_bar_clock_size));
@@ -508,7 +503,7 @@ public class StatusBarHeaderHooks {
                 return;
             }
 
-            DetailViewManager.init(mContext, mStatusBarHeaderView, mQsPanel, mHasEditPanel);
+            DetailViewManager.init(mStatusBarHeaderView, mQsPanel, mHasEditPanel);
             postSetupAnimators();
 
         }
@@ -540,6 +535,7 @@ public class StatusBarHeaderHooks {
         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
             mAlarmStatusX = mAlarmStatus.getX();
         }
+
         @Override
         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
             mAlarmStatus.setX(mAlarmStatusX);
@@ -566,14 +562,19 @@ public class StatusBarHeaderHooks {
             if (mSystemIconsSuperContainer != null) {
                 mBatteryLevel.setVisibility(View.VISIBLE);
                 boolean mExpanded = XposedHelpers.getBooleanField(param.thisObject, "mExpanded");
-                boolean tunerEnabled = (boolean) XposedHelpers.callStaticMethod(classTunerService, "isTunerEnabled", mContext);
+                boolean tunerEnabled = false;
+                try {
+                    tunerEnabled = (boolean) XposedHelpers.callStaticMethod(TunerService, "isTunerEnabled", mContext);
+                } catch (NoSuchMethodError ignore) {
+                } //LOS
+
                 mSystemIconsSuperContainer.setVisibility(View.GONE);
                 mDateExpanded.setVisibility(View.GONE);
                 mDateGroup.setVisibility(View.GONE);
 
                 if (mSettingsTunerIcon != null)
                     mSettingsTunerIcon.setVisibility(tunerEnabled && !mHideTunerIcon
-                        ? View.VISIBLE : View.INVISIBLE);
+                            ? View.VISIBLE : View.INVISIBLE);
                 if (mHideEditTiles && mCustomQSEditButton != null) {
                     mCustomQSEditButton.setVisibility(View.GONE);
                     if (mCustomQSEditButton2 != null) mCustomQSEditButton2.setVisibility(View.GONE);
@@ -760,13 +761,11 @@ public class StatusBarHeaderHooks {
     }
 
     private static void showDetailAdapter(boolean show, Object adapter, int[] locationInWindow) throws Exception {
-        Class<?> classRecord = XposedHelpers.findClass(CLASS_QS_PANEL + "$Record", mQsPanel.getContext().getClassLoader());
-
         int xInWindow = locationInWindow[0];
         int yInWindow = locationInWindow[1];
         ((View) mQsPanel.getParent()).getLocationInWindow(locationInWindow);
 
-        Constructor c = classRecord.getDeclaredConstructor();
+        Constructor c = QSRecord.getDeclaredConstructor();
         c.setAccessible(true);
         Object r = c.newInstance();
 
@@ -814,8 +813,7 @@ public class StatusBarHeaderHooks {
                 mQsDetailHeaderTitle.setText((int) XposedHelpers.callMethod(detail, "getTitle"));
             } catch (Throwable t) {
                 Context context = mQsDetailHeaderTitle.getContext();
-                Class<?> classQSTile = XposedHelpers.findClass(CLASS_QS_TILE, context.getClassLoader());
-                mQsDetailHeaderTitle.setText((String) XposedHelpers.callStaticMethod(classQSTile, "getDetailAdapterTitle", context, detail));
+                mQsDetailHeaderTitle.setText((String) XposedHelpers.callStaticMethod(QSTile, "getDetailAdapterTitle", context, detail));
             }
             final Boolean toggleState = (Boolean) XposedHelpers.callMethod(detail, "getToggleState");
             if (toggleState == null) {
@@ -965,51 +963,37 @@ public class StatusBarHeaderHooks {
         });
     }
 
-    public static void hookKeyguard(ClassLoader classLoader) {
-        classCarrierText = XposedHelpers.findClass("com.android.keyguard.CarrierText", classLoader);
-    }
-
-
-    public static void hook(final ClassLoader classLoader) {
+    public static void hook() {
         try {
             if (ConfigUtils.qs().header) {
 
-                qsHooks = QuickSettingsHooks.create(classLoader);
+                qsHooks = QuickSettingsHooks.create();
 
-                classTunerService = XposedHelpers.findClass(CLASS_TUNER_SERVICE, classLoader);
-                classStatusBarClock = XposedHelpers.findClass("com.android.systemui.statusbar.policy.Clock", classLoader);
-                Class<?> classStatusBarHeaderView = XposedHelpers.findClass(CLASS_STATUS_BAR_HEADER_VIEW, classLoader);
-                Class<?> classLayoutValues = XposedHelpers.findClass(CLASS_LAYOUT_VALUES, classLoader);
-                Class<?> classQSPanel = XposedHelpers.findClass(CLASS_QS_PANEL, classLoader);
-                Class<?> classQSTile = XposedHelpers.findClass(CLASS_QS_TILE, classLoader);
-                Class<?> classQSTileView = XposedHelpers.findClass(CLASS_QS_TILE_VIEW, classLoader);
-                Class<?> classPhoneStatusBar = XposedHelpers.findClass("com.android.systemui.statusbar.phone.PhoneStatusBar", classLoader);
+                methodShouldShowOnKeyguard = XposedHelpers.findMethodBestMatch(BaseStatusBar, "shouldShowOnKeyguard", StatusBarNotification.class);
 
-                Class<?> classQSDetailItems = XposedHelpers.findClass(CLASS_QS_DETAIL_ITEMS, classLoader);
-
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "onLayout", boolean.class, int.class, int.class, int.class, int.class, onLayoutHook);
-                XposedHelpers.findAndHookMethod(classQSDetailItems, "setMinHeightInItems", int.class, XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classQSDetailItems, "onFinishInflate", new XC_MethodHook() {
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "onLayout", boolean.class, int.class, int.class, int.class, int.class, onLayoutHook);
+                XposedHelpers.findAndHookMethod(QSDetailItems, "setMinHeightInItems", int.class, XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(QSDetailItems, "onFinishInflate", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         QSDetailItemsHelper.getInstance(param.thisObject).onFinishInflate();
                     }
                 });
-                XposedBridge.hookAllMethods(classQSDetailItems, "handleSetItems", new XC_MethodReplacement() {
+                XposedBridge.hookAllMethods(QSDetailItems, "handleSetItems", new XC_MethodReplacement() {
                     @Override
                     protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                         QSDetailItemsHelper.getInstance(param.thisObject).handleSetItems((Object[]) param.args[0]);
                         return null;
                     }
                 });
-                XposedHelpers.findAndHookMethod(classQSDetailItems, "handleSetItemsVisible", boolean.class, new XC_MethodReplacement() {
+                XposedHelpers.findAndHookMethod(QSDetailItems, "handleSetItemsVisible", boolean.class, new XC_MethodReplacement() {
                     @Override
                     protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                         QSDetailItemsHelper.getInstance(param.thisObject).handleSetItemsVisible((boolean) param.args[0]);
                         return null;
                     }
                 });
-                XposedBridge.hookAllMethods(classQSDetailItems, "handleSetCallback", new XC_MethodHook() {
+                XposedBridge.hookAllMethods(QSDetailItems, "handleSetCallback", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         QSDetailItemsHelper.getInstance(param.thisObject).handleSetCallback(param.args[0]);
@@ -1017,37 +1001,37 @@ public class StatusBarHeaderHooks {
                 });
 
                 try {
-                    XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "setEditing", boolean.class, setEditingHook);
+                    XposedHelpers.findAndHookMethod(StatusBarHeaderView, "setEditing", boolean.class, setEditingHook);
                     mHasEditPanel = true;
                 } catch (NoSuchMethodError ignore) {
                     mHasEditPanel = false;
                 }
 
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "onFinishInflate", onFinishInflateHook);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "setExpansion", float.class, setExpansion);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateVisibilities", updateVisibilities);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "onFinishInflate", onFinishInflateHook);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "setExpansion", float.class, setExpansion);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateVisibilities", updateVisibilities);
 
                 try {
                     // Every time you make a typo, the errorists win.
-                    XposedHelpers.findAndHookMethod(classLayoutValues, "interpoloate", classLayoutValues, classLayoutValues, float.class, XC_MethodReplacement.DO_NOTHING);
+                    XposedHelpers.findAndHookMethod(LayoutValues, "interpoloate", LayoutValues, LayoutValues, float.class, XC_MethodReplacement.DO_NOTHING);
                 } catch (Throwable ignore) { // yeah thx Bliss
-                    XposedHelpers.findAndHookMethod(classLayoutValues, "interpolate", classLayoutValues, classLayoutValues, float.class, XC_MethodReplacement.DO_NOTHING);
+                    XposedHelpers.findAndHookMethod(LayoutValues, "interpolate", LayoutValues, LayoutValues, float.class, XC_MethodReplacement.DO_NOTHING);
                 }
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "requestCaptureValues", XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "applyLayoutValues", classLayoutValues, XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "captureLayoutValues", classLayoutValues, XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateLayoutValues", float.class, XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateClockCollapsedMargin", XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateHeights", XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateSignalClusterDetachment", XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateSystemIconsLayoutParams", XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateAvatarScale", XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateClockScale", XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateAmPmTranslation", XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateClockLp", XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateMultiUserSwitch", XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "setClipping", float.class, XC_MethodReplacement.DO_NOTHING);
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "onNextAlarmChanged", AlarmManager.AlarmClockInfo.class, new XC_MethodHook() {
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "requestCaptureValues", XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "applyLayoutValues", LayoutValues, XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "captureLayoutValues", LayoutValues, XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateLayoutValues", float.class, XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateClockCollapsedMargin", XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateHeights", XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateSignalClusterDetachment", XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateSystemIconsLayoutParams", XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateAvatarScale", XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateClockScale", XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateAmPmTranslation", XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateClockLp", XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateMultiUserSwitch", XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "setClipping", float.class, XC_MethodReplacement.DO_NOTHING);
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "onNextAlarmChanged", AlarmManager.AlarmClockInfo.class, new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         mQsFooter.onNextAlarmChanged((AlarmManager.AlarmClockInfo) param.args[0]);
@@ -1056,19 +1040,19 @@ public class StatusBarHeaderHooks {
 
                 if (!ConfigUtils.qs().keep_header_background) {
                     try { // AICP test
-                        XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "doUpdateStatusBarCustomHeader", Drawable.class, boolean.class, XC_MethodReplacement.DO_NOTHING);
+                        XposedHelpers.findAndHookMethod(StatusBarHeaderView, "doUpdateStatusBarCustomHeader", Drawable.class, boolean.class, XC_MethodReplacement.DO_NOTHING);
                     } catch (Throwable ignore) {
                     }
                 }
 
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "updateClickTargets", new XC_MethodHook() {
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateClickTargets", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         mAlarmStatus.setClickable(false);
                     }
                 });
 
-                XposedHelpers.findAndHookMethod(classStatusBarHeaderView, "onClick", View.class, new XC_MethodHook() {
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "onClick", View.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                         if (param.args[0] == mAlarmStatus) {
@@ -1089,13 +1073,14 @@ public class StatusBarHeaderHooks {
                                 try {
                                     XposedHelpers.callMethod(activityStarter, "postStartActivityDismissingKeyguard", new Intent(
                                             AlarmClock.ACTION_SHOW_ALARMS), 0);
-                                } catch (Throwable ignore) {}
+                                } catch (Throwable ignore) {
+                                }
                             }
                         }
                     }
                 });
                 if (ConfigUtils.qs().fix_header_space) {
-                    XposedHelpers.findAndHookMethod(classQSPanel, "showDetailAdapter", boolean.class, CLASS_DETAIL_ADAPTER, int[].class, new XC_MethodReplacement() {
+                    XposedHelpers.findAndHookMethod(QSPanel, "showDetailAdapter", boolean.class, DetailAdapter, int[].class, new XC_MethodReplacement() {
                         @Override
                         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                             showDetailAdapter((boolean) param.args[0], param.args[1], (int[]) param.args[2]);
@@ -1106,28 +1091,28 @@ public class StatusBarHeaderHooks {
 
                 mUseDragPanel = false;
                 try {
-                    Class<?> classQSDragPanel = XposedHelpers.findClass(CLASS_QS_DRAG_PANEL, classLoader);
+                    Class<?> classQSDragPanel = XposedHelpers.findClass(CLASS_QS_DRAG_PANEL, Classes.SystemUI.getClassLoader());
                     XposedHelpers.findAndHookMethod(classQSDragPanel, "setTiles", Collection.class, setTilesHook);
                     XposedHelpers.findAndHookMethod(classQSDragPanel, "setupViews", setupViewsHook);
                     XposedBridge.hookAllMethods(classQSDragPanel, "handleShowDetailImpl", handleShowDetailImplHook);
                     mUseDragPanel = true;
                 } catch (Throwable ignore) {
-                    XposedHelpers.findAndHookConstructor(classQSPanel, Context.class, AttributeSet.class, new XC_MethodHook() {
+                    XposedHelpers.findAndHookConstructor(QSPanel, Context.class, AttributeSet.class, new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                             wrapQsDetail((LinearLayout) XposedHelpers.getObjectField(param.thisObject, "mDetail"));
                         }
                     });
-                    XposedBridge.hookAllMethods(classQSPanel, "handleShowDetailImpl", handleShowDetailImplHook);
+                    XposedBridge.hookAllMethods(QSPanel, "handleShowDetailImpl", handleShowDetailImplHook);
                     try {
-                        XposedHelpers.findAndHookMethod(classQSPanel, "setTiles", Collection.class, setTilesHook);
+                        XposedHelpers.findAndHookMethod(QSPanel, "setTiles", Collection.class, setTilesHook);
                     } catch (Throwable t) { // PA
-                        XposedHelpers.findAndHookMethod(classQSPanel, "setTiles", setTilesHook);
+                        XposedHelpers.findAndHookMethod(QSPanel, "setTiles", setTilesHook);
                     }
                 }
 
                 try {
-                    XposedHelpers.findAndHookMethod(classPhoneStatusBar, "recreateStatusBar", new XC_MethodHook() {
+                    XposedHelpers.findAndHookMethod(PhoneStatusBar, "recreateStatusBar", new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                             mRecreatingStatusBar = true;
@@ -1141,6 +1126,36 @@ public class StatusBarHeaderHooks {
                 } catch (Throwable ignore) {
                 }
 
+                XposedHelpers.findAndHookMethod(BaseStatusBar, "updateRowStates", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        Object mNotificationData = XposedHelpers.getObjectField(param.thisObject, "mNotificationData");
+                        Object mGroupManager = XposedHelpers.getObjectField(param.thisObject, "mGroupManager");
+                        ArrayList activeNotifications = (ArrayList) XposedHelpers.callMethod(mNotificationData, "getActiveNotifications");
+                        int maxKeyguardNotifications = (int) XposedHelpers.callMethod(param.thisObject, "getMaxKeyguardNotifications");
+                        boolean isLockscreenPublicMode = (boolean) XposedHelpers.callMethod(param.thisObject, "isLockscreenPublicMode");
+                        boolean mShowLockscreenNotifications = XposedHelpers.getBooleanField(param.thisObject, "mShowLockscreenNotifications");
+                        boolean onKeyguard = XposedHelpers.getIntField(param.thisObject, "mState") == NotificationPanelHooks.STATE_KEYGUARD;
+                        final int N = activeNotifications.size();
+                        int visibleNotifications = 0;
+                        for (int i = 0; i < N; i++) {
+                            Object notification = XposedHelpers.getObjectField(activeNotifications.get(i), "notification");
+
+                            boolean isInvisibleChild = !(boolean) XposedHelpers.callMethod(mGroupManager, "isVisible", notification);
+                            boolean showOnKeyguard = (boolean) methodShouldShowOnKeyguard.invoke(param.thisObject, notification);
+                            if (!((isLockscreenPublicMode && !mShowLockscreenNotifications) ||
+                                    (onKeyguard && (visibleNotifications >= maxKeyguardNotifications
+                                            || !showOnKeyguard || isInvisibleChild)))) {
+                                if (!isInvisibleChild)
+                                    visibleNotifications++;
+                            }
+
+                        }
+                        NotificationPanelHooks.setNoVisibleNotifications(visibleNotifications == 0);
+                    }
+                });
+
+                ClassLoader classLoader = Classes.SystemUI.getClassLoader(); //TODO: remove classLoader
                 QSTileHostHooks.hook(classLoader);
 
 
@@ -1149,7 +1164,7 @@ public class StatusBarHeaderHooks {
                 final CellularTileHook c = new CellularTileHook(classLoader);
                 final DndTileHook d = new DndTileHook(classLoader);
                 if (ConfigUtils.L1) {
-                    XposedHelpers.findAndHookMethod(classQSTile, "handleLongClick", new XC_MethodHook() {
+                    XposedHelpers.findAndHookMethod(QSTile, "handleLongClick", new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                             Object that = param.thisObject;
@@ -1159,15 +1174,15 @@ public class StatusBarHeaderHooks {
                     });
                 }
 
-                XposedHelpers.findAndHookMethod(classQSTile, "handleStateChanged", handleStateChangedHook);
+                XposedHelpers.findAndHookMethod(QSTile, "handleStateChanged", handleStateChangedHook);
 
                 try { // OOS3
-                    XposedHelpers.findAndHookMethod(classQSTileView, "setOverlay", CLASS_QS_TILE + "$Mode", XC_MethodReplacement.DO_NOTHING);
+                    XposedHelpers.findAndHookMethod(QSTileView, "setOverlay", QSTile.getName() + "$Mode", XC_MethodReplacement.DO_NOTHING);
                 } catch (Throwable ignore) {
                 }
 
                 if (ConfigUtils.L1) {
-                    XposedHelpers.findAndHookMethod(classQSTileView, "setIcon", ImageView.class, CLASS_QS_STATE, new XC_MethodHook() {
+                    XposedHelpers.findAndHookMethod(QSTileView, "setIcon", ImageView.class, QSState, new XC_MethodHook() {
                         boolean forceAnim = false;
 
                         @Override
@@ -1201,7 +1216,7 @@ public class StatusBarHeaderHooks {
                 }
 
                 if (ConfigUtils.qs().enable_qs_editor) {
-                    XposedHelpers.findAndHookMethod(PACKAGE_SYSTEMUI + ".settings.BrightnessController", classLoader, "updateIcon", boolean.class, new XC_MethodHook() {
+                    XposedHelpers.findAndHookMethod(PACKAGE_SYSTEMUI + ".settings.BrightnessController", Classes.SystemUI.getClassLoader(), "updateIcon", boolean.class, new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                             View icon = (View) XposedHelpers.getObjectField(param.thisObject, "mIcon");
@@ -1283,7 +1298,7 @@ public class StatusBarHeaderHooks {
 
                             int padding = context.getResources().getDimensionPixelSize(context.getResources().getIdentifier("qs_panel_padding", "dimen", PACKAGE_SYSTEMUI));
 
-                            TextView title = (TextView) layout.findViewById(android.R.id.title);
+                            TextView title = layout.findViewById(android.R.id.title);
                             title.setPadding(padding, 0, 0, 0);
 
                             mQsRightButton = (ImageView) inflater.inflate(res.getLayout(R.layout.qs_right_button), null);
@@ -1307,7 +1322,7 @@ public class StatusBarHeaderHooks {
 
                         mQsContainer = layout;
 
-                        layout.setElevation(0);
+                        layout.setElevation(ViewUtils.dpToPx(context.getResources(), 2));
                         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) layout.getLayoutParams();
                         params.setMargins(0, 0, 0, 0);
                         params.setMarginStart(0);

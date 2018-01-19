@@ -27,7 +27,6 @@ public class RemoteInputHelper {
             inputs = (RemoteInput[]) tag;
         }*/
 
-        XposedHook.logD(TAG, "inputs: " + inputs);
         if (inputs == null) {
             return false;
         }
@@ -112,7 +111,7 @@ public class RemoteInputHelper {
 
     public static void setWindowManagerFocus(boolean focus) {
         NotificationHooks.remoteInputActive = focus;
-        if (NotificationHooks.statusBarWindowManager != null)
-            callMethod(NotificationHooks.statusBarWindowManager, "apply", getObjectField(NotificationHooks.statusBarWindowManager, "mCurrentState"));
+        if (NotificationHooks.mStatusBarWindowManager != null)
+            callMethod(NotificationHooks.mStatusBarWindowManager, "apply", getObjectField(NotificationHooks.mStatusBarWindowManager, "mCurrentState"));
     }
 }

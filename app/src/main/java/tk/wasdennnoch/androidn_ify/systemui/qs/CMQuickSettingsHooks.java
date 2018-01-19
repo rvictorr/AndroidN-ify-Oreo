@@ -6,6 +6,7 @@ import android.widget.ImageView;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 
 class CMQuickSettingsHooks extends QuickSettingsHooks {
     CMQuickSettingsHooks(ClassLoader classLoader) {
@@ -35,6 +36,6 @@ class CMQuickSettingsHooks extends QuickSettingsHooks {
 
     @Override
     protected String getSecondHookClass() {
-        return  CLASS_QS_PANEL;
+        return Classes.SystemUI.QSPanel.getName();
     }
 }

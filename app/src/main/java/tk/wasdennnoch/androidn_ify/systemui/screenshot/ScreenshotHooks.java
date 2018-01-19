@@ -21,6 +21,7 @@ import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.android.AndroidHooks;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.ScreenshotSelectorView;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 
 import static android.view.WindowManager.LayoutParams.TYPE_SYSTEM_ERROR;
 
@@ -33,7 +34,8 @@ public class ScreenshotHooks {
     private static int x, y, width, height;
     private static Service mService;
 
-    public static void hook(final ClassLoader classLoader) {
+    public static void hook() {
+        final ClassLoader classLoader = Classes.SystemUI.getClassLoader();
         try {
             XposedHelpers.findAndHookConstructor(XposedHook.PACKAGE_SYSTEMUI + ".screenshot.GlobalScreenshot", classLoader, Context.class, new XC_MethodHook() {
                 @Override

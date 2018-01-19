@@ -410,22 +410,23 @@ public class QSTileHostHooks {
         } else {
             SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(context).edit();
             editor.putString("qs_tiles", new JSONArray(specs).toString());
-            editor.commit();
+            editor.apply();
         }
     }
 
     // TODO secure tiles on LP
     @SuppressLint("CommitPrefEdits")
     static void saveSecureTileSpecs(Context context, List<String> specs) {
-        String s = "";
-        for (String sp : specs) s += sp;
+        StringBuffer buffer = new StringBuffer();
+        for (String sp : specs) buffer.append(sp);
+        String s = buffer.toString();
         XposedHook.logD(TAG, "saveSecureTileSpecs called with specs: " + s);
         if (ConfigUtils.M) {
             SettingsUtils.putStringForCurrentUser(context.getContentResolver(), TILES_SECURE, TextUtils.join(",", specs));
         } else {
             SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(context).edit();
             editor.putString("qs_tiles_secure", new JSONArray(specs).toString());
-            editor.commit();
+            editor.apply();
         }
     }
 

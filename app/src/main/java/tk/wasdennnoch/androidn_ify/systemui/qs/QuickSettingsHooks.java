@@ -22,6 +22,7 @@ import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.PagedTileLayout;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSDetail;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
@@ -33,7 +34,6 @@ public class QuickSettingsHooks {
 
     private static final String TAG = "QuickSettingsHooks";
 
-    static final String CLASS_QS_PANEL = "com.android.systemui.qs.QSPanel";
     static final String CLASS_QS_DRAG_PANEL = "com.android.systemui.qs.QSDragPanel";
 
     final Class mHookClass;
@@ -60,7 +60,8 @@ public class QuickSettingsHooks {
 
     private Method mSetDetailRecord;
 
-    public static QuickSettingsHooks create(ClassLoader classLoader) {
+    public static QuickSettingsHooks create() {
+        ClassLoader classLoader = Classes.SystemUI.getClassLoader();
         try {
             XposedHelpers.findClass(CLASS_QS_DRAG_PANEL, classLoader);
             return new CMQuickSettingsHooks(classLoader);
@@ -72,7 +73,7 @@ public class QuickSettingsHooks {
     QuickSettingsHooks(ClassLoader classLoader) {
         mHookClass = XposedHelpers.findClass(getHookClass(), classLoader);
         mSecondHookClass = XposedHelpers.findClass(getSecondHookClass(), classLoader);
-        QuickSettingsTileHooks.hook(classLoader);
+        QuickSettingsTileHooks.hook();
         hookConstructor();
         hookOnMeasure();
         hookOnLayout();
@@ -148,9 +149,9 @@ public class QuickSettingsHooks {
             }
         };
         try {
-            XposedHelpers.findAndHookMethod(mHookClass, "addTile", QuickSettingsTileHooks.getQsTileClass(), addTile);
+            XposedHelpers.findAndHookMethod(mHookClass, "addTile", Classes.SystemUI.QSTile, addTile);
         } catch (NoSuchMethodError e) { //LOS
-            XposedHelpers.findAndHookMethod(mSecondHookClass, "addTile", QuickSettingsTileHooks.getQsTileClass(), addTile);
+            XposedHelpers.findAndHookMethod(mSecondHookClass, "addTile", Classes.SystemUI.QSTile, addTile);
         }
     }
 
@@ -303,7 +304,7 @@ public class QuickSettingsHooks {
         final int brightnessHeight = ResourceUtils.getInstance(mContext).getDimensionPixelSize(R.dimen.brightness_view_height);
         final int brightnessBottom = brightnessHeight + ((mBrightnessView.getMeasuredHeight() - brightnessHeight) / 2);
         mBrightnessView.measure(exactly(width), View.MeasureSpec.UNSPECIFIED);
-        mTileLayout.measure(exactly(width), View.MeasureSpec.UNSPECIFIED);
+        mTileLayout.measure(exactly(width), 200);
 
         View footerView = (View) XposedHelpers.callMethod(mFooter, "getView");
         footerView.measure(exactly(width), View.MeasureSpec.UNSPECIFIED);
@@ -380,7 +381,7 @@ public class QuickSettingsHooks {
     }
 
     protected String getHookClass() {
-        return CLASS_QS_PANEL;
+        return Classes.SystemUI.QSPanel.getName();
     }
 
     protected String getSecondHookClass() {

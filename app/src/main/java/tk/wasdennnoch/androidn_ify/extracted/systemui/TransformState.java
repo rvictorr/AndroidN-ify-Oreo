@@ -35,6 +35,7 @@ import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ExpandableNotificationRowHelper;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 
 /**
  * A transform state of a view.
@@ -279,6 +280,7 @@ public class TransformState {
     private void transformViewTo(TransformState otherState, int transformationFlags,
             ViewTransformationHelper.CustomTransformation customTransformation,
             float transformationAmount) {
+        //TODO THIS!!!!
         // lets animate the positions correctly
 
         final View transformedView = mTransformedView;
@@ -392,7 +394,7 @@ public class TransformState {
                 clipToPadding = view.getClipToPadding();
                 view.setTag(CLIP_TO_PADDING, clipToPadding);
             }
-            View row = NotificationHooks.getClassExpandableNotificationRow().isInstance(view)
+            View row = Classes.SystemUI.ExpandableNotificationRow.isInstance(view)
                     ? view
                     : null;
             if (!deactivated) {

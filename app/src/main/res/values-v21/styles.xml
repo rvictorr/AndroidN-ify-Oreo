@@ -160,13 +160,13 @@
     </style>
 
     <style name="hybrid_notification">
-        <item name="android:paddingStart">@*android:dimen/notification_content_margin_start</item>
+        <item name="android:paddingStart">@dimen/notification_content_margin_start</item>
         <item name="android:paddingEnd">12dp</item>
     </style>
 
     <style name="hybrid_notification_title_ambient">
-        <item name="android:paddingStart">@*android:dimen/notification_content_margin_start</item>
-        <item name="android:paddingEnd">@*android:dimen/notification_content_margin_end</item>
+        <item name="android:paddingStart">@dimen/notification_content_margin_start</item>
+        <item name="android:paddingEnd">@dimen/notification_content_margin_end</item>
         <item name="android:textSize">20sp</item>
         <item name="android:textColor">#ffffffff</item>
     </style>
@@ -176,8 +176,8 @@
     </style>
 
     <style name="hybrid_notification_text_ambient">
-        <item name="android:paddingStart">@*android:dimen/notification_content_margin_start</item>
-        <item name="android:paddingEnd">@*android:dimen/notification_content_margin_end</item>
+        <item name="android:paddingStart">@dimen/notification_content_margin_start</item>
+        <item name="android:paddingEnd">@dimen/notification_content_margin_end</item>
         <item name="android:textSize">16sp</item>
         <item name="android:textColor">#eeffffff</item>
         <item name="android:layout_marginTop">4dp</item>

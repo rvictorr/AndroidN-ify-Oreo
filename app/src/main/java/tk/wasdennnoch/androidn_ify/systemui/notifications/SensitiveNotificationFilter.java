@@ -23,6 +23,7 @@ import de.robv.android.xposed.callbacks.XC_LayoutInflated;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.views.SensitiveFilterButton;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 import tk.wasdennnoch.androidn_ify.utils.SettingsUtils;
@@ -34,10 +35,7 @@ public class SensitiveNotificationFilter {
 
     private static final String TAG = "SensitiveNotificationFilter";
 
-    private static final String CLASS_BASE_STATUS_BAR = "com.android.systemui.statusbar.BaseStatusBar";
-    private static final String CLASS_EXPANDABLE_NOTIFICATION_ROW = "com.android.systemui.statusbar.ExpandableNotificationRow";
-    private static final String CLASS_TUNER_SERVICE = "com.android.systemui.tuner.TunerService";
-    private static final String CLASS_TUNABLE = CLASS_TUNER_SERVICE + "$Tunable";
+    private static final String CLASS_TUNABLE = Classes.SystemUI.TunerService.getName() + "$Tunable";
 
     private static final String SENSITIVE_FILTER = "sysui_sensitive_notifications_filter";
 
@@ -50,27 +48,25 @@ public class SensitiveNotificationFilter {
     private LayoutInflater mLayoutInflater;
     private int mButtonWidth = 0;
 
-    public void hook(ClassLoader classLoader) {
+    public void hook() {
         try {
+            ClassLoader classLoader = Classes.SystemUI.getClassLoader();
             if (ConfigUtils.notifications().filter_sensitive_notifications) {
-                Class<?> classBaseStatusBar = XposedHelpers.findClass(CLASS_BASE_STATUS_BAR, classLoader);
-                Class<?> classExpandableNotificationRow = XposedHelpers.findClass(CLASS_EXPANDABLE_NOTIFICATION_ROW, classLoader);
-                final Class<?> classTunerService = XposedHelpers.findClass(CLASS_TUNER_SERVICE, classLoader);
                 Class<?> classTunable = XposedHelpers.findClass(CLASS_TUNABLE, classLoader);
 
                 createTunable(classTunable, classLoader);
 
-                XposedHelpers.findAndHookMethod(classBaseStatusBar, "start", new XC_MethodHook() {
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.BaseStatusBar, "start", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         mContext = (Context) XposedHelpers.getObjectField(param.thisObject, "mContext");
 
-                        Object tunerService = XposedHelpers.callStaticMethod(classTunerService, "get", XposedHelpers.getObjectField(param.thisObject, "mContext"));
+                        Object tunerService = XposedHelpers.callStaticMethod(Classes.SystemUI.TunerService, "get", XposedHelpers.getObjectField(param.thisObject, "mContext"));
                         XposedHelpers.callMethod(tunerService, "addTunable", mTunable, SENSITIVE_FILTER);
                     }
                 });
 
-                XposedHelpers.findAndHookMethod(classBaseStatusBar, "bindGuts", classExpandableNotificationRow, new XC_MethodHook() {
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.BaseStatusBar, "bindGuts", Classes.SystemUI.ExpandableNotificationRow, new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         Object row = param.args[0];
@@ -84,7 +80,7 @@ public class SensitiveNotificationFilter {
                     }
                 });
 
-                XposedHelpers.findAndHookMethod(classExpandableNotificationRow, "setSensitive", boolean.class, new XC_MethodHook() {
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.ExpandableNotificationRow, "setSensitive", boolean.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                         Object row = param.thisObject;

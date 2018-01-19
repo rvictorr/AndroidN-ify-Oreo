@@ -40,20 +40,20 @@ public class RomUtils {
         if (sPrefs.contains("rom")) return;
         String aicpVersion = SystemProperties.get("ro.aicp.version", "");
         if (!aicpVersion.equals("")) {
-            sPrefs.edit().putString("rom", "aicp").commit();
+            sPrefs.edit().putString("rom", "aicp").apply();
             return;
         }
         int cmSdkVersion = SystemProperties.getInt("ro.cm.build.version.plat.sdk", 0);
         if (cmSdkVersion != 0) {
-            sPrefs.edit().putString("rom", "cm").commit();
+            sPrefs.edit().putString("rom", "cm").apply();
             return;
         }
         String xperiaVersion = SystemProperties.get("ro.semc.version.fs_revision", "");
         if (!xperiaVersion.equals("")) {
-            sPrefs.edit().putString("rom", "xperia").commit();
+            sPrefs.edit().putString("rom", "xperia").apply();
             return;
         }
-        sPrefs.edit().putString("rom", "aosp").commit();
+        sPrefs.edit().putString("rom", "aosp").apply();
     }
 
     public static boolean isCm() {

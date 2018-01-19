@@ -53,5 +53,6 @@
     <item type="id" name="contains_transformed_view" />
 
     <item type="id" name="remote_input_tag" />
+    <item type="id" name="status_bar_latest_event_content" />
 
 </resources>

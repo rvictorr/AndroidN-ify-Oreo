@@ -32,6 +32,8 @@ import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 import static tk.wasdennnoch.androidn_ify.systemui.SystemUIHooks.post;
 import static  tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff.*;
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
+import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
 
 
 public class NotificationContentHelper {
@@ -146,16 +148,16 @@ public class NotificationContentHelper {
 
     public static void initFields() {
 
-        fieldVisibleType = XposedHelpers.findField(classNotificationContentView, "mVisibleType");
-        fieldContentHeight = XposedHelpers.findField(classNotificationContentView, "mContentHeight");
-        fieldShowingLegacyBackground = XposedHelpers.findField(classNotificationContentView, "mShowingLegacyBackground");
-        fieldIsHeadsUp = XposedHelpers.findField(classNotificationContentView, "mIsHeadsUp");
+        fieldVisibleType = XposedHelpers.findField(NotificationContentView, "mVisibleType");
+        fieldContentHeight = XposedHelpers.findField(NotificationContentView, "mContentHeight");
+        fieldShowingLegacyBackground = XposedHelpers.findField(NotificationContentView, "mShowingLegacyBackground");
+        fieldIsHeadsUp = XposedHelpers.findField(NotificationContentView, "mIsHeadsUp");
 
         methodRequestAccessibilityFocus = XposedHelpers.findMethodBestMatch(View.class, "requestAccessibilityFocus");
 
-        methodCalculateVisibleType = XposedHelpers.findMethodBestMatch(classNotificationContentView, "calculateVisibleType");
-        methodUpdateViewVisibilities = XposedHelpers.findMethodBestMatch(classNotificationContentView, "updateViewVisibilities", int.class);
-        methodSelectLayout = XposedHelpers.findMethodBestMatch(classNotificationContentView, "selectLayout", boolean.class, boolean.class);
+        methodCalculateVisibleType = XposedHelpers.findMethodBestMatch(NotificationContentView, "calculateVisibleType");
+        methodUpdateViewVisibilities = XposedHelpers.findMethodBestMatch(NotificationContentView, "updateViewVisibilities", int.class);
+        methodSelectLayout = XposedHelpers.findMethodBestMatch(NotificationContentView, "selectLayout", boolean.class, boolean.class);
         methodIsLayoutRtl = XposedHelpers.findMethodBestMatch(View.class, "isLayoutRtl");
     }
 
@@ -167,7 +169,7 @@ public class NotificationContentHelper {
         mStatusBarNotification = (StatusBarNotification) XposedHelpers.getObjectField(entry, "notification");
         mBeforeN = XposedHelpers.getIntField(entry, "targetSdk") < Build.VERSION_CODES.N;
         updateSingleLineView();
-        //applyRemoteInput(entry);
+        applyRemoteInput(entry);
         View row = (View) XposedHelpers.getObjectField(entry, "row");
         if (mContractedChild != null) {
             mContractedWrapper.onContentUpdated(row);
@@ -178,7 +180,6 @@ public class NotificationContentHelper {
         if (mHeadsUpChild != null) {
             mHeadsUpWrapper.onContentUpdated(row);
         }
-        applyRemoteInput(entry);
         updateShowingLegacyBackground();
         mForceSelectNextLayout = true;
         XposedHelpers.callMethod(getContentView(), "setDark", XposedHelpers.getBooleanField(getContentView(), "mDark"), false /* animate */, 0 /* delay */);
@@ -320,10 +321,10 @@ public class NotificationContentHelper {
         if (mHeadsUpChild != null && mExpandedChild != null) {
             boolean transitioningBetweenHunAndExpanded =
                     isTransitioningFromTo(VISIBLE_TYPE_HEADSUP, VISIBLE_TYPE_EXPANDED) ||
-                            isTransitioningFromTo(VISIBLE_TYPE_EXPANDED, VISIBLE_TYPE_HEADSUP);
+                    isTransitioningFromTo(VISIBLE_TYPE_EXPANDED, VISIBLE_TYPE_HEADSUP);
             boolean pinned = !isVisibleOrTransitioning(VISIBLE_TYPE_CONTRACTED)
-                    && (!getBoolean(fieldIsHeadsUp, getContentView()) || mHeadsUpAnimatingAway)
-                    && !mRowHelper.isOnKeyguard();
+                    && (!getBoolean(fieldIsHeadsUp, getContentView()) || mHeadsUpAnimatingAway);
+//                    && !mRowHelper.isOnKeyguard();
             if (transitioningBetweenHunAndExpanded || pinned) {
                 return Math.min(mHeadsUpChild.getHeight(), mExpandedChild.getHeight());
             }
@@ -336,12 +337,13 @@ public class NotificationContentHelper {
         }
 
         int hint;
-        if (mAmbientChild != null && isVisibleOrTransitioning(VISIBLE_TYPE_AMBIENT)) {
-            hint = mAmbientChild.getHeight();
-        } else if (mAmbientSingleLineChild != null && isVisibleOrTransitioning(
-                VISIBLE_TYPE_AMBIENT_SINGLELINE)) {
-            hint = mAmbientSingleLineChild.getHeight();
-        } else if (mHeadsUpChild != null && isVisibleOrTransitioning(VISIBLE_TYPE_HEADSUP)) {
+//        if (mAmbientChild != null && isVisibleOrTransitioning(VISIBLE_TYPE_AMBIENT)) {
+//            hint = mAmbientChild.getHeight();
+//        } else if (mAmbientSingleLineChild != null && isVisibleOrTransitioning(
+//                VISIBLE_TYPE_AMBIENT_SINGLELINE)) {
+//            hint = mAmbientSingleLineChild.getHeight();
+//        } else
+        if (mHeadsUpChild != null && isVisibleOrTransitioning(VISIBLE_TYPE_HEADSUP)) {
             hint = mHeadsUpChild.getHeight();
         } else if (mExpandedChild != null) {
             hint = mExpandedChild.getHeight();
@@ -377,7 +379,7 @@ public class NotificationContentHelper {
             shownView.transformFrom(hiddenView, 0.0f);
             getViewForVisibleType(visibleType).setVisibility(VISIBLE);
             hiddenView.transformTo(shownView, 0.0f);
-            setInt(fieldVisibleType, getContentView(), visibleType);
+            set(fieldVisibleType, getContentView(), visibleType);
             updateBackgroundColor(true /*animate*/);
         }
         if (mForceSelectNextLayout) {
@@ -463,54 +465,17 @@ public class NotificationContentHelper {
     }
 
     public void forceUpdateVisibilities() {
-        int visibleType = getVisibleType();
-        boolean contractedVisible = visibleType == VISIBLE_TYPE_CONTRACTED
-                || mTransformationStartVisibleType == VISIBLE_TYPE_CONTRACTED;
-        boolean expandedVisible = visibleType == VISIBLE_TYPE_EXPANDED
-                || mTransformationStartVisibleType == VISIBLE_TYPE_EXPANDED;
-        boolean headsUpVisible = visibleType == VISIBLE_TYPE_HEADSUP
-                || mTransformationStartVisibleType == VISIBLE_TYPE_HEADSUP;
-        boolean singleLineVisible = visibleType == VISIBLE_TYPE_SINGLELINE
-                || mTransformationStartVisibleType == VISIBLE_TYPE_SINGLELINE;
-        if (!contractedVisible) {
-            mContractedChild.setVisibility(View.INVISIBLE);
-        } else {
-            mContractedWrapper.setVisible(true);
-        }
-        if (mExpandedChild != null) {
-            if (!expandedVisible) {
-                mExpandedChild.setVisibility(View.INVISIBLE);
-            } else {
-                mExpandedWrapper.setVisible(true);
-            }
-
-        }
-        if (mHeadsUpChild != null) {
-            if (!headsUpVisible) {
-                mHeadsUpChild.setVisibility(View.INVISIBLE);
-            } else {
-                mHeadsUpWrapper.setVisible(true);
-            }
-        }
-        if (mSingleLineView != null) {
-            if (!singleLineVisible) {
-                mSingleLineView.setVisibility(View.INVISIBLE);
-            } else {
-                mSingleLineView.setVisible(true);
-            }
-        }
-
-        /*forceUpdateVisibility(VISIBLE_TYPE_CONTRACTED, mContractedChild, mContractedWrapper);
+        forceUpdateVisibility(VISIBLE_TYPE_CONTRACTED, mContractedChild, mContractedWrapper);
         forceUpdateVisibility(VISIBLE_TYPE_EXPANDED, mExpandedChild, mExpandedWrapper);
         forceUpdateVisibility(VISIBLE_TYPE_HEADSUP, mHeadsUpChild, mHeadsUpWrapper);
         forceUpdateVisibility(VISIBLE_TYPE_SINGLELINE, mSingleLineView, mSingleLineView);
-        forceUpdateVisibility(VISIBLE_TYPE_AMBIENT, mAmbientChild, mAmbientWrapper);
-        forceUpdateVisibility(VISIBLE_TYPE_AMBIENT_SINGLELINE, mAmbientSingleLineChild,
-                mAmbientSingleLineChild);
-        //fireExpandedVisibleListenerIfVisible(); //TODO implement
+//        forceUpdateVisibility(VISIBLE_TYPE_AMBIENT, mAmbientChild, mAmbientWrapper);
+//        forceUpdateVisibility(VISIBLE_TYPE_AMBIENT_SINGLELINE, mAmbientSingleLineChild,
+//                mAmbientSingleLineChild);
+//        fireExpandedVisibleListenerIfVisible();
         // forceUpdateVisibilities cancels outstanding animations without updating the
         // mAnimationStartVisibleType. Do so here instead.
-        //mAnimationStartVisibleType = UNDEFINED; //TODO not sure*/
+        mAnimationStartVisibleType = UNDEFINED;
     }
 
     /*public void fireExpandedVisibleListenerIfVisible() {
@@ -756,13 +721,12 @@ public class NotificationContentHelper {
         }
 
         View bigContentView = mExpandedChild;
+        XposedHook.logD(TAG, "bigContentView==null: " + (bigContentView == null));
         if (bigContentView != null) {
-            XposedHook.logD(TAG, "bigContentView != null");
             mExpandedRemoteInput = applyRemoteInput(bigContentView, entry, hasRemoteInput,
                     mPreviousExpandedRemoteInputIntent, mCachedExpandedRemoteInput);
-            XposedHook.logD(TAG, "contentView in helper: " + getContentView());
+            XposedHook.logD(TAG, "remoteInput applied! ");
         } else {
-            XposedHook.logD(TAG, "bigContentView == null");
             mExpandedRemoteInput = null;
         }
         if (mCachedExpandedRemoteInput != null
@@ -790,6 +754,7 @@ public class NotificationContentHelper {
     public RemoteInputView applyRemoteInput(View view, Object entry,
                                             boolean hasRemoteInput, PendingIntent existingPendingIntent,
                                             RemoteInputView cachedView) {
+        //TODO: I think the problem with the onKeyUp and down not working is somewhere here
         Notification notification = (Notification) XposedHelpers.callMethod(XposedHelpers.getObjectField(entry, "notification"), "getNotification");
         View actionContainerCandidate = view.findViewById(
                 R.id.actions_container);
@@ -839,12 +804,10 @@ public class NotificationContentHelper {
                         if (!existing.isActive()) {
                             existing.focus();
                         }
-                        XposedHook.logD(TAG, "existing.updatePendingIntentFromActions(actions) true");
                     } else {
                         if (existing.isActive()) {
                             existing.close();
                         }
-                        XposedHook.logD(TAG, "existing.updatePendingIntentFromActions(actions) false");
                     }
                 }
             }
@@ -945,7 +908,7 @@ public class NotificationContentHelper {
             mTransformationStartVisibleType = getVisibleType();
         } else {
             mTransformationStartVisibleType = UNDEFINED;
-            setInt(fieldVisibleType, getContentView(), (int) invoke(methodCalculateVisibleType, getContentView()));
+            set(fieldVisibleType, getContentView(), invoke(methodCalculateVisibleType, getContentView()));
             invoke(methodUpdateViewVisibilities, getContentView(), getVisibleType());
             updateBackgroundColor(false);
         }
@@ -997,69 +960,5 @@ public class NotificationContentHelper {
 
     public ExpandableNotificationRowHelper getContainingHelper() {
         return mRowHelper;
-    }
-
-    public static Object get(Field field, Object object) {
-        try {
-            return field.get(object);
-        } catch (Throwable t) {
-            return null;
-        }
-    }
-
-    public static int getInt(Field field, Object object) {
-        try {
-            return field.getInt(object);
-        } catch (Throwable t) {
-            return 0;
-        }
-    }
-
-    public static float getFloat(Field field, Object object) {
-        try {
-            return field.getFloat(object);
-        } catch (Throwable t) {
-            return 0;
-        }
-    }
-
-    public static void setInt(Field field, Object object, int value) {
-        try {
-            field.setInt(object, value);
-        } catch (Throwable ignore) {
-
-        }
-    }
-
-    public static void setFloat(Field field, Object object, float value) {
-        try {
-            field.setFloat(object, value);
-        } catch (Throwable ignore) {
-
-        }
-    }
-
-    public static void setBoolean(Field field, Object object, boolean value) {
-        try {
-            field.setBoolean(object, value);
-        } catch (Throwable ignore) {
-
-        }
-    }
-
-    public static boolean getBoolean(Field field, Object object) {
-        try {
-            return field.getBoolean(object);
-        } catch (Throwable t) {
-            return false;
-        }
-    }
-
-    public static Object invoke(Method method, Object object, Object... args) {
-        try {
-            return method.invoke(object, args);
-        } catch (Throwable t) {
-            return null;
-        }
     }
 }

@@ -18,9 +18,12 @@ import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationUtils;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
 import static tk.wasdennnoch.androidn_ify.extracted.systemui.StackStateAnimator.ANIMATION_DURATION_STANDARD;
 import static tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationStackScrollLayoutHooks.BACKGROUND_ALPHA_DIMMED;
+import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.ActivatableNotificationView;
 
 public class ExpandableOutlineViewHelper {
     private static final String TAG = "ExpandableOutlineViewHelper";
@@ -88,17 +91,19 @@ public class ExpandableOutlineViewHelper {
         return helper != null ? helper : new ExpandableOutlineViewHelper(expandableView);
     }
 
-    public static void initFields(Class classActivatableNotificationView) {
-        fieldBackgroundNormal = XposedHelpers.findField(classActivatableNotificationView, "mBackgroundNormal");
-        fieldBackgroundDimmed = XposedHelpers.findField(classActivatableNotificationView, "mBackgroundDimmed");
-        methodUpdateBackground = XposedHelpers.findMethodBestMatch(classActivatableNotificationView, "updateBackground");
+    public static void initFields() {
+        fieldBackgroundNormal = XposedHelpers.findField(ActivatableNotificationView, "mBackgroundNormal");
+        fieldBackgroundDimmed = XposedHelpers.findField(ActivatableNotificationView, "mBackgroundDimmed");
+        methodUpdateBackground = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "updateBackground");
     }
 
     public void onFinishInflate() {
         try {
-            mBackgroundNormal = (View) NotificationContentHelper.get(fieldBackgroundNormal, mExpandableView);
-            mBackgroundDimmed = (View) NotificationContentHelper.get(fieldBackgroundDimmed, mExpandableView);
-        } catch (Throwable ignore) {}
+            mBackgroundNormal = ReflectionUtils.get(fieldBackgroundNormal, mExpandableView);
+            mBackgroundDimmed = ReflectionUtils.get(fieldBackgroundDimmed, mExpandableView);
+        } catch (Throwable t) {
+            XposedHook.logE(TAG, "Error in onFinishInflate: ", t);
+        }
     }
 
     public void setContainingHelper(ExpandableNotificationRowHelper helper) {
@@ -130,7 +135,7 @@ public class ExpandableOutlineViewHelper {
     }
 
     public float getTranslation() {
-        if (NotificationHooks.getClassExpandableNotificationRow().isInstance(mExpandableView) && mHelper != null) {
+        if (Classes.SystemUI.ExpandableNotificationRow.isInstance(mExpandableView) && mHelper != null) {
             return mHelper.getTranslation();
         }
         return mExpandableView.getTranslationX();
@@ -304,7 +309,7 @@ public class ExpandableOutlineViewHelper {
             });
             mBackgroundColorAnimator.start();
         }
-        if (getContainingHelper() != null && NotificationHooks.getClassExpandableNotificationRow().isInstance(mExpandableView))
+        if (getContainingHelper() != null && Classes.SystemUI.ExpandableNotificationRow.isInstance(mExpandableView))
             getContainingHelper().updateBackgroundTint();
     }
 

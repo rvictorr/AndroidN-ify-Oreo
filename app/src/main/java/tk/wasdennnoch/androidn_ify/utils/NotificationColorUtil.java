@@ -63,7 +63,7 @@ public class NotificationColorUtil {
 
     private final ImageUtils mImageUtils = new ImageUtils();
     private final WeakHashMap<Bitmap, Pair<Boolean, Integer>> mGrayscaleBitmapCache =
-            new WeakHashMap<Bitmap, Pair<Boolean, Integer>>();
+            new WeakHashMap<>();
 
     private final int mGrayscaleIconMaxSize; // @dimen/notification_large_icon_width (64dp)
 
@@ -253,7 +253,7 @@ public class NotificationColorUtil {
      * @return a color with the same hue as {@param color}, potentially darkened to meet the
      *          contrast ratio.
      */
-    private static int findContrastColor(int color, int other, boolean findFg, double minRatio) {
+    public static int findContrastColor(int color, int other, boolean findFg, double minRatio) {
         int fg = findFg ? color : other;
         int bg = findFg ? other : color;
         if (ColorUtilsFromCompat.calculateContrast(fg, bg) >= minRatio) {
@@ -391,7 +391,7 @@ public class NotificationColorUtil {
      */
     public static int resolveColor(int color) {
         if (color == Notification.COLOR_DEFAULT) {
-            return mContext.getResources().getColor(R.color.notification_default_color);
+            return res.getColor(R.color.notification_default_color);
         }
         return color;
     }
@@ -406,9 +406,9 @@ public class NotificationColorUtil {
     public static int resolveContrastColor(int notificationColor) {
         final int resolvedColor = resolveColor(notificationColor);
 
-        final int actionBg = mContext.getResources().getColor(
+        final int actionBg = res.getColor(
                 R.color.notification_action_list);
-        final int notiBg = mContext.getResources().getColor(
+        final int notiBg = res.getColor(
                 R.color.notification_material_background_color);
 
         int color = resolvedColor;

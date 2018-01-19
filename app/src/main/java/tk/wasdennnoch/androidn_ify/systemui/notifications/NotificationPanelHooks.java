@@ -26,6 +26,7 @@ import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSFooter;
 import tk.wasdennnoch.androidn_ify.misc.SafeOnClickListener;
 import tk.wasdennnoch.androidn_ify.systemui.qs.QSContainerHelper;
 import tk.wasdennnoch.androidn_ify.systemui.qs.customize.QSCustomizer;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
@@ -33,11 +34,6 @@ import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 public class NotificationPanelHooks {
 
     private static final String TAG = "NotificationPanelHooks";
-
-    private static final String PACKAGE_SYSTEMUI = XposedHook.PACKAGE_SYSTEMUI;
-    private static final String CLASS_NOTIFICATION_PANEL_VIEW = "com.android.systemui.statusbar.phone.NotificationPanelView";
-    private static final String CLASS_QS_CONTAINER = "com.android.systemui.qs.QSContainer";
-    private static final String CLASS_PANEL_VIEW = "com.android.systemui.statusbar.phone.PanelView";
 
     private static Field fieldStatusBarState;
 
@@ -55,7 +51,6 @@ public class NotificationPanelHooks {
     private static QSContainerHelper mQsContainerHelper;
 
     private static final List<BarStateCallback> mBarStateCallbacks = new ArrayList<>();
-    private static Class <?> classPanelView;
 
     private static final XC_MethodHook onFinishInflateHook = new XC_MethodHook() {
         @Override
@@ -219,20 +214,28 @@ public class NotificationPanelHooks {
         return state;
     }
 
-    public static void hook(ClassLoader classLoader) {
-        try {
-            classPanelView = XposedHelpers.findClass(CLASS_PANEL_VIEW, classLoader);
+    public static void setNoVisibleNotifications(boolean noNotifications) {
+        if (mQsContainerHelper != null) {
+            mQsContainerHelper.setGutterEnabled(!noNotifications);
+        }
+    }
 
+    public static QSContainerHelper getQsContainerHelper() {
+        return mQsContainerHelper;
+    }
+
+    public static void hook() {
+        try {
             if (ConfigUtils.M) {
                 try {
-                    XposedBridge.hookAllMethods(classPanelView, "expand", instantExpand);
-                    XposedBridge.hookAllMethods(classPanelView, "instantExpand", new XC_MethodHook() {
+                    XposedBridge.hookAllMethods(Classes.SystemUI.PanelView, "expand", instantExpand);
+                    XposedBridge.hookAllMethods(Classes.SystemUI.PanelView, "instantExpand", new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                             mAnimate = false;
                         }
                     });
-                    XposedBridge.hookAllMethods(classPanelView, "instantExpand", instantExpand);
+                    XposedBridge.hookAllMethods(Classes.SystemUI.PanelView, "instantExpand", instantExpand);
                 } catch (Throwable t) {
                     XposedHook.logE(TAG, "Error in PanelView hooks", t);
                 }
@@ -240,15 +243,12 @@ public class NotificationPanelHooks {
 
             if (ConfigUtils.qs().header) { // Although this is the notification panel everything here is header-related (mainly QS editor)
 
-                Class<?> classNotificationPanelView = XposedHelpers.findClass(CLASS_NOTIFICATION_PANEL_VIEW, classLoader);
-                Class<?> classQSContainer = XposedHelpers.findClass(CLASS_QS_CONTAINER, classLoader);
+                fieldStatusBarState = XposedHelpers.findField(Classes.SystemUI.NotificationPanelView, "mStatusBarState");
 
-                fieldStatusBarState = XposedHelpers.findField(classNotificationPanelView, "mStatusBarState");
-
-                XposedHelpers.findAndHookMethod(classNotificationPanelView, "onFinishInflate", onFinishInflateHook);
-                XposedHelpers.findAndHookMethod(classNotificationPanelView, "setBarState", int.class, boolean.class, boolean.class, setBarStateHook);
-                XposedHelpers.findAndHookMethod(classQSContainer, "setHeightOverride", int.class, setHeightOverrideHook);
-                XposedHelpers.findAndHookMethod(classNotificationPanelView, "setQsExpansionEnabled", boolean.class, new XC_MethodReplacement() {
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "onFinishInflate", onFinishInflateHook);
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "setBarState", int.class, boolean.class, boolean.class, setBarStateHook);
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.QSContainer, "setHeightOverride", int.class, setHeightOverrideHook);
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "setQsExpansionEnabled", boolean.class, new XC_MethodReplacement() {
                     @Override
                     protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                         boolean qsExpansionEnabled = (boolean) param.args[0];
@@ -260,9 +260,9 @@ public class NotificationPanelHooks {
                 });
 
                 if (ConfigUtils.M)
-                    XposedHelpers.findAndHookMethod(classNotificationPanelView, "setVerticalPanelTranslation", float.class, setVerticalPanelTranslationHook);
+                    XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "setVerticalPanelTranslation", float.class, setVerticalPanelTranslationHook);
 
-                XposedHelpers.findAndHookMethod(classPanelView, "schedulePeek", new XC_MethodHook() {
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.PanelView, "schedulePeek", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         XposedHelpers.callMethod(mNotificationPanelView, "setListening", true);
@@ -277,8 +277,8 @@ public class NotificationPanelHooks {
                     }
                 };
 
-                XposedHelpers.findAndHookMethod(classNotificationPanelView, "onInterceptTouchEvent", MotionEvent.class, returnIfCustomizing);
-                XposedHelpers.findAndHookMethod(classNotificationPanelView, "onTouchEvent", MotionEvent.class, returnIfCustomizing);
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "onInterceptTouchEvent", MotionEvent.class, returnIfCustomizing);
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "onTouchEvent", MotionEvent.class, returnIfCustomizing);
 
                 if (ConfigUtils.qs().fix_header_space) {
                     XC_MethodReplacement updateQsTranslation = new XC_MethodReplacement() {
@@ -291,9 +291,9 @@ public class NotificationPanelHooks {
                         }
                     };
 
-                    XposedHelpers.findAndHookMethod(classNotificationPanelView, "setQsTranslation", float.class, updateQsTranslation);
+                    XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "setQsTranslation", float.class, updateQsTranslation);
 
-                    XposedHelpers.findAndHookMethod(classQSContainer, "getDesiredHeight", new XC_MethodReplacement() {
+                    XposedHelpers.findAndHookMethod(Classes.SystemUI.QSContainer, "getDesiredHeight", new XC_MethodReplacement() {
                         @Override
                         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                             if (mQsContainerHelper != null)
@@ -302,7 +302,7 @@ public class NotificationPanelHooks {
                         }
                     });
 
-                    XposedHelpers.findAndHookMethod(classQSContainer, "updateBottom", new XC_MethodReplacement() {
+                    XposedHelpers.findAndHookMethod(Classes.SystemUI.QSContainer, "updateBottom", new XC_MethodReplacement() {
                         @Override
                         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                             if (mQsContainerHelper != null)
@@ -311,7 +311,7 @@ public class NotificationPanelHooks {
                         }
                     });
 
-                    XposedHelpers.findAndHookMethod(classNotificationPanelView, "isQsDetailShowing", new XC_MethodReplacement() {
+                    XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "isQsDetailShowing", new XC_MethodReplacement() {
                         @Override
                         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                             if (mQsContainerHelper != null)
@@ -320,10 +320,10 @@ public class NotificationPanelHooks {
                         }
                     });
 
-                    hookOnLayout(classNotificationPanelView, classPanelView);
+                    hookOnLayout();
 
                     if (ConfigUtils.M) {
-                        XposedHelpers.findAndHookMethod(classNotificationPanelView, "animateHeaderSlidingIn", new XC_MethodReplacement() {
+                        XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "animateHeaderSlidingIn", new XC_MethodReplacement() {
                             @Override
                             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                                 if (mQsContainerHelper != null)
@@ -332,7 +332,7 @@ public class NotificationPanelHooks {
                             }
                         });
 
-                        XposedHelpers.findAndHookMethod(classNotificationPanelView, "animateHeaderSlidingOut", new XC_MethodReplacement() {
+                        XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "animateHeaderSlidingOut", new XC_MethodReplacement() {
                             @Override
                             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                                 if (mQsContainerHelper != null)
@@ -342,7 +342,7 @@ public class NotificationPanelHooks {
                         });
                     }
 
-                    XposedHelpers.findAndHookMethod(classNotificationPanelView, "updateHeaderShade", updateQsTranslation);
+                    XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "updateHeaderShade", updateQsTranslation);
                 }
             }
         } catch (Throwable t) {
@@ -356,10 +356,10 @@ public class NotificationPanelHooks {
             final FrameLayout panelView = (FrameLayout) param.thisObject;
             final Object statusBar = XposedHelpers.getObjectField(panelView, "mStatusBar");
 
-            Method abortAnimations = XposedHelpers.findMethodBestMatch(classPanelView, "abortAnimations");
-            Method cancelPeek = XposedHelpers.findMethodBestMatch(classPanelView, "cancelPeek");
-            final Method notifyExpandingStarted = XposedHelpers.findMethodBestMatch(classPanelView, "notifyExpandingStarted");
-            final Method fling = XposedHelpers.findMethodBestMatch(classPanelView, "fling", int.class, boolean.class);
+            Method abortAnimations = XposedHelpers.findMethodBestMatch(Classes.SystemUI.PanelView, "abortAnimations");
+            Method cancelPeek = XposedHelpers.findMethodBestMatch(Classes.SystemUI.PanelView, "cancelPeek");
+            final Method notifyExpandingStarted = XposedHelpers.findMethodBestMatch(Classes.SystemUI.PanelView, "notifyExpandingStarted");
+            final Method fling = XposedHelpers.findMethodBestMatch(Classes.SystemUI.PanelView, "fling", int.class, boolean.class);
             boolean isFullyCollapsed = (boolean) XposedHelpers.callMethod(panelView, "isFullyCollapsed");
             boolean isCollapsing = (boolean) XposedHelpers.callMethod(panelView, "isCollapsing");
 
@@ -412,12 +412,12 @@ public class NotificationPanelHooks {
         }
     };
 
-    private static void hookOnLayout(final Class<?> classNotificationPanelView, final Class<?> classPanelView) {
-        XposedHelpers.findAndHookMethod(classNotificationPanelView, "onLayout", boolean.class, int.class, int.class, int.class, int.class, new XC_MethodReplacement() {
+    private static void hookOnLayout() {
+        XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "onLayout", boolean.class, int.class, int.class, int.class, int.class, new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 if (mQsContainerHelper != null)
-                    mQsContainerHelper.notificationPanelViewOnLayout(param, classPanelView);
+                    mQsContainerHelper.notificationPanelViewOnLayout(param);
                 return null;
             }
         });

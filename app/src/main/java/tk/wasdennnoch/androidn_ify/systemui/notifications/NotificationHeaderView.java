@@ -44,9 +44,7 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 
-import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
-import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationExpandButton;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
@@ -88,7 +86,7 @@ public class NotificationHeaderView extends ViewGroup {
         headerView.setClipChildren(false);
         headerView.setId(R.id.notification_header);
         headerView.setPadding(
-                res.getDimensionPixelSize(R.dimen.notification_content_margin_start),
+                res.getDimensionPixelSize(R.dimen.notification_content_start_margin),
                 res.getDimensionPixelSize(R.dimen.notification_header_padding_top),
                 res.getDimensionPixelSize(R.dimen.notification_header_padding_end),
                 res.getDimensionPixelSize(R.dimen.notification_header_padding_bottom));

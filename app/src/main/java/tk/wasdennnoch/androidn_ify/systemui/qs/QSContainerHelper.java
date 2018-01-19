@@ -21,6 +21,7 @@ import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSFooter;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSDetail;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
@@ -30,29 +31,30 @@ public class QSContainerHelper {
 
     private static final String TAG = "QSContainerHelper";
 
-    private static boolean reconfigureNotifPanel = false;
+    private boolean reconfigureNotifPanel = false;
 
-    private static Context mContext;
-    private static View mBackground;
-    private static ViewGroup mNotificationPanelView;
-    private static ViewGroup mHeader;
-    private static ViewGroup mQSContainer;
-    private static ViewGroup mQSPanel;
-    private static QSFooter mQSFooter;
-    private static View mNotificationStackScroller;
-    private static QSDetail mQSDetail;
-    private static float mQsExpansion;
-    private static float mFullElevation;
-    private static int mGutterHeight;
-    private static int mHeaderHeight;
+    private ResourceUtils res;
+    private Context mContext;
+    private View mBackground;
+    private ViewGroup mNotificationPanelView;
+    private ViewGroup mHeader;
+    private ViewGroup mQSContainer;
+    private ViewGroup mQSPanel;
+    private QSFooter mQSFooter;
+    private View mNotificationStackScroller;
+    private QSDetail mQSDetail;
+    private float mQsExpansion;
+    private float mFullElevation;
+    private int mGutterHeight;
+    private int mHeaderHeight;
 
     private static final int CAP_HEIGHT = 1456;
     private static final int FONT_HEIGHT = 2163;
-    private static Object mKeyguardStatusView;
-    private static TextView mClockView;
-    private static Rect mQsBounds = new Rect();
-    private static boolean mKeyguardShowing = false;
-    private static boolean mHeaderAnimating;
+    private Object mKeyguardStatusView;
+    private TextView mClockView;
+    private Rect mQsBounds = new Rect();
+    private boolean mKeyguardShowing = false;
+    private boolean mHeaderAnimating;
 
     public QSContainerHelper(ViewGroup notificationPanelView, ViewGroup qsContainer, ViewGroup header, ViewGroup qsPanel, QSFooter qsFooter) {
         mNotificationPanelView = notificationPanelView;
@@ -71,7 +73,7 @@ public class QSContainerHelper {
 
         mFullElevation = mQSPanel.getElevation();
 
-        ResourceUtils res = ResourceUtils.getInstance(mContext);
+        res = ResourceUtils.getInstance(mContext);
         mHeaderHeight = res.getDimensionPixelSize(R.dimen.status_bar_header_height);
         mGutterHeight = res.getDimensionPixelSize(R.dimen.qs_gutter_height);
 
@@ -115,7 +117,7 @@ public class QSContainerHelper {
         mNotificationStackScroller.setFocusable(false);
     }
 
-    public static void setQsExpansion(float expansion, float headerTranslation) {
+    public void setQsExpansion(float expansion, float headerTranslation) {
         expansion = Math.max(0, expansion);
         boolean keyguardShowing = XposedHelpers.getBooleanField(mNotificationPanelView, "mKeyguardShowing");
         if (mKeyguardShowing != keyguardShowing) {
@@ -152,7 +154,7 @@ public class QSContainerHelper {
         mQSPanel.setClipBounds(mQsBounds);
     }
 
-    public static void updateBottom() {
+    public void updateBottom() {
         int height = calculateContainerHeight();
         int gutterHeight = Math.round(mQsExpansion * mGutterHeight);
         mQSContainer.setBottom(mQSContainer.getTop() + height + gutterHeight);
@@ -168,7 +170,7 @@ public class QSContainerHelper {
         mQSPanel.setElevation(elevation);
     }
 
-    private static int calculateContainerHeight() {
+    private int calculateContainerHeight() {
         int mHeightOverride = XposedHelpers.getIntField(mQSContainer, "mHeightOverride");
         int heightOverride = mHeightOverride != -1 ? mHeightOverride : mQSContainer.getMeasuredHeight() - mHeaderHeight;
         return (int) (mQsExpansion * heightOverride) + mHeaderHeight;
@@ -180,7 +182,7 @@ public class QSContainerHelper {
         mClockView = (TextView) XposedHelpers.getObjectField(mNotificationPanelView, "mClockView");
     }
 
-    public void notificationPanelViewOnLayout(XC_MethodHook.MethodHookParam param, Class<?> classPanelView) {
+    public void notificationPanelViewOnLayout(XC_MethodHook.MethodHookParam param) {
         // TODO Too much work for changing just 2 integers? Maybe we could find a better way
 
         int left = (int) param.args[1], top = (int) param.args[2], right = (int) param.args[3], bottom = (int) param.args[4];
@@ -193,7 +195,7 @@ public class QSContainerHelper {
         XposedHelpers.callMethod(notificationPanelView, "requestPanelHeightUpdate");
         XposedHelpers.setBooleanField(notificationPanelView, "mHasLayoutedSinceDown", true);
         if (XposedHelpers.getBooleanField(notificationPanelView, "mUpdateFlingOnLayout")) {
-            Method abortAnimations = XposedHelpers.findMethodBestMatch(classPanelView, "abortAnimations");
+            Method abortAnimations = XposedHelpers.findMethodBestMatch(Classes.SystemUI.PanelView, "abortAnimations");
             try {
                 abortAnimations.invoke(notificationPanelView);
             } catch (Throwable ignore) {
@@ -317,7 +319,7 @@ public class QSContainerHelper {
             return;
         }
         if (gutterEnabled) {
-            mGutterHeight = mContext.getResources().getDimensionPixelSize(
+            mGutterHeight = res.getDimensionPixelSize(
                     R.dimen.qs_gutter_height);
         } else {
             mGutterHeight = 0;
@@ -325,7 +327,7 @@ public class QSContainerHelper {
         updateBottom();
     }
 
-    public static void setKeyguardShowing(boolean keyguardShowing) {
+    public void setKeyguardShowing(boolean keyguardShowing) {
         mKeyguardShowing = keyguardShowing;
     }
 

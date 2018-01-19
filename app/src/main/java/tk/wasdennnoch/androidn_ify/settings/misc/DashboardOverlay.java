@@ -38,7 +38,7 @@ public class DashboardOverlay extends View {
     private int getChildTop(View child) {
         final LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) child
                 .getLayoutParams();
-        return child.getTop() + params.topMargin + Math.round(ViewCompat.getTranslationY(child));
+        return child.getTop() + params.topMargin + Math.round(child.getTranslationY());
     }
 
     @Override

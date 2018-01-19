@@ -37,12 +37,11 @@ public class AndroidHooks {
 
     private static Object mPhoneWindowManager;
     private static Handler mHandler;
-    private static Context mContext;
 
     private static final boolean mLongPressOnBackBehavior = ConfigUtils.others().back_press_voice_assist;
     private static final boolean mPanicPressOnBackBehavior = ConfigUtils.others().panic_detection;
     private static boolean mBackKeyHandled;
-    private static int mBackKeyPressCounter;
+    private static volatile int mBackKeyPressCounter;
 
     private static BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
@@ -68,7 +67,6 @@ public class AndroidHooks {
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     mPhoneWindowManager = param.thisObject;
                     mHandler = (Handler) XposedHelpers.getObjectField(mPhoneWindowManager, "mHandler");
-                    mContext = (Context) XposedHelpers.getObjectField(mPhoneWindowManager, "mContext");
                     Context context = (Context) param.args[0];
                     IntentFilter intentFilter = new IntentFilter();
                     intentFilter.addAction(ACTION_SCREENSHOT);
@@ -107,11 +105,12 @@ public class AndroidHooks {
         @Override
         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
             KeyEvent event = (KeyEvent) param.args[0];
+            Context context = (Context) XposedHelpers.getObjectField(param.thisObject, "mContext");
             final int keyCode = event.getKeyCode();
             final boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
             if (keyCode == KeyEvent.KEYCODE_BACK)
                 if (down) {
-                    interceptBackKeyDown();
+                    interceptBackKeyDown(context);
                 } else {
                     boolean handled = interceptBackKeyUp(event);
 
@@ -149,7 +148,7 @@ public class AndroidHooks {
         }
     }
 
-    private static void interceptBackKeyDown() {
+    private static void interceptBackKeyDown(Context context) {
         // Reset back key state for long press
         mBackKeyHandled = false;
 
@@ -165,7 +164,7 @@ public class AndroidHooks {
             Message msg = mHandler.obtainMessage(MSG_BACK_LONG_PRESS);
             msg.setAsynchronous(true);
             mHandler.sendMessageDelayed(msg,
-                    (long) XposedHelpers.callMethod(ViewConfiguration.get(mContext), "getDeviceGlobalActionKeyTimeout"));
+                    (long) XposedHelpers.callMethod(ViewConfiguration.get(context), "getDeviceGlobalActionKeyTimeout"));
         }
     }
 

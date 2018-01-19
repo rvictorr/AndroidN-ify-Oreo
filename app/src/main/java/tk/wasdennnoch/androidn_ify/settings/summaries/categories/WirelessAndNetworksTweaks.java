@@ -25,7 +25,7 @@ public class WirelessAndNetworksTweaks {
 
     public static void hookWifiTile(Object tile, Context context) {
         String summary;
-        WifiManager manager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+        WifiManager manager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         if (manager.isWifiEnabled()) {
             WifiInfo wifiInfo = manager.getConnectionInfo();
             if (wifiInfo != null) {

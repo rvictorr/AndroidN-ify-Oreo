@@ -24,6 +24,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 
 import de.robv.android.xposed.XposedHelpers;
+import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ExpandableNotificationRowHelper;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.views.RemoteInputHelper;
@@ -39,8 +40,8 @@ public class RemoteInputController {
     private final ArrayList<Callback> mCallbacks = new ArrayList<>(3);
     private final Object mHeadsUpManager;
 
-    public RemoteInputController(Object sbwm, Object headsUpManager) {
-        //addCallback(sbwm);
+    public RemoteInputController(Callback callback, Object headsUpManager) {
+        addCallback(callback);
         mHeadsUpManager = headsUpManager;
     }
 
@@ -113,12 +114,11 @@ public class RemoteInputController {
     }
 
     private void apply(Object entry) {
-        //mHeadsUpManager.setRemoteInputActive(entry, isRemoteInputActive(entry));
         boolean remoteInputActive = isRemoteInputActive();
+        NotificationsStuff.setRemoteInputActive(mHeadsUpManager, entry, isRemoteInputActive(entry));
         int N = mCallbacks.size();
         for (int i = 0; i < N; i++) {
-            //mCallbacks.get(i).onRemoteInputActive(remoteInputActive);
-            RemoteInputHelper.setWindowManagerFocus(remoteInputActive);
+            mCallbacks.get(i).onRemoteInputActive(remoteInputActive);
         }
     }
 

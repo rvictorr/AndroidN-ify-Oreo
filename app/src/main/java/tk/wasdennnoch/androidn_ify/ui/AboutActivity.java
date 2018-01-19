@@ -131,7 +131,7 @@ public class AboutActivity extends Activity implements UpdateUtils.UpdateListene
         mHitCountdown--;
         if (mHitCountdown == 0) {
             mShowExperimental = !mShowExperimental;
-            ConfigUtils.getPreferences(this).edit().putBoolean("show_experimental_features", mShowExperimental).commit();
+            ConfigUtils.getPreferences(this).edit().putBoolean("show_experimental_features", mShowExperimental).apply();
             mHitToast = Toast.makeText(this, R.string.show_experimental_on, Toast.LENGTH_SHORT);
         } else if (mHitCountdown < 5) {
             mHitToast = Toast.makeText(this, getResources().getQuantityString(R.plurals.enable_experimental_countdown, mHitCountdown, mHitCountdown), Toast.LENGTH_SHORT);

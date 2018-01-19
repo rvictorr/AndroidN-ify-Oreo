@@ -45,13 +45,14 @@ public class BatteryTile extends QSTile implements BatteryInfoManager.BatterySta
     private BatteryInfoManager.BatteryData mTileBatteryData;
     private BatteryView mBatteryView;
     private final BatteryDetail mDetail = new BatteryDetail();
-    private final Object mBatteryDetail = DetailViewManager.getInstance().createProxy(mDetail);
+    private final Object mBatteryDetail;
     private boolean mListening;
     private boolean mDetailShown;
 
-    public BatteryTile(TilesManager tilesManager, Object host, String key) {
+    public BatteryTile(Context context, TilesManager tilesManager, Object host, String key) {
         super(tilesManager, host, key);
         SystemUIHooks.batteryInfoManager.registerListener(this);
+         mBatteryDetail = DetailViewManager.getInstance().createProxy(context, mDetail);
     }
 
     @Override

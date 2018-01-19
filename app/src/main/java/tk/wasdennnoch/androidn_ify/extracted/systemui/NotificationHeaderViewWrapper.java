@@ -36,6 +36,7 @@ import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationContentHelper;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHeaderView;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
 import static tk.wasdennnoch.androidn_ify.extracted.systemui.TransformState.TRANSFORM_Y;
 
@@ -138,7 +139,7 @@ public class NotificationHeaderViewWrapper extends NotificationViewWrapper {
         updateTransformedTypes();
         addRemainingTransformTypes();
         updateCropToPaddingForImageViews();
-        Notification notification = ((StatusBarNotification) NotificationContentHelper.invoke(NotificationsStuff.methodGetStatusBarNotification, row)).getNotification();
+        Notification notification = ((StatusBarNotification) ReflectionUtils.invoke(NotificationsStuff.methodGetStatusBarNotification, row)).getNotification();
         mIcon.setTag(ImageTransformState.ICON_TAG, notification.getSmallIcon());
         // The work profile image is always the same lets just set the icon tag for it not to
         // animate
@@ -186,6 +187,7 @@ public class NotificationHeaderViewWrapper extends NotificationViewWrapper {
     }
 
     protected void updateInvertHelper() {
+        if (mNotificationHeader == null) return;
         mInvertHelper.clearTargets();
         for (int i = 0; i < mNotificationHeader.getChildCount(); i++) {
             View child = mNotificationHeader.getChildAt(i);
@@ -218,7 +220,7 @@ public class NotificationHeaderViewWrapper extends NotificationViewWrapper {
         if (mIcon != null/* && !mRow.isChildInGroup()*/) {
             // We don't update the color for children views / their icon is invisible anyway.
             // It also may lead to bugs where the icon isn't correctly greyed out.
-            boolean hadColorFilter = mNotificationHeader.getOriginalIconColor()
+            boolean hadColorFilter = mNotificationHeader != null && mNotificationHeader.getOriginalIconColor()
                     != NotificationHeaderView.NO_COLOR;
 
             getDozer().setImageDark(mIcon, dark, fade, delay, !hadColorFilter);
@@ -227,6 +229,7 @@ public class NotificationHeaderViewWrapper extends NotificationViewWrapper {
 
     @Override
     public void updateExpandability(boolean expandable, View.OnClickListener onClickListener) {
+        if (mNotificationHeader == null) return;
         mExpandButton.setVisibility(expandable ? View.VISIBLE : View.GONE);
         mNotificationHeader.setOnClickListener(expandable ? onClickListener : null);
     }

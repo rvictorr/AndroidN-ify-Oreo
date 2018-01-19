@@ -32,6 +32,7 @@ import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.misc.BatteryInfoManager;
 import tk.wasdennnoch.androidn_ify.ui.AddTileActivity;
 import tk.wasdennnoch.androidn_ify.ui.PlatLogoActivity;
 import tk.wasdennnoch.androidn_ify.ui.SettingsActivity;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.RomUtils;
 
@@ -51,12 +52,11 @@ public class SystemUIHooks {
     public static int R_drawable_ic_qs_data_disabled;
     public static int R_drawable_stat_sys_data_disabled;
 
-    public static void hookSystemUI(ClassLoader classLoader) {
+    public static void hookSystemUI() {
 
-        mClassLoader = classLoader;
-        hookStart(classLoader);
+        hookStart();
 
-        XposedHelpers.findAndHookMethod(CLASS_SYSTEMUI_APPLICATION, classLoader, "onCreate", new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(Classes.SystemUI.SystemUIApplication, "onCreate", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 XposedHook.logD(TAG, "SystemUIApplication created, init");
@@ -138,7 +138,7 @@ public class SystemUIHooks {
 
     static private void toastUp(String s, Application app) {
         Toast toast = Toast.makeText(app, s, Toast.LENGTH_SHORT);
-        toast.getView().setBackgroundDrawable(null);
+        toast.getView().setBackground(null);
         toast.show();
     }
 
@@ -148,8 +148,8 @@ public class SystemUIHooks {
         R_drawable_stat_sys_data_disabled = resparam.res.addResource(modRes, R.drawable.stat_sys_data_disabled);
     }
 
-    private static void hookStart(ClassLoader classLoader) {
-        XposedHelpers.findAndHookMethod(CLASS_PHONE_STATUS_BAR, classLoader, "start", new XC_MethodHook() {
+    private static void hookStart() {
+        XposedHelpers.findAndHookMethod(Classes.SystemUI.PhoneStatusBar, "start", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 mPhoneStatusBar = param.thisObject;

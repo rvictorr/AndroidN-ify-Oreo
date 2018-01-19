@@ -22,7 +22,6 @@ import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
 import android.view.ViewTreeObserver;
 import android.view.WindowInsets;
-import android.view.accessibility.AccessibilityEvent;
 import android.view.animation.Interpolator;
 import android.widget.FrameLayout;
 import android.widget.OverScroller;
@@ -45,10 +44,12 @@ import tk.wasdennnoch.androidn_ify.systemui.notifications.ExpandableOutlineViewH
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationPanelHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ScrimHelper;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static tk.wasdennnoch.androidn_ify.XposedHook.PACKAGE_SYSTEMUI;
+import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
 
 public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowInsetsListener {
     private static final String TAG = "NotificationStackScrollLayoutHooks";
@@ -63,7 +64,6 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     private int TAG_ANIMATOR_TRANSLATION_Y;
     private int TAG_END_TRANSLATION_Y;
 
-    private Class<?> classActivatableNotificationView;
     private Class<?> classStackStateAnimator;
     private static ViewGroup mStackScrollLayout;
     private Context mContext;
@@ -167,11 +167,10 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
         }
     };
 
-    public NotificationStackScrollLayoutHooks(ClassLoader classLoader) {
+    public NotificationStackScrollLayoutHooks() {
         try {
-            Class classNotificationStackScrollLayout = XposedHelpers.findClass("com.android.systemui.statusbar.stack.NotificationStackScrollLayout", classLoader);
-            Class classBrightnessMirrorController = XposedHelpers.findClass("com.android.systemui.statusbar.policy.BrightnessMirrorController", classLoader);
-            XposedBridge.hookAllMethods(classNotificationStackScrollLayout, "initView", new XC_MethodHook() {
+            Class classBrightnessMirrorController = XposedHelpers.findClass("com.android.systemui.statusbar.policy.BrightnessMirrorController", Classes.SystemUI.getClassLoader());
+            XposedBridge.hookAllMethods(NotificationStackScrollLayout, "initView", new XC_MethodHook() {
                 @SuppressWarnings("unchecked")
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
@@ -187,7 +186,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     hookSwipeHelper();
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "onDraw", Canvas.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onDraw", Canvas.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     if (ConfigUtils.notifications().enable_notifications_background) {
@@ -196,14 +195,14 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     }
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "onViewRemovedInternal", View.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onViewRemovedInternal", View.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     // Make sure the clipRect we might have set is removed
                     XposedHelpers.callMethod(param.args[0], "setClipTopAmount", 0);
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "startAnimationToState", new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "startAnimationToState", new XC_MethodHook() {
                 private boolean willUpdateBackground = false;
 
                 @Override
@@ -232,7 +231,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     }
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "onChildAnimationFinished", new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onChildAnimationFinished", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     setAnimationRunning(false);
@@ -243,7 +242,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     updateBackground();
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "applyCurrentState", new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "applyCurrentState", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     setAnimationRunning(false);
@@ -251,43 +250,43 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     updateViewShadows();
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "onLayout", boolean.class, int.class, int.class, int.class, int.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onLayout", boolean.class, int.class, int.class, int.class, int.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     updateFirstAndLastBackgroundViews();
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "setAnimationsEnabled", boolean.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "setAnimationsEnabled", boolean.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     mAnimationsEnabled = (boolean) param.args[0];
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "setIsExpanded", boolean.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "setIsExpanded", boolean.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     mIsExpanded = (boolean) param.args[0];
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "setTopPadding", int.class, boolean.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "setTopPadding", int.class, boolean.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     mTopPadding = (int) param.args[0];
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "setStackTranslation", float.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "setStackTranslation", float.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     mStackTranslation = (float) param.args[0];
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "updateSwipeProgress", View.class, boolean.class, float.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "updateSwipeProgress", View.class, boolean.class, float.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     param.setResult(true); // Don't fade out the notification
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "onChildSnappedBack", View.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onChildSnappedBack", View.class, new XC_MethodHook() {
                 @SuppressWarnings("SuspiciousMethodCalls")
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -295,13 +294,13 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     updateContinuousShadowDrawing();
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "onBeginDrag", View.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onBeginDrag", View.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     updateContinuousShadowDrawing();
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "updateSpeedBumpIndex", int.class, new XC_MethodReplacement() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "updateSpeedBumpIndex", int.class, new XC_MethodReplacement() {
                 @Override
                 protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                     int newIndex = (int) param.args[0];
@@ -309,7 +308,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     return null;
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "initDownStates", MotionEvent.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "initDownStates", MotionEvent.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     MotionEvent ev = (MotionEvent) param.args[0];
@@ -317,19 +316,19 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                         mDisallowDismissInThisMotion = false;
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "onScrollTouch", MotionEvent.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onScrollTouch", MotionEvent.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     mForcedScroll = null;
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "updateChildren", new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "updateChildren", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     updateForcedScroll();
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "computeScroll", new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "computeScroll", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     if (!mScroller.isFinished()) {
@@ -337,7 +336,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     }
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "overScrollBy", int.class, int.class,
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "overScrollBy", int.class, int.class,
                     int.class, int.class,
                     int.class, int.class,
                     int.class, int.class,
@@ -351,9 +350,9 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                             }
                         }
                     });
-            XposedBridge.hookAllMethods(classNotificationStackScrollLayout, "setSpeedBumpView", XC_MethodReplacement.DO_NOTHING);
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "updateSpeedBump", boolean.class, XC_MethodReplacement.DO_NOTHING);
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "setDimmed", boolean.class, boolean.class, new XC_MethodReplacement() {
+            XposedBridge.hookAllMethods(NotificationStackScrollLayout, "setSpeedBumpView", XC_MethodReplacement.DO_NOTHING);
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "updateSpeedBump", boolean.class, XC_MethodReplacement.DO_NOTHING);
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "setDimmed", boolean.class, boolean.class, new XC_MethodReplacement() {
                 @Override
                 protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                     boolean dimmed = (boolean) param.args[0];
@@ -371,7 +370,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     return null;
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "setDark", boolean.class, boolean.class, PointF.class, new XC_MethodReplacement() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "setDark", boolean.class, boolean.class, PointF.class, new XC_MethodReplacement() {
                 @Override
                 protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                     boolean dark = (boolean) param.args[0];
@@ -397,7 +396,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     return null;
                 }
             });
-            XposedBridge.hookAllMethods(classNotificationStackScrollLayout, "setScrimController", new XC_MethodHook() {
+            XposedBridge.hookAllMethods(NotificationStackScrollLayout, "setScrimController", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     ScrimHelper.setScrimBehind(param.args[0]);
@@ -409,7 +408,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     });
                 }
             });
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "generateDarkEvent", new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "generateDarkEvent", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     if (XposedHelpers.getBooleanField(param.thisObject, "mDarkNeedsAnimation"))
@@ -443,7 +442,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                 }
             });
 
-            XposedHelpers.findAndHookMethod(classNotificationStackScrollLayout, "changeViewPosition", View.class, int.class, new XC_MethodReplacement() {
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "changeViewPosition", View.class, int.class, new XC_MethodReplacement() {
                 @Override
                 protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                     View child = (View) param.args[0];
@@ -466,8 +465,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                 }
             });
 
-            classActivatableNotificationView = XposedHelpers.findClass("com.android.systemui.statusbar.ActivatableNotificationView", classLoader);
-            classStackStateAnimator = XposedHelpers.findClass("com.android.systemui.statusbar.stack.StackStateAnimator", classLoader);
+            classStackStateAnimator = XposedHelpers.findClass("com.android.systemui.statusbar.stack.StackStateAnimator", Classes.SystemUI.getClassLoader()); //TODO: move to Classes
         } catch (Throwable t) {
             XposedHook.logE(TAG, "Error hooking NotificationStackScrollLayout", t);
         }
@@ -1002,7 +1000,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
         for (int i = childCount - 1; i >= 0; i--) {
             View child = mStackScrollLayout.getChildAt(i);
             if (child.getVisibility() != View.GONE
-                    && instanceOf(child, classActivatableNotificationView)) {
+                    && instanceOf(child, ActivatableNotificationView)) {
                 return (FrameLayout) child;
             }
         }
@@ -1014,7 +1012,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
         for (int i = 0; i < childCount; i++) {
             View child = mStackScrollLayout.getChildAt(i);
             if (child.getVisibility() != View.GONE
-                    && instanceOf(child, classActivatableNotificationView)) {
+                    && instanceOf(child, ActivatableNotificationView)) {
                 return (FrameLayout) child;
             }
         }
@@ -1264,7 +1262,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     }
 
     private int getIntrinsicHeight(View v) {
-        return (int) XposedHelpers.callMethod(v, "getIntrinsicHeight");
+        return (int) XposedHelpers.callMethod(v, "getIntrinsicHeight"); //TODO switch to reflectionutils for these
     }
 
     private int getPositionInLinearLayout(View v) {

@@ -431,7 +431,7 @@ public class SettingsActivity extends Activity implements View.OnClickListener,
                     JSONArray hookConfigs = MiscUtils.checkValidJSONArray(result);
                     // Only update if config from assets is newer
                     if (hookConfigs.optInt(0) > new JSONArray(prefs.getString(PreferenceKeys.GOOGLE_APP_HOOK_CONFIGS, "[]")).optInt(0)) {
-                        prefs.edit().putString(PreferenceKeys.GOOGLE_APP_HOOK_CONFIGS, hookConfigs.toString()).commit();
+                        prefs.edit().putString(PreferenceKeys.GOOGLE_APP_HOOK_CONFIGS, hookConfigs.toString()).apply();
                     }
                 } catch (IOException | JSONException e) {
                     e.printStackTrace();

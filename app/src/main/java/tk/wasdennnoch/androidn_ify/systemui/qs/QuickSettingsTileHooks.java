@@ -28,42 +28,38 @@ import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.ButtonRelativeLayout;
 import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.QSTile;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
+import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.QSTileView;
 
 public class QuickSettingsTileHooks {
 
     private static final String TAG = "QuickSettingsTileHooks";
 
-    private static final String CLASS_QS_TILE = "com.android.systemui.qs.QSTile";
-    private static final String CLASS_QS_TILE_VIEW = "com.android.systemui.qs.QSTileView";
     private static final String CLASS_SIGNAL_TILE_VIEW = "com.android.systemui.qs.SignalTileView";
     private static final ArrayList<String> QS_CLASSES = new ArrayList<>(Arrays.asList(QSTile.CLASS_CELLULAR_TILE, QSTile.CLASS_DND_TILE));
 
-    private static Class mQsTileClass;
-    private static Class mQsTileViewClass;
     private static Class mSignalTileViewClass;
     private static Method mNewTileBackground;
     private static Method mSetRipple;
     private static Method mUpdateRippleSize;
 
-    public static void hook(ClassLoader classLoader) {
-        mQsTileViewClass = XposedHelpers.findClass(CLASS_QS_TILE_VIEW, classLoader);
-        mQsTileClass = XposedHelpers.findClass(CLASS_QS_TILE, classLoader);
-        mSignalTileViewClass = XposedHelpers.findClass(CLASS_SIGNAL_TILE_VIEW, classLoader);
-        mUpdateRippleSize = XposedHelpers.findMethodExact(mQsTileViewClass, "updateRippleSize", int.class, int.class);
-        mNewTileBackground = XposedHelpers.findMethodExact(mQsTileViewClass, "newTileBackground");
-        mSetRipple = XposedHelpers.findMethodExact(mQsTileViewClass, "setRipple", RippleDrawable.class);
-        hookQsTileView();
-        hookQsTile();
-        hookSignalTileView();
-    }
-
-    public static Class getQsTileClass() {
-        return mQsTileClass;
+    public static void hook() {
+        try {
+            mSignalTileViewClass = XposedHelpers.findClass(CLASS_SIGNAL_TILE_VIEW, Classes.SystemUI.getClassLoader());
+            mUpdateRippleSize = XposedHelpers.findMethodExact(QSTileView, "updateRippleSize", int.class, int.class);
+            mNewTileBackground = XposedHelpers.findMethodExact(QSTileView, "newTileBackground");
+            mSetRipple = XposedHelpers.findMethodExact(QSTileView, "setRipple", RippleDrawable.class);
+            hookQsTileView();
+            hookQsTile();
+            hookSignalTileView();
+        } catch (Throwable t) {
+            XposedHook.logE(TAG, "Error in QSTileHooks: ", t);
+        }
     }
 
     private static void hookSignalTileView() {
@@ -94,14 +90,14 @@ public class QuickSettingsTileHooks {
             }
         };
         try {
-            XposedHelpers.findAndHookMethod(mQsTileViewClass, "setDual", boolean.class, setDual);
+            XposedHelpers.findAndHookMethod(QSTileView, "setDual", boolean.class, setDual);
         } catch (NoSuchMethodError e) {
             try { //LOS
-                XposedHelpers.findAndHookMethod(mQsTileViewClass, "setDual", boolean.class, boolean.class, setDual);
+                XposedHelpers.findAndHookMethod(QSTileView, "setDual", boolean.class, boolean.class, setDual);
             } catch (NoSuchMethodError ignore) {}
         }
-        XposedHelpers.findAndHookMethod(mQsTileViewClass, "updateAccessibilityOrder", View.class, XC_MethodReplacement.DO_NOTHING);
-        XposedHelpers.findAndHookConstructor(mQsTileViewClass, Context.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(QSTileView, "updateAccessibilityOrder", View.class, XC_MethodReplacement.DO_NOTHING);
+        XposedHelpers.findAndHookConstructor(QSTileView, Context.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 ViewGroup qsTileView = (ViewGroup) param.thisObject;
@@ -136,7 +132,7 @@ public class QuickSettingsTileHooks {
                 qsTileView.setFocusable(true);
             }
         });
-        XposedHelpers.findAndHookMethod(mQsTileViewClass, "recreateLabel", new XC_MethodReplacement() {
+        XposedHelpers.findAndHookMethod(QSTileView, "recreateLabel", new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 ViewGroup qsTileView = (ViewGroup) param.thisObject;
@@ -151,8 +147,8 @@ public class QuickSettingsTileHooks {
                 return null;
             }
         });
-        XposedHelpers.findAndHookMethod(mQsTileViewClass, "updateTopPadding", XC_MethodReplacement.DO_NOTHING);
-        XposedHelpers.findAndHookMethod(mQsTileViewClass, "onLayout", boolean.class, int.class, int.class, int.class, int.class, new XC_MethodReplacement() {
+        XposedHelpers.findAndHookMethod(QSTileView, "updateTopPadding", XC_MethodReplacement.DO_NOTHING);
+        XposedHelpers.findAndHookMethod(QSTileView, "onLayout", boolean.class, int.class, int.class, int.class, int.class, new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 ViewGroup qsTileView = (ViewGroup) param.thisObject;
@@ -171,7 +167,7 @@ public class QuickSettingsTileHooks {
                 return null;
             }
         });
-        XposedHelpers.findAndHookMethod(mQsTileViewClass, "onMeasure", int.class, int.class, new XC_MethodReplacement() {
+        XposedHelpers.findAndHookMethod(QSTileView, "onMeasure", int.class, int.class, new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 ViewGroup qsTileView = (ViewGroup) param.thisObject;
@@ -188,7 +184,7 @@ public class QuickSettingsTileHooks {
                 return null;
             }
         });
-        XposedBridge.hookAllMethods(mQsTileViewClass, "handleStateChanged", new XC_MethodReplacement() {
+        XposedBridge.hookAllMethods(QSTileView, "handleStateChanged", new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 Object state = param.args[0];
@@ -222,7 +218,7 @@ public class QuickSettingsTileHooks {
                 return null;
             }
         });
-        XposedHelpers.findAndHookMethod(mQsTileViewClass, "updateRippleSize", int.class, int.class, new XC_MethodReplacement() {
+        XposedHelpers.findAndHookMethod(QSTileView, "updateRippleSize", int.class, int.class, new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 int width = (int) param.args[0];
@@ -234,7 +230,7 @@ public class QuickSettingsTileHooks {
                 return null;
             }
         });
-        XposedHelpers.findAndHookMethod(mQsTileViewClass, "init", View.OnClickListener.class, View.OnClickListener.class, View.OnLongClickListener.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(QSTileView, "init", View.OnClickListener.class, View.OnClickListener.class, View.OnLongClickListener.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 ViewGroup qsTileView = (ViewGroup) param.thisObject;
@@ -263,10 +259,10 @@ public class QuickSettingsTileHooks {
             }
         };
         try {
-            XposedHelpers.findAndHookMethod(mQsTileClass, "supportsDualTargets", supportsDualTargetsHook);
+            XposedHelpers.findAndHookMethod(Classes.SystemUI.QSTile, "supportsDualTargets", supportsDualTargetsHook);
         } catch (NoSuchMethodError e) {
             try { //LOS
-                XposedHelpers.findAndHookMethod(mQsTileClass, "hasDualTargetsDetails", supportsDualTargetsHook);
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.QSTile, "hasDualTargetsDetails", supportsDualTargetsHook);
             } catch (NoSuchMethodError ignore) {}
         }
     }

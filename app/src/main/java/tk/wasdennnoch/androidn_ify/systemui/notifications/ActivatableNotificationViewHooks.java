@@ -23,15 +23,16 @@ import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
-import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationUtils;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationStackScrollLayoutHooks;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+
+import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
 
 public class ActivatableNotificationViewHooks {
 
     private static final String TAG = "ActivatableNotificationViewHooks";
 
-    private static final String PACKAGE_SYSTEMUI = XposedHook.PACKAGE_SYSTEMUI;
     private static final float BACKGROUND_ALPHA_DIMMED = NotificationStackScrollLayoutHooks.BACKGROUND_ALPHA_DIMMED;
     private static final float DARK_EXIT_SCALE_START = 0.93f;
     private static final int ANIMATION_DURATION_STANDARD = NotificationStackScrollLayoutHooks.ANIMATION_DURATION_STANDARD;
@@ -60,27 +61,25 @@ public class ActivatableNotificationViewHooks {
     private static final Interpolator ACTIVATE_INVERSE_ALPHA_INTERPOLATOR
             = new PathInterpolator(0, 0, 0.5f, 1);
 
-    public static void hook(ClassLoader classLoader) {
+    public static void hook() {
         try {
+            ExpandableOutlineViewHelper.initFields();
+
             if (!ConfigUtils.notifications().enable_notifications_background)
                 return;
-            final Class classActivatableNotificationView = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.ActivatableNotificationView", classLoader);
-            final Class classExpandableView = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.ExpandableView", classLoader);
 
-            ExpandableOutlineViewHelper.initFields(classActivatableNotificationView);
+            methodCancelAppearAnimation = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "cancelAppearAnimation");
+            methodStartActivateAnimation = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "startActivateAnimation", boolean.class);
+            methodFadeDimmedBackground = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "fadeDimmedBackground");
+            methodUpdateAppearAnimationAlpha = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "updateAppearAnimationAlpha");
+            methodUpdateAppearRect = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "updateAppearRect");
+            methodEnableAppearDrawing = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "enableAppearDrawing", boolean.class);
+            methodFadeInFromDark = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "fadeInFromDark", long.class);
+            methodSetContentAlpha = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "setContentAlpha", float.class);
+            methodUpdateClipping = XposedHelpers.findMethodBestMatch(ExpandableView, "updateClipping");
+            fieldOnActivatedListener = XposedHelpers.findField(ActivatableNotificationView, "mOnActivatedListener");
 
-            methodCancelAppearAnimation = XposedHelpers.findMethodBestMatch(classActivatableNotificationView, "cancelAppearAnimation");
-            methodStartActivateAnimation = XposedHelpers.findMethodBestMatch(classActivatableNotificationView, "startActivateAnimation", boolean.class);
-            methodFadeDimmedBackground = XposedHelpers.findMethodBestMatch(classActivatableNotificationView, "fadeDimmedBackground");
-            methodUpdateAppearAnimationAlpha = XposedHelpers.findMethodBestMatch(classActivatableNotificationView, "updateAppearAnimationAlpha");
-            methodUpdateAppearRect = XposedHelpers.findMethodBestMatch(classActivatableNotificationView, "updateAppearRect");
-            methodEnableAppearDrawing = XposedHelpers.findMethodBestMatch(classActivatableNotificationView, "enableAppearDrawing", boolean.class);
-            methodFadeInFromDark = XposedHelpers.findMethodBestMatch(classActivatableNotificationView, "fadeInFromDark", long.class);
-            methodSetContentAlpha = XposedHelpers.findMethodBestMatch(classActivatableNotificationView, "setContentAlpha", float.class);
-            methodUpdateClipping = XposedHelpers.findMethodBestMatch(classExpandableView, "updateClipping");
-            fieldOnActivatedListener = XposedHelpers.findField(classActivatableNotificationView, "mOnActivatedListener");
-
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "onFinishInflate", new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "onFinishInflate", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
@@ -89,7 +88,7 @@ public class ActivatableNotificationViewHooks {
                 }
             });
 
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "setTintColor", int.class, new XC_MethodReplacement() {
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "setTintColor", int.class, new XC_MethodReplacement() {
                 @Override
                 protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                     int color = (int) param.args[0];
@@ -98,7 +97,7 @@ public class ActivatableNotificationViewHooks {
                 }
             });
 
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "updateBackground", new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "updateBackground", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
@@ -115,7 +114,7 @@ public class ActivatableNotificationViewHooks {
                 }
             });
 
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "updateBackgroundTint", new XC_MethodReplacement() {
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "updateBackgroundTint", new XC_MethodReplacement() {
                 @Override
                 protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                     ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
@@ -124,7 +123,7 @@ public class ActivatableNotificationViewHooks {
                 }
             });
 
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "enableAppearDrawing", boolean.class, new XC_MethodReplacement() {
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "enableAppearDrawing", boolean.class, new XC_MethodReplacement() {
                 @Override
                 protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                     boolean enable = (boolean) param.args[0];
@@ -141,7 +140,7 @@ public class ActivatableNotificationViewHooks {
                 }
             });
 
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "cancelAppearAnimation", new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "cancelAppearAnimation", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     if (XposedHelpers.getObjectField(param.thisObject, "mAppearAnimator") != null)
@@ -149,21 +148,21 @@ public class ActivatableNotificationViewHooks {
                 }
             });
 
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "reset", new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "reset", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     ExpandableOutlineViewHelper.getInstance(param.thisObject).resetBackgroundAlpha();
                 }
             });
 
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "fadeDimmedBackground", fadeDimmedBackground);
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "fadeInFromDark", long.class, fadeInFromDark);
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "makeInactive", boolean.class, makeInactive);
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "startActivateAnimation", boolean.class, startActivateAnimation);
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "setDark", boolean.class, boolean.class, long.class, setDarkHook);
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "startAppearAnimation", boolean.class, float.class, long.class, long.class, Runnable.class, startAppearAnimation);
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "setDimmed", boolean.class, boolean.class, setDimmed);
-            XposedHelpers.findAndHookMethod(classActivatableNotificationView, "updateAppearRect", updateAppearRect);
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "fadeDimmedBackground", fadeDimmedBackground);
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "fadeInFromDark", long.class, fadeInFromDark);
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "makeInactive", boolean.class, makeInactive);
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "startActivateAnimation", boolean.class, startActivateAnimation);
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "setDark", boolean.class, boolean.class, long.class, setDarkHook);
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "startAppearAnimation", boolean.class, float.class, long.class, long.class, Runnable.class, startAppearAnimation);
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "setDimmed", boolean.class, boolean.class, setDimmed);
+            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "updateAppearRect", updateAppearRect);
         } catch (Throwable t) {
             XposedHook.logE(TAG, "Error hooking ActivatableNotificationView ", t);
         }
@@ -258,7 +257,7 @@ public class ActivatableNotificationViewHooks {
                     if (!mWasCancelled) {
                         try {
                             methodEnableAppearDrawing.invoke(expandableView, false);
-                            if (NotificationHooks.getClassExpandableNotificationRow().isInstance(expandableView))
+                            if (Classes.SystemUI.ExpandableNotificationRow.isInstance(expandableView))
                                 helper.onAppearAnimationFinished(isAppearing);
                         } catch (IllegalAccessException | InvocationTargetException e) {
                             XposedHook.logI(TAG, e.toString());

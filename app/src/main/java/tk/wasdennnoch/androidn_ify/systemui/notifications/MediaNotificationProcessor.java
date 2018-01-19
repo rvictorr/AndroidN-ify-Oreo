@@ -29,7 +29,9 @@ import android.util.LayoutDirection;
 
 import java.util.List;
 
+import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
+import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.utils.NotificationColorUtil;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
@@ -82,7 +84,7 @@ public class MediaNotificationProcessor {
      * notification.
      */
     private final Context mPackageContext;
-    private boolean mIsLowPriority;
+    private boolean mIsLowPriority = false;
 
     public MediaNotificationProcessor(Context context, Context packageContext) {
         this(context, packageContext, new ImageGradientColorizer());
@@ -113,7 +115,7 @@ public class MediaNotificationProcessor {
             //builder.setRebuildStyledRemoteViews(true);
             drawable = largeIcon.loadDrawable(mPackageContext);
             int backgroundColor = 0;
-            if (NotificationHooks.isColorizedMedia(builder)) {
+            if (NotificationHooks.isColorizedMedia(notification)) {
                 int width = drawable.getIntrinsicWidth();
                 int height = drawable.getIntrinsicHeight();
                 int area = width * height;

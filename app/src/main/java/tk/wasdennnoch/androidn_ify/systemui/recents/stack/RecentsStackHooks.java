@@ -11,6 +11,7 @@ import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_InitPackageResources;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 
 public class RecentsStackHooks {
@@ -54,7 +55,8 @@ public class RecentsStackHooks {
     };
     */
 
-    public static void hookSystemUI(ClassLoader classLoader) {
+    public static void hookSystemUI() {
+        ClassLoader classLoader = Classes.SystemUI.getClassLoader();
         try {
             if (ConfigUtils.recents().large_recents) {
                 Class<?> classTaskStackViewLayoutAlgorithm = XposedHelpers.findClass("com.android.systemui.recents.views.TaskStackViewLayoutAlgorithm", classLoader);

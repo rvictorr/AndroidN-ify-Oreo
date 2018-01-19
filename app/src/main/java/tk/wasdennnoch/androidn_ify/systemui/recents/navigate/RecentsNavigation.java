@@ -21,8 +21,11 @@ import de.robv.android.xposed.callbacks.XC_InitPackageResources;
 import de.robv.android.xposed.callbacks.XC_LayoutInflated;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
+
+import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
 
 @SuppressWarnings({"SameParameterValue", "WeakerAccess"})
 public class RecentsNavigation {
@@ -34,7 +37,6 @@ public class RecentsNavigation {
     private static long mStartRecentsActivityTime = 0;
     private static Object mRecentsActivity;
     private static ConfigUtils mConfig;
-    private static ClassLoader mClassLoader;
     private static boolean mIsNavigating = false;
     private static int mCurrentIndex = 0;
     private static TaskProgress mCurrentProgress = null;
@@ -280,20 +282,18 @@ public class RecentsNavigation {
         XposedHelpers.callMethod(mRecentsActivity, "dismissRecentsToHomeRaw", animated);
     }
 
-    public static void hookSystemUI(ClassLoader classLoader) {
+    public static void hookSystemUI() {
         try {
             if (Build.VERSION.SDK_INT < 23 || ConfigUtils.recents().alternative_method) return;
             mConfig = ConfigUtils.getInstance();
-            mClassLoader = classLoader;
             if (mConfig.recents.double_tap || mConfig.recents.navigate_recents) {
-                Class<?> classRecents = XposedHelpers.findClass("com.android.systemui.recents.Recents", classLoader);
-                Class<?> classRecentsActivity = XposedHelpers.findClass("com.android.systemui.recents.RecentsActivity", classLoader);
+                
 
-                XposedHelpers.findAndHookMethod(classRecents, "startRecentsActivity", ActivityManager.RunningTaskInfo.class, boolean.class, startRecentsActivityHook);
-                XposedHelpers.findAndHookMethod(classRecentsActivity, "onStart", recentsActivityOnStartHook);
-                XposedHelpers.findAndHookMethod(classRecentsActivity, "onBackPressed", onBackPressedHook);
-                XposedHelpers.findAndHookMethod(classRecentsActivity, "dismissRecentsToHomeRaw", boolean.class, resetNavigatingStatus);
-                XposedHelpers.findAndHookMethod(classRecentsActivity, "dismissRecentsToFocusedTaskOrHome", boolean.class, dismissRecentsToFocusedTaskOrHomeHook);
+                XposedHelpers.findAndHookMethod(Recents, "startRecentsActivity", ActivityManager.RunningTaskInfo.class, boolean.class, startRecentsActivityHook);
+                XposedHelpers.findAndHookMethod(RecentsActivity, "onStart", recentsActivityOnStartHook);
+                XposedHelpers.findAndHookMethod(RecentsActivity, "onBackPressed", onBackPressedHook);
+                XposedHelpers.findAndHookMethod(RecentsActivity, "dismissRecentsToHomeRaw", boolean.class, resetNavigatingStatus);
+                XposedHelpers.findAndHookMethod(RecentsActivity, "dismissRecentsToFocusedTaskOrHome", boolean.class, dismissRecentsToFocusedTaskOrHomeHook);
             }
 
             /*try {
@@ -339,8 +339,8 @@ public class RecentsNavigation {
     }
 
     public static Object getSystemServicesProxy() {
-        Class<?> classRecentsTaskLoader = XposedHelpers.findClass("com.android.systemui.recents.model.RecentsTaskLoader", mClassLoader);
-        return XposedHelpers.callMethod(XposedHelpers.callStaticMethod(classRecentsTaskLoader, "getInstance"), "getSystemServicesProxy");
+        Class<?> RecentsTaskLoader = XposedHelpers.findClass("com.android.systemui.recents.model.RecentsTaskLoader", Classes.SystemUI.getClassLoader());
+        return XposedHelpers.callMethod(XposedHelpers.callStaticMethod(RecentsTaskLoader, "getInstance"), "getSystemServicesProxy");
     }
 
 }
