@@ -92,6 +92,8 @@ import tk.wasdennnoch.androidn_ify.utils.RomUtils;
 import tk.wasdennnoch.androidn_ify.utils.ViewUtils;
 
 import static android.app.Notification.COLOR_DEFAULT;
+import static android.app.Notification.EXTRA_INFO_TEXT;
+import static android.app.Notification.EXTRA_SUB_TEXT;
 import static android.app.Notification.EXTRA_TEMPLATE;
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
@@ -318,23 +320,6 @@ public class NotificationHooks {
         }
     }
 
-    private static final XC_MethodHook getStandardViewHook = new XC_MethodHook() {
-        @Override
-        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-            RemoteViews contentView = (RemoteViews) param.getResult();
-            Notification.Builder mBuilder = (Notification.Builder) XposedHelpers.getObjectField(param.thisObject, "mBuilder");
-
-            CharSequence overflowText = (CharSequence) (XposedHelpers.getBooleanField(param.thisObject, "mSummaryTextSet")
-                    ? XposedHelpers.getObjectField(param.thisObject, "mSummaryText")
-                    : XposedHelpers.getObjectField(mBuilder, "mSubText"));
-            if (overflowText != null) {
-                contentView.setTextViewText(R.id.header_text, processLegacyText(mBuilder, overflowText));
-                contentView.setViewVisibility(R.id.header_text_divider, View.VISIBLE);
-                contentView.setViewVisibility(R.id.header_text, View.VISIBLE);
-            }
-        }
-    };
-
     private static final XC_MethodHook makeBigContentViewBigTextHook = new XC_MethodHook() {
         @Override
         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
@@ -481,18 +466,28 @@ public class NotificationHooks {
     }
 
     private static void bindHeaderText(RemoteViews contentView, Object builder, Context context) {
-        CharSequence mContentText = (CharSequence) XposedHelpers.getObjectField(builder, "mContentText");
-        CharSequence mSubText = (CharSequence) XposedHelpers.getObjectField(builder, "mSubText");
-        if (mContentText != null && mSubText != null) {
-            contentView.setTextViewText(context.getResources().getIdentifier("text", "id", PACKAGE_ANDROID),
-                    processLegacyText(builder, mContentText));
-            contentView.setViewVisibility(context.getResources().getIdentifier("text2", "id", PACKAGE_ANDROID), View.GONE);
-            contentView.setTextViewText(R.id.header_text, processLegacyText(builder, mSubText));
+        Notification mN = (Notification) XposedHelpers.getAdditionalInstanceField(builder, "mN");
+        Notification.Style mStyle = (Notification.Style) XposedHelpers.getObjectField(builder, "mStyle");
+
+        CharSequence headerText = mN.extras.getCharSequence(EXTRA_SUB_TEXT);
+        if (headerText == null && mStyle != null && XposedHelpers.getBooleanField(mStyle, "mSummaryTextSet")
+                && !mStyle.getClass().equals(Notification.BigPictureStyle.class)) {
+            headerText = (CharSequence) XposedHelpers.getObjectField(mStyle, "mSummaryText");
+        }
+        if (headerText == null
+                && context.getApplicationInfo().targetSdkVersion < Build.VERSION_CODES.N
+                && mN.extras.getCharSequence(EXTRA_INFO_TEXT) != null) {
+            headerText = mN.extras.getCharSequence(EXTRA_INFO_TEXT);
+        }
+        if (headerText != null) {
+            // TODO: Remove the span entirely to only have the string with proper formatting.
+            contentView.setTextViewText(R.id.header_text, processLegacyText(builder, headerText));
             setTextViewColorSecondary(builder, contentView, R.id.header_text);
             contentView.setViewVisibility(R.id.header_text, View.VISIBLE);
             contentView.setViewVisibility(R.id.header_text_divider, View.VISIBLE);
             setTextViewColorSecondary(builder, contentView, R.id.header_text_divider);
         }
+
         XposedHelpers.callMethod(builder, "unshrinkLine3Text", contentView);
     }
 
@@ -815,8 +810,10 @@ public class NotificationHooks {
                         getBackgroundColor(builder));
         } else {
             //Clear it!
-            contentView.setInt(R.id.status_bar_latest_event_content, "setBackgroundResource",
-                    0); //FIXME setting a background screws it up
+//            contentView.setInt(R.id.status_bar_latest_event_content, "setBackgroundResource",
+//                    0); //FIXME setting a background screws it up
+            contentView.setInt(context.getResources().getIdentifier("status_bar_latest_event_content", "id", PACKAGE_ANDROID), "setBackgroundResource",
+                    0);
 //        contentView.setInt(R.id.status_bar_latest_event_content, "setBackgroundColor",
 //                0x99ff0000); //FIXME setting a background screws it up
         }
@@ -828,7 +825,7 @@ public class NotificationHooks {
         }
     }
 
-    private static void adaptNotificationHeaderForBigContentView(RemoteViews result) {
+    private static void makeHeaderExpanded(RemoteViews result) {
         if (result != null) {
             result.setBoolean(R.id.notification_header, "setExpanded", true);
         }
@@ -838,10 +835,7 @@ public class NotificationHooks {
         final int max = XposedHelpers.getIntField(builder, "mProgressMax");
         final boolean ind = XposedHelpers.getBooleanField(builder, "mProgressIndeterminate");
         if (hasProgress && (max != 0 || ind)) {
-            CharSequence text = (CharSequence) XposedHelpers.getObjectField(builder, "mContentText");
-            contentView.setTextViewText(R.id.text_line_1, text);
             contentView.setViewVisibility(R.id.progress_container, View.VISIBLE);
-            contentView.setViewVisibility(R.id.text_line_1, View.VISIBLE);
             contentView.setViewVisibility(res.getIdentifier("line3", "id", PACKAGE_ANDROID), View.GONE);
             return true;
         } else {
@@ -868,7 +862,7 @@ public class NotificationHooks {
             Context context = (Context) XposedHelpers.getObjectField(builder, "mContext");
             Resources res = context.getResources();
             RemoteViews contentView = (RemoteViews) param.getResult();
-            CharSequence mContentInfo = (CharSequence) XposedHelpers.getObjectField(builder, "mContentInfo");
+            CharSequence mContentText = (CharSequence) XposedHelpers.getObjectField(builder, "mContentText");
 
             updateBackgroundColor(builder, contentView);
             bindNotificationHeader(contentView, param);
@@ -883,15 +877,12 @@ public class NotificationHooks {
                 setTextViewColorPrimary(builder, contentView, id);
             }
 
-            if (XposedHelpers.getObjectField(builder, "mContentText") != null) {
-                int id = res.getIdentifier("text", "id", PACKAGE_ANDROID);
-                setTextViewColorSecondary(builder, contentView, id);
-            }
-
-            if (mContentInfo != null) {
-                contentView.setTextViewText(R.id.header_text, processLegacyText(builder, mContentInfo));
-                contentView.setViewVisibility(R.id.header_text_divider, View.VISIBLE);
-                contentView.setViewVisibility(R.id.header_text, View.VISIBLE);
+            if (mContentText != null) {
+                int textId = showProgress ? R.id.text_line_1
+                        : res.getIdentifier("text", "id", PACKAGE_ANDROID);
+                contentView.setTextViewText(textId, mContentText);
+                setTextViewColorSecondary(builder, contentView, textId);
+                contentView.setViewVisibility(textId, View.VISIBLE);
             }
             Object largeIcon = XposedHelpers.getObjectField(builder, "mLargeIcon");
 
@@ -913,6 +904,8 @@ public class NotificationHooks {
 
             //setContentMinHeight(contentView, showProgress || (largeIcon != null), context);
 
+            contentView.setViewVisibility(context.getResources().getIdentifier("text2", "id", PACKAGE_ANDROID), View.GONE);
+            //contentView.setViewVisibility(res.getIdentifier("line3", "id", PACKAGE_ANDROID), View.VISIBLE);
             contentView.setInt(res.getIdentifier("right_icon", "id", PACKAGE_ANDROID), "setBackgroundResource", 0);
         }
     };
@@ -1151,9 +1144,13 @@ public class NotificationHooks {
             RemoteViews contentView = (RemoteViews) param.getResult();
             Object builder = XposedHelpers.getObjectField(param.thisObject, "mBuilder");
             Context context = (Context) XposedHelpers.getObjectField(builder, "mContext");
+            int textId = context.getResources().getIdentifier("text", "id", PACKAGE_ANDROID);
 
             if (XposedHelpers.getBooleanField(param.thisObject, "mSummaryTextSet")) {
-                setTextViewColorSecondary(builder, contentView, context.getResources().getIdentifier("text", "id", PACKAGE_ANDROID));
+                contentView.setTextViewText(textId, processLegacyText(builder, (CharSequence)XposedHelpers.getObjectField(param.thisObject, "mSummaryText")));
+                setTextViewColorSecondary(builder, contentView, textId);
+                contentView.setViewVisibility(textId, View.VISIBLE);
+                contentView.setViewVisibility(context.getResources().getIdentifier("line3", "id", PACKAGE_ANDROID) , View.VISIBLE);
             }
         }
     };
@@ -1162,7 +1159,7 @@ public class NotificationHooks {
         @Override
         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
             RemoteViews result = (RemoteViews) param.args[1];
-            adaptNotificationHeaderForBigContentView(result);
+            makeHeaderExpanded(result);
         }
     };
 
@@ -1371,7 +1368,6 @@ public class NotificationHooks {
                 XposedHelpers.findAndHookMethod(classNotificationBuilder, "setBuilderBigContentView", Notification.class, RemoteViews.class, setBuilderBigContentViewHook);
 
                 XposedHelpers.findAndHookMethod(NotificationCompat.Builder.class, "build", buildHook);
-//                XposedHelpers.findAndHookMethod(classNotificationStyle, "getStandardView", int.class, getStandardViewHook);
                 XposedHelpers.findAndHookMethod(classNotificationBigTextStyle, "makeBigContentView", makeBigContentViewBigTextHook);
                 XposedHelpers.findAndHookMethod(classNotificationInboxStyle, "makeBigContentView", makeBigContentViewInbox);
                 XposedHelpers.findAndHookMethod(classNotificationBigPictureStyle, "makeBigContentView", makeBigContentViewBigPictureHook);
@@ -1441,10 +1437,7 @@ public class NotificationHooks {
                         Notification notification = (Notification) XposedHelpers.getAdditionalInstanceField(param.thisObject, "mN");
                         Notification.Style mStyle = (Notification.Style) XposedHelpers.getObjectField(param.thisObject, "mStyle");
                         if (mStyle != style) {
-                            XposedHelpers.setObjectField(param.thisObject, "mStyle", style);
-                            mStyle = style;
-                            if (mStyle != null) {
-                                mStyle.setBuilder((Notification.Builder) param.thisObject);
+                            if (style != null) {
                                 notification.extras.putString(EXTRA_TEMPLATE, style.getClass().getName());
                             } else {
                                 notification.extras.remove(EXTRA_TEMPLATE);

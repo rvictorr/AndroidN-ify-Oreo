@@ -236,11 +236,10 @@ public class NotificationsStuff {
                 ExpandableNotificationRowHelper.getInstance(param.thisObject).mPrivateHelper.updateExpandButtons((boolean) XposedHelpers.callMethod(param.thisObject, "isExpandable"));
             }
         });
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "reset", new XC_MethodReplacement() {
+        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "reset", new XC_MethodHook() {
             @Override
-            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 ExpandableNotificationRowHelper.getInstance(param.thisObject).resetTranslation();
-                return null;
             }
         });
         XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "resetHeight", new XC_MethodReplacement() {
@@ -257,7 +256,7 @@ public class NotificationsStuff {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 XposedHelpers.setBooleanField(param.thisObject, "mChildrenExpanded", (boolean) param.args[0]);
-                //ExpandableNotificationRowHelper.getInstance(param.thisObject).updateClickAndFocus(); //TODO do something about this
+                ExpandableNotificationRowHelper.getInstance(param.thisObject).updateClickAndFocus();
                 return null;
             }
         });

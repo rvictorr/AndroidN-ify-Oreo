@@ -21,7 +21,6 @@ import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.FakeShadowView;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
-import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 import tk.wasdennnoch.androidn_ify.utils.RomUtils;
 
@@ -113,7 +112,6 @@ public class StackScrollAlgorithmHooks {
     private static Method methodWillBeGoneDismissView;
     private static Method methodPerformVisibilityAnimationEmptyShade;
     private static Method methodWillBeGoneEmptyShade;
-    private static Method methodUpdateVisibleChildren;
     private static Method methodSetLayoutHeight;
     private static Method methodSetTopPadding;
     private static Method methodApplyChildrenState;
@@ -343,7 +341,7 @@ public class StackScrollAlgorithmHooks {
             invoke(methodResetViewStates, resultState);
 
             initAlgorithmState(algorithmState, ambientState);
-            invoke(methodUpdateVisibleChildren, mStackScrollAlgorithm, resultState, algorithmState);
+            invoke(SystemUI.StackScrollAlgorithm.updateVisibleChildren, mStackScrollAlgorithm, resultState, algorithmState);
             updatePositionsForState(resultState, algorithmState, ambientState);
             updateZValuesForState(resultState, algorithmState, ambientState);
             updateHeadsUpStates(resultState, algorithmState, ambientState);

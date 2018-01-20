@@ -35,7 +35,8 @@ public class SensitiveNotificationFilter {
 
     private static final String TAG = "SensitiveNotificationFilter";
 
-    private static final String CLASS_TUNABLE = Classes.SystemUI.TunerService.getName() + "$Tunable";
+    private static final String CLASS_TUNER_SERVICE = "com.android.systemui.tuner.TunerService";
+    private static final String CLASS_TUNABLE = CLASS_TUNER_SERVICE + "$Tunable"; //TODO: switch to classes, has to be initialized before SystemUI
 
     private static final String SENSITIVE_FILTER = "sysui_sensitive_notifications_filter";
 

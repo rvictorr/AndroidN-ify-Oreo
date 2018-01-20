@@ -323,8 +323,8 @@ public class NotificationContentHelper {
                     isTransitioningFromTo(VISIBLE_TYPE_HEADSUP, VISIBLE_TYPE_EXPANDED) ||
                     isTransitioningFromTo(VISIBLE_TYPE_EXPANDED, VISIBLE_TYPE_HEADSUP);
             boolean pinned = !isVisibleOrTransitioning(VISIBLE_TYPE_CONTRACTED)
-                    && (!getBoolean(fieldIsHeadsUp, getContentView()) || mHeadsUpAnimatingAway);
-//                    && !mRowHelper.isOnKeyguard();
+                    && (!getBoolean(fieldIsHeadsUp, getContentView()) || mHeadsUpAnimatingAway)
+                    && !mRowHelper.isOnKeyguard();
             if (transitioningBetweenHunAndExpanded || pinned) {
                 return Math.min(mHeadsUpChild.getHeight(), mExpandedChild.getHeight());
             }
