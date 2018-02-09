@@ -40,6 +40,7 @@ import tk.wasdennnoch.androidn_ify.systemui.recents.stack.RecentsStackHooks;
 import tk.wasdennnoch.androidn_ify.systemui.screenshot.ScreenshotHooks;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.PermissionGranter;
 import tk.wasdennnoch.androidn_ify.utils.RomUtils;
 
@@ -147,8 +148,9 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
                 SettingsHooks.hook(lpparam.classLoader);
                 break;
             case PACKAGE_SYSTEMUI:
-                Classes.SystemUI.init(lpparam.classLoader);
+                Classes.SystemUI.init(lpparam.classLoader); //TODO: maybe init these on a different thread or something?
                 Classes.Keyguard.init(lpparam.classLoader);
+                Classes.Android.init(lpparam.classLoader); //for some reason this need to be initialized again here
                 SystemUIHooks.hookSystemUI();
                 SystemUIThemingHooks.hook();
                 ScreenshotHooks.hook();
@@ -165,6 +167,7 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
                 DoubleTapSwKeys.hook();
                 break;
             case PACKAGE_ANDROID:
+                Classes.Android.init(lpparam.classLoader);
                 AndroidHooks.hook(lpparam.classLoader);
                 DoubleTapHwKeys.hook(lpparam.classLoader);
                 LiveDisplayObserver.hook(lpparam.classLoader);

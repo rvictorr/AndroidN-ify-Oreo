@@ -7,6 +7,20 @@ public final class Classes {
 
     private static final String TAG = Classes.class.getSimpleName();
 
+    public static final class Android {
+        private static final String PACKAGE_ANDROID = XposedHook.PACKAGE_ANDROID;
+
+        private static ClassLoader sClassLoader;
+
+        private Android() {}
+
+        public static void init(ClassLoader classLoader) {
+            sClassLoader = classLoader;
+
+            Methods.Android.init();
+        }
+    }
+
     public static final class SystemUI {
         private static final String PACKAGE_SYSTEMUI = XposedHook.PACKAGE_SYSTEMUI;
 
@@ -43,6 +57,7 @@ public final class Classes {
 
         public static Class NotificationChildrenContainer;
         public static Class NotificationStackScrollLayout;
+        public static Class StackStateAnimator;
         public static Class StackScrollAlgorithm;
         public static Class StackScrollAlgorithmState;
         public static Class StackScrollState;
@@ -79,6 +94,7 @@ public final class Classes {
 
             NotificationStackScrollLayout = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.NotificationStackScrollLayout", classLoader);
             NotificationChildrenContainer = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.NotificationChildrenContainer", classLoader);
+            StackStateAnimator = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.StackStateAnimator", classLoader);
             StackScrollAlgorithm = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.StackScrollAlgorithm", classLoader);
             StackScrollAlgorithmState = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.StackScrollAlgorithm.StackScrollAlgorithmState", classLoader);
             StackScrollState = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.StackScrollState", classLoader);
@@ -113,6 +129,7 @@ public final class Classes {
             ScrimView = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.ScrimView", classLoader);
 
             Methods.SystemUI.init();
+            Fields.SystemUI.init();
         }
 
         public static ClassLoader getClassLoader() {

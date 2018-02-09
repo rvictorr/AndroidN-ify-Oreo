@@ -30,6 +30,10 @@ import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
+import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.NotificationPanelView.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.NotificationPanelView.*;
+
 @SuppressLint("StaticFieldLeak")
 public class NotificationPanelHooks {
 
@@ -41,10 +45,12 @@ public class NotificationPanelHooks {
 
     private static boolean mAnimate = true;
 
+    private static int mQsPeekHeight;
+
     private static ViewGroup mNotificationPanelView;
-    private static ViewGroup mQsContainer;
+    private static ViewGroup mQSContainer;
     private static ViewGroup mHeader;
-    private static ViewGroup mQsPanel;
+    private static ViewGroup mQSPanel;
     private static QSFooter mQsFooter;
     private static ExpandableIndicator mExpandIndicator;
     private static QSCustomizer mQsCustomizer;
@@ -58,21 +64,21 @@ public class NotificationPanelHooks {
             mNotificationPanelView = (ViewGroup) param.thisObject;
             Context context = mNotificationPanelView.getContext();
 
-            mNotificationPanelView.setClipChildren(false);
-            mNotificationPanelView.setClipToPadding(false);
+//            mNotificationPanelView.setClipChildren(false);
+//            mNotificationPanelView.setClipToPadding(false);
             mHeader = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mHeader");
-            mQsContainer = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsContainer");
-            mQsPanel = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsPanel");
-            mQsFooter = mQsContainer.findViewById(R.id.qs_footer);
+            mQSContainer = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsContainer");
+            mQSPanel = (ViewGroup) XposedHelpers.getObjectField(mNotificationPanelView, "mQsPanel");
+            mQsFooter = mQSContainer.findViewById(R.id.qs_footer);
             mHeader.setOnClickListener(null);
             mExpandIndicator = mQsFooter.findViewById(R.id.statusbar_header_expand_indicator);
             mExpandIndicator.setOnClickListener(mExpandIndicatorListener);
 
             /*if (!ConfigUtils.qs().keep_qs_panel_background) {
-                View mQsContainer = (View) XposedHelpers.getObjectField(param.thisObject, "mQsContainer");
+                View mQSContainer = (View) XposedHelpers.getObjectField(param.thisObject, "mQSContainer");
                 try {
                     //noinspection deprecation
-                    mQsContainer.setBackgroundColor(context.getResources().getColor(context.getResources().getIdentifier("system_primary_color", "color", PACKAGE_SYSTEMUI)));
+                    mQSContainer.setBackgroundColor(context.getResources().getColor(context.getResources().getIdentifier("system_primary_color", "color", PACKAGE_SYSTEMUI)));
                 } catch (Throwable t) {
                     XposedHook.logE(TAG, "Couldn't change QS container background color", t);
                 }
@@ -87,8 +93,8 @@ public class NotificationPanelHooks {
             mQsCustomizer = qsCustomizer;
 
             if (ConfigUtils.qs().fix_header_space) {
-                mQsContainerHelper = new QSContainerHelper(mNotificationPanelView, mQsContainer, mHeader,
-                        mQsPanel, mQsFooter);
+                mQsContainerHelper = new QSContainerHelper(mNotificationPanelView, mQSContainer, mHeader,
+                        mQSPanel, mQsFooter);
 
                 mNotificationPanelView.requestLayout();
             }
@@ -112,7 +118,7 @@ public class NotificationPanelHooks {
             for (BarStateCallback callback : mBarStateCallbacks) {
                 callback.onStateChanged();
             }
-            setKeyguardShowing(XposedHelpers.getBooleanField(param.thisObject, "mKeyguardShowing"));
+            setKeyguardShowing(getBoolean(mKeyguardShowing, param.thisObject));
         }
     };
 
@@ -152,7 +158,7 @@ public class NotificationPanelHooks {
         }
 
         mQsFooter.setKeyguardShowing(keyguardShowing);
-        XposedHelpers.callMethod(mNotificationPanelView, "updateQsState");
+        invoke(updateQsState, mNotificationPanelView);
     }
 
     public static void expandWithQs() {
@@ -208,9 +214,7 @@ public class NotificationPanelHooks {
             return 0;
         }
         int state = 0;
-        try {
-            state = fieldStatusBarState.getInt(mNotificationPanelView);
-        } catch (IllegalAccessException ignore) {}
+        state = getInt(fieldStatusBarState, mNotificationPanelView);
         return state;
     }
 
@@ -248,6 +252,12 @@ public class NotificationPanelHooks {
                 XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "onFinishInflate", onFinishInflateHook);
                 XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "setBarState", int.class, boolean.class, boolean.class, setBarStateHook);
                 XposedHelpers.findAndHookMethod(Classes.SystemUI.QSContainer, "setHeightOverride", int.class, setHeightOverrideHook);
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "loadDimens", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        mQsPeekHeight = XposedHelpers.getIntField(param.thisObject, "mQsPeekHeight");
+                    }
+                });
                 XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "setQsExpansionEnabled", boolean.class, new XC_MethodReplacement() {
                     @Override
                     protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
@@ -285,8 +295,8 @@ public class NotificationPanelHooks {
                         @Override
                         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                             if (mQsContainerHelper != null)
-                                mQsContainerHelper.setQsExpansion((float) XposedHelpers.callMethod(param.thisObject, "getQsExpansionFraction"),
-                                        (float) XposedHelpers.callMethod(param.thisObject, "getHeaderTranslation"));
+                                mQsContainerHelper.setQsExpansion((float) invoke(getQsExpansionFraction, param.thisObject),
+                                        (float) invoke(getHeaderTranslation,param.thisObject));
                             return null;
                         }
                     };
@@ -354,9 +364,8 @@ public class NotificationPanelHooks {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             final FrameLayout panelView = (FrameLayout) param.thisObject;
-            final Object statusBar = XposedHelpers.getObjectField(panelView, "mStatusBar");
+            final Object statusBar = get(mStatusBar, panelView);
 
-            Method abortAnimations = XposedHelpers.findMethodBestMatch(Classes.SystemUI.PanelView, "abortAnimations");
             Method cancelPeek = XposedHelpers.findMethodBestMatch(Classes.SystemUI.PanelView, "cancelPeek");
             final Method notifyExpandingStarted = XposedHelpers.findMethodBestMatch(Classes.SystemUI.PanelView, "notifyExpandingStarted");
             final Method fling = XposedHelpers.findMethodBestMatch(Classes.SystemUI.PanelView, "fling", int.class, boolean.class);
@@ -367,9 +376,9 @@ public class NotificationPanelHooks {
                 return null;
             }
             XposedHelpers.setBooleanField(panelView, "mInstantExpanding", true);
-            XposedHelpers.setBooleanField(panelView, "mUpdateFlingOnLayout", false);
-            abortAnimations.invoke(panelView);
-            cancelPeek.invoke(panelView);
+            set(mUpdateFlingOnLayout, panelView, false);
+            invoke(abortAnimations, panelView);
+            invoke(cancelPeek, panelView);
             if (XposedHelpers.getBooleanField(panelView, "mTracking")) {
                 XposedHelpers.callMethod(panelView, "onTrackingStopped", true /* expands */); // The panel is expanded after this call.
             }
@@ -394,8 +403,8 @@ public class NotificationPanelHooks {
                                         != (int) XposedHelpers.callMethod(statusBar, "getStatusBarHeight")) {
                                     panelView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
                                     if (mAnimate) {
-                                        notifyExpandingStarted.invoke(panelView);
-                                        fling.invoke(panelView, 0, true /* expand */);
+                                        invoke(notifyExpandingStarted, panelView);
+                                        invoke(fling, panelView, 0, true /* expand */);
                                     } else {
                                         XposedHelpers.callMethod(panelView, "setExpandedFraction", 1f);
                                     }

@@ -83,7 +83,7 @@ public class QuickQSPanel extends LinearLayout {
     public void handleStateChanged(Object qsTile, Object state) {
         ViewGroup tileView = (ViewGroup) XposedHelpers.getAdditionalInstanceField(qsTile, KEY_QUICKQS_TILEVIEW);
         if (tileView != null) {
-            XposedHelpers.callMethod(tileView, "onStateChanged", state);
+            XposedHelpers.callMethod(tileView, "onStateChanged", state); //TODO: optimize
         }
     }
 

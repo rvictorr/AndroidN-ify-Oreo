@@ -69,6 +69,8 @@ import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.hooks.WifiTileHook;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 import tk.wasdennnoch.androidn_ify.utils.RomUtils;
 import tk.wasdennnoch.androidn_ify.utils.ViewUtils;
@@ -84,8 +86,6 @@ public class StatusBarHeaderHooks {
     private static final String PACKAGE_SYSTEMUI = XposedHook.PACKAGE_SYSTEMUI;
 
     private static final String CLASS_QS_DRAG_PANEL = PACKAGE_SYSTEMUI + ".qs.QSDragPanel";
-
-    private static Method methodShouldShowOnKeyguard;
 
     private static boolean mCollapseAfterHideDetails = false;
     private static boolean mHideTunerIcon = false;
@@ -145,6 +145,9 @@ public class StatusBarHeaderHooks {
     private static float mExpansion = 0;
     private static float mAlarmStatusX;
     private static boolean mRecreatingStatusBar = false;
+
+    private static int mCollapsedHeight;
+    private static int mExpandedHeight;
 
     private static final ArrayList<String> mPreviousTiles = new ArrayList<>();
     public static ArrayList<Object> mRecords;
@@ -969,8 +972,6 @@ public class StatusBarHeaderHooks {
 
                 qsHooks = QuickSettingsHooks.create();
 
-                methodShouldShowOnKeyguard = XposedHelpers.findMethodBestMatch(BaseStatusBar, "shouldShowOnKeyguard", StatusBarNotification.class);
-
                 XposedHelpers.findAndHookMethod(StatusBarHeaderView, "onLayout", boolean.class, int.class, int.class, int.class, int.class, onLayoutHook);
                 XposedHelpers.findAndHookMethod(QSDetailItems, "setMinHeightInItems", int.class, XC_MethodReplacement.DO_NOTHING);
                 XposedHelpers.findAndHookMethod(QSDetailItems, "onFinishInflate", new XC_MethodHook() {
@@ -1044,6 +1045,14 @@ public class StatusBarHeaderHooks {
                     } catch (Throwable ignore) {
                     }
                 }
+
+                XposedHelpers.findAndHookMethod(StatusBarHeaderView, "loadDimens", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        mCollapsedHeight = XposedHelpers.getIntField(param.thisObject, "mCollapsedHeight");
+                        mExpandedHeight = XposedHelpers.getIntField(param.thisObject, "mExpandedHeight");
+                    }
+                });
 
                 XposedHelpers.findAndHookMethod(StatusBarHeaderView, "updateClickTargets", new XC_MethodHook() {
                     @Override
@@ -1139,10 +1148,22 @@ public class StatusBarHeaderHooks {
                         final int N = activeNotifications.size();
                         int visibleNotifications = 0;
                         for (int i = 0; i < N; i++) {
-                            Object notification = XposedHelpers.getObjectField(activeNotifications.get(i), "notification");
+                            Object entry = activeNotifications.get(i);
+                            Object notification = XposedHelpers.getObjectField(entry, "notification");
 
                             boolean isInvisibleChild = !(boolean) XposedHelpers.callMethod(mGroupManager, "isVisible", notification);
-                            boolean showOnKeyguard = (boolean) methodShouldShowOnKeyguard.invoke(param.thisObject, notification);
+                            boolean showOnKeyguard;
+                            try {
+                                showOnKeyguard = ReflectionUtils.invoke(Methods.SystemUI.BaseStatusBar.shouldShowOnKeyguard, param.thisObject, notification);
+                            } catch (ReflectionUtils.UncheckedIllegalArgumentException e) { //Xperia
+                                boolean show = mShowLockscreenNotifications;
+                                if (XposedHelpers.getBooleanField(param.thisObject, "mIsDisableSecureNotificationsByDpm")) {
+                                    show = false;
+                                } else if ((boolean) XposedHelpers.callMethod(entry, "isMediaNotification")) {
+                                    show = true;
+                                }
+                                showOnKeyguard = ReflectionUtils.invoke(Methods.SystemUI.BaseStatusBar.shouldShowOnKeyguard, param.thisObject, notification, show);
+                            }
                             if (!((isLockscreenPublicMode && !mShowLockscreenNotifications) ||
                                     (onKeyguard && (visibleNotifications >= maxKeyguardNotifications
                                             || !showOnKeyguard || isInvisibleChild)))) {
@@ -1360,5 +1381,13 @@ public class StatusBarHeaderHooks {
 
     public static View getSettingsButton() {
         return mSettingsButton;
+    }
+
+    public static int getCollapsedHeight() {
+        return mCollapsedHeight;
+    }
+
+    public static int getExpandedHeight() {
+        return mExpandedHeight;
     }
 }

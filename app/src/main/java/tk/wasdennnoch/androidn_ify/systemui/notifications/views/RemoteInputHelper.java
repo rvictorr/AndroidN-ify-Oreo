@@ -10,6 +10,8 @@ import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.RemoteInputView;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHooks;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
 import static de.robv.android.xposed.XposedHelpers.callMethod;
 import static de.robv.android.xposed.XposedHelpers.getObjectField;
@@ -68,7 +70,7 @@ public class RemoteInputHelper {
             return false;
         }
 
-        callMethod(row, "setUserExpanded", true);
+        ReflectionUtils.invoke(Methods.SystemUI.ExpandableNotificationRow.setUserExpanded, row, true);
 
         /*if (!mAllowLockscreenRemoteInput) {
             if (isLockscreenPublicMode()) {

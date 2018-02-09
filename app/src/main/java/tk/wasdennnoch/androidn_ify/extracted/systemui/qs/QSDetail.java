@@ -47,6 +47,7 @@ import tk.wasdennnoch.androidn_ify.extracted.systemui.ResizingSpace;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationPanelHooks;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static tk.wasdennnoch.androidn_ify.XposedHook.PACKAGE_SYSTEMUI;
@@ -315,11 +316,7 @@ public class QSDetail extends LinearLayout {
     }
 
     private void setDetailRecord(Object r) {
-        try {
-            mSetDetailRecord.invoke(mQsPanel, r);
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            e.printStackTrace();
-        }
+        ReflectionUtils.invoke(mSetDetailRecord, mQsPanel, r);
     }
 
     private void handleToggleStateChanged(boolean state, boolean toggleEnabled) {

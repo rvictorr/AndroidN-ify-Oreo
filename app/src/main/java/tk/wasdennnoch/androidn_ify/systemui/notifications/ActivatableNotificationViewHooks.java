@@ -5,9 +5,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.animation.TimeAnimator;
 import android.animation.ValueAnimator;
-import android.content.Context;
 import android.graphics.RectF;
-import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewAnimationUtils;
 import android.view.animation.Interpolator;
@@ -15,7 +13,6 @@ import android.view.animation.PathInterpolator;
 import android.widget.FrameLayout;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import de.robv.android.xposed.XC_MethodHook;
@@ -26,8 +23,12 @@ import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationStackScrollLayoutHooks;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
 
 import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
+import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.ExpandableView.*;
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.ActivatableNotificationView.*;
 
 public class ActivatableNotificationViewHooks {
 
@@ -48,13 +49,12 @@ public class ActivatableNotificationViewHooks {
     private static Method methodEnableAppearDrawing;
     private static Method methodFadeInFromDark;
     private static Method methodSetContentAlpha;
-    public static Method methodUpdateClipping;
 
     private static Field fieldOnActivatedListener;
 
     private static int mBackgroundNormalVisibility;
     private static int mBackgroundDimmedVisibility;
-    private static boolean mDark;
+    private static boolean tempDark;
 
     private static final Interpolator ACTIVATE_INVERSE_INTERPOLATOR
             = new PathInterpolator(0.6f, 0, 0.5f, 1);
@@ -76,14 +76,12 @@ public class ActivatableNotificationViewHooks {
             methodEnableAppearDrawing = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "enableAppearDrawing", boolean.class);
             methodFadeInFromDark = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "fadeInFromDark", long.class);
             methodSetContentAlpha = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "setContentAlpha", float.class);
-            methodUpdateClipping = XposedHelpers.findMethodBestMatch(ExpandableView, "updateClipping");
             fieldOnActivatedListener = XposedHelpers.findField(ActivatableNotificationView, "mOnActivatedListener");
 
             XposedHelpers.findAndHookMethod(ActivatableNotificationView, "onFinishInflate", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
-                    helper.onFinishInflate();
                     helper.updateOutlineAlpha();
                 }
             });
@@ -102,9 +100,9 @@ public class ActivatableNotificationViewHooks {
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
                     View mBackgroundNormal = helper.getBackgroundNormal();
-                    if (!XposedHelpers.getBooleanField(param.thisObject, "mDark")) {
-                        if (XposedHelpers.getBooleanField(param.thisObject, "mDimmed"))
-                            mBackgroundNormal.setVisibility((XposedHelpers.getBooleanField(param.thisObject, "mActivated")
+                    if (!getBoolean(mDark, param.thisObject)) {
+                        if (getBoolean(mDimmed, param.thisObject))
+                            mBackgroundNormal.setVisibility((getBoolean(mActivated, param.thisObject)
                                     ? View.VISIBLE
                                     : View.INVISIBLE));
                         else
@@ -128,11 +126,11 @@ public class ActivatableNotificationViewHooks {
                 protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                     boolean enable = (boolean) param.args[0];
                     ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
-                    if (enable != XposedHelpers.getBooleanField(param.thisObject, "mDrawingAppearAnimation")) {
-                        XposedHelpers.setBooleanField(param.thisObject, "mDrawingAppearAnimation", enable);
+                    if (enable != getBoolean(mDrawingAppearAnimation, param.thisObject)) {
+                        set(mDrawingAppearAnimation, param.thisObject, enable);
                         if (!enable) {
-                            methodSetContentAlpha.invoke(param.thisObject, 1.0f);
-                            XposedHelpers.setFloatField(param.thisObject, "mAppearAnimationFraction", -1);
+                            invoke(methodSetContentAlpha, param.thisObject, 1.0f);
+                            set(mAppearAnimationFraction, param.thisObject, -1);
                             helper.setOutlineRect(null);
                         }
                     }
@@ -143,8 +141,8 @@ public class ActivatableNotificationViewHooks {
             XposedHelpers.findAndHookMethod(ActivatableNotificationView, "cancelAppearAnimation", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if (XposedHelpers.getObjectField(param.thisObject, "mAppearAnimator") != null)
-                        XposedHelpers.setObjectField(param.thisObject, "mAppearAnimator", null);
+                    if (get(mAppearAnimator, param.thisObject) != null)
+                        set(mAppearAnimator, param.thisObject, null);
                 }
             });
 
@@ -175,11 +173,11 @@ public class ActivatableNotificationViewHooks {
             boolean dimmed = (boolean) param.args[0];
             boolean fade = (boolean) param.args[1];
             ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(expandableView);
-            if (XposedHelpers.getBooleanField(expandableView, "mDimmed") != dimmed) {
-                XposedHelpers.setBooleanField(expandableView, "mDimmed", dimmed);
+            if (getBoolean(mDimmed, expandableView) != dimmed) {
+                set(mDimmed, expandableView, dimmed);
                 helper.resetBackgroundAlpha();
                 if (fade) {
-                    methodFadeDimmedBackground.invoke(expandableView);
+                    invoke(methodFadeDimmedBackground, expandableView);
                 } else {
                     helper.updateBackground();
                 }
@@ -198,52 +196,47 @@ public class ActivatableNotificationViewHooks {
             long delay = (long) param.args[2];
             long duration = (long) param.args[3];
             final Runnable onFinishedRunnable = (Runnable) param.args[4];
-            float mAppearAnimationFraction = XposedHelpers.getFloatField(expandableView, "mAppearAnimationFraction");
-            methodCancelAppearAnimation.invoke(expandableView);
-            XposedHelpers.setFloatField(expandableView, "mAnimationTranslationY", translationDirection * (int) XposedHelpers.callMethod(expandableView, "getActualHeight"));
-            if (mAppearAnimationFraction == -1.0f) {
+            float appearAnimationFraction = getFloat(mAppearAnimationFraction, expandableView);
+            invoke(methodCancelAppearAnimation, expandableView);
+            set(mAnimationTranslationY, expandableView, translationDirection * (int) invoke(getActualHeight, expandableView));
+            if (appearAnimationFraction == -1.0f) {
                 // not initialized yet, we start anew
                 if (isAppearing) {
-                    mAppearAnimationFraction = 0.0f;
-                    XposedHelpers.setFloatField(expandableView, "mAppearAnimationTranslation", XposedHelpers.getFloatField(expandableView, "mAnimationTranslationY"));
+                    appearAnimationFraction = 0.0f;
+                    set(mAppearAnimationTranslation, expandableView, getFloat(mAnimationTranslationY, expandableView));
                 } else {
-                    mAppearAnimationFraction = 1.0f;
-                    XposedHelpers.setFloatField(expandableView, "mAppearAnimationTranslation", 0);
+                    appearAnimationFraction = 1.0f;
+                    set(mAppearAnimationTranslation, expandableView, 0);
                 }
             }
             float targetValue;
             if (isAppearing) {
-                XposedHelpers.setObjectField(expandableView, "mCurrentAppearInterpolator", XposedHelpers.getObjectField(expandableView, "mSlowOutFastInInterpolator"));
-                XposedHelpers.setObjectField(expandableView, "mCurrentAlphaInterpolator", Interpolators.LINEAR_OUT_SLOW_IN);
+                set(mCurrentAppearInterpolator, expandableView, get(mSlowOutFastInInterpolator, expandableView));
+                set(mCurrentAlphaInterpolator, expandableView, Interpolators.LINEAR_OUT_SLOW_IN);
                 targetValue = 1.0f;
             } else {
-                XposedHelpers.setObjectField(expandableView, "mCurrentAppearInterpolator", Interpolators.FAST_OUT_SLOW_IN);
-                XposedHelpers.setObjectField(expandableView, "mCurrentAlphaInterpolator", XposedHelpers.getObjectField(expandableView, "mSlowOutLinearInInterpolator"));
+                set(mCurrentAppearInterpolator, expandableView, Interpolators.FAST_OUT_SLOW_IN);
+                set(mCurrentAlphaInterpolator, expandableView, get(mSlowOutFastInInterpolator, expandableView));
                 targetValue = 0.0f;
             }
-            XposedHelpers.setObjectField(expandableView, "mAppearAnimator", ValueAnimator.ofFloat(mAppearAnimationFraction,
-                    targetValue));
-            ValueAnimator mAppearAnimator = (ValueAnimator) XposedHelpers.getObjectField(expandableView, "mAppearAnimator");
+            set(mAppearAnimator, expandableView, ValueAnimator.ofFloat(appearAnimationFraction, targetValue));
+            ValueAnimator mAppearAnimator = get(Fields.SystemUI.ActivatableNotificationView.mAppearAnimator, expandableView);
             mAppearAnimator.setInterpolator(Interpolators.LINEAR);
             mAppearAnimator.setDuration(
-                    (long) (duration * Math.abs(mAppearAnimationFraction - targetValue)));
+                    (long) (duration * Math.abs(appearAnimationFraction - targetValue)));
             mAppearAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                 @Override
                 public void onAnimationUpdate(ValueAnimator animation) {
-                    XposedHelpers.setObjectField(expandableView, "mAppearAnimationFraction", animation.getAnimatedValue());
-                    try {
-                        methodUpdateAppearAnimationAlpha.invoke(expandableView);
-                        methodUpdateAppearRect.invoke(expandableView);
-                    } catch (IllegalAccessException | InvocationTargetException ignore) {
-                        XposedHook.logI(TAG, ignore.toString());
-                    }
+                    set(mAppearAnimationFraction, expandableView, animation.getAnimatedValue());
+                    invoke(methodUpdateAppearAnimationAlpha, expandableView);
+                    invoke(methodUpdateAppearRect, expandableView);
                     expandableView.invalidate();
                 }
             });
             if (delay > 0) {
                 // we need to apply the initial state already to avoid drawn frames in the wrong state
-                methodUpdateAppearAnimationAlpha.invoke(expandableView);
-                methodUpdateAppearRect.invoke(expandableView);
+                invoke(methodUpdateAppearAnimationAlpha, expandableView);
+                invoke(methodUpdateAppearRect, expandableView);
                 mAppearAnimator.setStartDelay(delay);
             }
             mAppearAnimator.addListener(new AnimatorListenerAdapter() {
@@ -255,13 +248,9 @@ public class ActivatableNotificationViewHooks {
                         onFinishedRunnable.run();
                     }
                     if (!mWasCancelled) {
-                        try {
-                            methodEnableAppearDrawing.invoke(expandableView, false);
-                            if (Classes.SystemUI.ExpandableNotificationRow.isInstance(expandableView))
-                                helper.onAppearAnimationFinished(isAppearing);
-                        } catch (IllegalAccessException | InvocationTargetException e) {
-                            XposedHook.logI(TAG, e.toString());
-                        }
+                        invoke(methodEnableAppearDrawing, expandableView, false);
+                        if (Classes.SystemUI.ExpandableNotificationRow.isInstance(expandableView))
+                            helper.onAppearAnimationFinished(isAppearing);
                     }
                 }
 
@@ -280,16 +269,16 @@ public class ActivatableNotificationViewHooks {
         }
     };
 
-    private static XC_MethodHook setDarkHook = new XC_MethodHook() {
+    private static XC_MethodHook setDarkHook = new XC_MethodHook() { //TODO: optimize
         @Override
         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
             Object expandableView = param.thisObject;
-            View mBackgroundNormal = (View) XposedHelpers.getObjectField(expandableView, "mBackgroundNormal");
-            View mBackgroundDimmed = (View) XposedHelpers.getObjectField(expandableView, "mBackgroundDimmed");
-            mBackgroundDimmedVisibility = mBackgroundDimmed.getVisibility();
-            mBackgroundNormalVisibility = mBackgroundNormal.getVisibility();
-            mDark = XposedHelpers.getBooleanField(expandableView, "mDark");
-            XposedHelpers.setBooleanField(expandableView, "mDark", (boolean) param.args[0]);
+            View backgroundNormal = get(mBackgroundNormal, expandableView);
+            View backgroundDimmed = get(mBackgroundDimmed, expandableView);
+            mBackgroundDimmedVisibility = backgroundDimmed.getVisibility();
+            mBackgroundNormalVisibility = backgroundNormal.getVisibility();
+            tempDark = getBoolean(mDark, expandableView);
+            set(mDark, expandableView, param.args[0]);
         }
 
         @Override
@@ -299,18 +288,18 @@ public class ActivatableNotificationViewHooks {
             boolean dark = (boolean) param.args[0];
             boolean fade = (boolean) param.args[1];
             long delay = (long) param.args[2];
-            XposedHelpers.setBooleanField(expandableView, "mDark", mDark);
+            set(mDark, expandableView, tempDark);
             helper.getBackgroundDimmed().setVisibility(mBackgroundDimmedVisibility);
             helper.getBackgroundNormal().setVisibility(mBackgroundNormalVisibility);
 
-            if (mDark == dark) {
+            if (tempDark == dark) {
                 return;
             }
-            XposedHelpers.setBooleanField(expandableView, "mDark", dark);
-            mDark = dark;
+            set(mDark, expandableView, dark);
+            tempDark = dark;
             helper.updateBackground();
-            if (!dark && fade && !mDark) {
-                methodFadeInFromDark.invoke(expandableView, delay);
+            if (!dark && fade && !tempDark) {
+                invoke(methodFadeInFromDark, expandableView, delay);
             }
             helper.updateOutlineAlpha();
         }
@@ -388,11 +377,11 @@ public class ActivatableNotificationViewHooks {
             ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(expandableView);
             View mBackgroundNormal = helper.getBackgroundNormal();
             View mBackgroundDimmed = helper.getBackgroundDimmed();
-            final View background = XposedHelpers.getBooleanField(expandableView, "mDimmed") ? mBackgroundDimmed : mBackgroundNormal;
+            final View background = getBoolean(mDimmed, expandableView) ? mBackgroundDimmed : mBackgroundNormal;
             background.setAlpha(0f);
             helper.mBackgroundVisibilityUpdater.onAnimationUpdate(null);
             background.setPivotX(mBackgroundDimmed.getWidth() / 2f);
-            background.setPivotY(((int) XposedHelpers.callMethod(expandableView, "getActualHeight")) / 2f);
+            background.setPivotY(((int) invoke(getActualHeight, expandableView)) / 2f);
             background.setScaleX(DARK_EXIT_SCALE_START);
             background.setScaleY(DARK_EXIT_SCALE_START);
             background.animate()
@@ -429,12 +418,12 @@ public class ActivatableNotificationViewHooks {
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             Object expandableView = param.thisObject;
             boolean animate = (boolean) param.args[0];
-            Object mOnActivatedListener = fieldOnActivatedListener.get(expandableView);
-            if (XposedHelpers.getBooleanField(expandableView, "mActivated")) {
-                XposedHelpers.setBooleanField(expandableView, "mActivated",  false);
-                if (XposedHelpers.getBooleanField(expandableView, "mDimmed")) {
+            Object mOnActivatedListener = get(fieldOnActivatedListener, expandableView);
+            if (getBoolean(mActivated, expandableView)) {
+                set(mActivated, expandableView,  false);
+                if (getBoolean(mDimmed, expandableView)) {
                     if (animate) {
-                        methodStartActivateAnimation.invoke(expandableView,  true /* reverse */);
+                        invoke(methodStartActivateAnimation, expandableView,  true /* reverse */);
                     } else {
                         ExpandableOutlineViewHelper.getInstance(expandableView).updateBackground();
                     }
@@ -453,56 +442,56 @@ public class ActivatableNotificationViewHooks {
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             final Object expandableView = param.thisObject;
             final ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(expandableView);
-            ValueAnimator mBackgroundAnimator = (ValueAnimator) XposedHelpers.getObjectField(expandableView, "mBackgroundAnimator");
+            ValueAnimator backgroundAnimator = get(mBackgroundAnimator, expandableView);
             View mBackgroundNormal = helper.getBackgroundNormal();
             View mBackgroundDimmed = helper.getBackgroundDimmed();
-            boolean mActivated = XposedHelpers.getBooleanField(expandableView, "mActivated");
-            boolean mDimmed = XposedHelpers.getBooleanField(expandableView, "mDimmed");
-            boolean mDark = XposedHelpers.getBooleanField(expandableView, "mDark");
+            boolean activated = getBoolean(mActivated, expandableView);
+            boolean dimmed = getBoolean(mDimmed, expandableView);
+            boolean dark = getBoolean(mDark, expandableView);
             mBackgroundDimmed.animate().cancel();
             mBackgroundNormal.animate().cancel();
-            if (mActivated) {
+            if (activated) {
                 helper.updateBackground();
                 return null;
             }
-            if (!mDark) {
-                if (mDimmed) {
+            if (!dark) {
+                if (dimmed) {
                     mBackgroundDimmed.setVisibility(View.VISIBLE);
                 } else {
                     mBackgroundNormal.setVisibility(View.VISIBLE);
                 }
             }
-            float startAlpha = mDimmed ? 1f : 0;
-            float endAlpha = mDimmed ? 0 : 1f;
+            float startAlpha = dimmed ? 1f : 0;
+            float endAlpha = dimmed ? 0 : 1f;
             int duration = BACKGROUND_ANIMATION_LENGTH_MS;
             // Check whether there is already a background animation running.
-            if (mBackgroundAnimator != null) {
-                startAlpha = (Float) mBackgroundAnimator.getAnimatedValue();
-                duration = (int) mBackgroundAnimator.getCurrentPlayTime();
-                mBackgroundAnimator.removeAllListeners();
-                mBackgroundAnimator.cancel();
+            if (backgroundAnimator != null) {
+                startAlpha = (Float) backgroundAnimator.getAnimatedValue();
+                duration = (int) backgroundAnimator.getCurrentPlayTime();
+                backgroundAnimator.removeAllListeners();
+                backgroundAnimator.cancel();
                 if (duration <= 0) {
                     helper.updateBackground();
                     return null;
                 }
             }
             mBackgroundNormal.setAlpha(startAlpha);
-            mBackgroundAnimator =
+            backgroundAnimator =
                     ObjectAnimator.ofFloat(mBackgroundNormal, View.ALPHA, startAlpha, endAlpha);
-            mBackgroundAnimator.setInterpolator(Interpolators.FAST_OUT_SLOW_IN);
-            mBackgroundAnimator.setDuration(duration);
-            mBackgroundAnimator.addListener(new AnimatorListenerAdapter() {
+            backgroundAnimator.setInterpolator(Interpolators.FAST_OUT_SLOW_IN);
+            backgroundAnimator.setDuration(duration);
+            backgroundAnimator.addListener(new AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     helper.updateBackground();
-                    XposedHelpers.setObjectField(expandableView, "mBackgroundAnimator", null);
+                    set(mBackgroundAnimator, expandableView, null);
                     if (helper.mFadeInFromDarkAnimator == null) {
                         helper.mDimmedBackgroundFadeInAmount = -1;
                     }
                 }
             });
-            mBackgroundAnimator.addUpdateListener(helper.mBackgroundVisibilityUpdater);
-            mBackgroundAnimator.start();
+            backgroundAnimator.addUpdateListener(helper.mBackgroundVisibilityUpdater);
+            backgroundAnimator.start();
             return null;
         }
     };
@@ -512,23 +501,23 @@ public class ActivatableNotificationViewHooks {
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             View expandableView = (View) param.thisObject;
             ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(expandableView);
-            float mAppearAnimationTranslation;
-            float mAppearAnimationFraction = XposedHelpers.getFloatField(expandableView, "mAppearAnimationFraction");
-            float mAnimationTranslationY = XposedHelpers.getFloatField(expandableView, "mAnimationTranslationY");
-            RectF mAppearAnimationRect = (RectF) XposedHelpers.getObjectField(expandableView, "mAppearAnimationRect");
-            Interpolator mCurrentAppearInterpolator = (Interpolator) XposedHelpers.getObjectField(expandableView, "mCurrentAppearInterpolator");
+            float appearAnimationTranslation;
+            float appearAnimationFraction = getFloat(mAppearAnimationFraction, expandableView);
+            float animationTranslationY = getFloat(mAnimationTranslationY, expandableView);
+            RectF appearAnimationRect = get(mAppearAnimationRect, expandableView);
+            Interpolator currentAppearInterpolator = get(mCurrentAppearInterpolator, expandableView);
 
-            float inverseFraction = (1.0f - mAppearAnimationFraction);
-            float translationFraction = mCurrentAppearInterpolator.getInterpolation(inverseFraction);
-            float translateYTotalAmount = translationFraction * mAnimationTranslationY;
-            XposedHelpers.setFloatField(expandableView, "mAppearAnimationTranslation", translateYTotalAmount);
-            mAppearAnimationTranslation = translateYTotalAmount;
+            float inverseFraction = (1.0f - appearAnimationFraction);
+            float translationFraction = currentAppearInterpolator.getInterpolation(inverseFraction);
+            float translateYTotalAmount = translationFraction * animationTranslationY;
+            set(mAppearAnimationTranslation, expandableView, translateYTotalAmount);
+            appearAnimationTranslation = translateYTotalAmount;
 
             // handle width animation
             float widthFraction = (inverseFraction - (1.0f - 1.0f))
                     / (1.0f - 0.2f);
             widthFraction = Math.min(1.0f, Math.max(0.0f, widthFraction));
-            widthFraction = mCurrentAppearInterpolator.getInterpolation(widthFraction);
+            widthFraction = currentAppearInterpolator.getInterpolation(widthFraction);
             float left = (expandableView.getWidth() * (0.5f - 0.05f / 2.0f) *
                     widthFraction);
             float right = expandableView.getWidth() - left;
@@ -537,23 +526,23 @@ public class ActivatableNotificationViewHooks {
             float heightFraction = (inverseFraction - (1.0f - 1.0f)) /
                     1.0f;
             heightFraction = Math.max(0.0f, heightFraction);
-            heightFraction = mCurrentAppearInterpolator.getInterpolation(heightFraction);
+            heightFraction = currentAppearInterpolator.getInterpolation(heightFraction);
 
             float top;
             float bottom;
-            final int actualHeight = (int) XposedHelpers.callMethod(expandableView, "getActualHeight");
-            if (mAnimationTranslationY > 0.0f) {
-                bottom = actualHeight - heightFraction * mAnimationTranslationY * 0.1f
+            final int actualHeight = invoke(getActualHeight, expandableView);
+            if (animationTranslationY > 0.0f) {
+                bottom = actualHeight - heightFraction * animationTranslationY * 0.1f
                         - translateYTotalAmount;
                 top = bottom * heightFraction;
             } else {
-                top = heightFraction * (actualHeight + mAnimationTranslationY) * 0.1f -
+                top = heightFraction * (actualHeight + animationTranslationY) * 0.1f -
                         translateYTotalAmount;
                 bottom = actualHeight * (1 - heightFraction) + top * heightFraction;
             }
-            mAppearAnimationRect.set(left, top, right, bottom);
-            helper.setOutlineRect(left, top + mAppearAnimationTranslation, right,
-                    bottom + mAppearAnimationTranslation);
+            appearAnimationRect.set(left, top, right, bottom);
+            helper.setOutlineRect(left, top + appearAnimationTranslation, right,
+                    bottom + appearAnimationTranslation);
             return null;
         }
     };

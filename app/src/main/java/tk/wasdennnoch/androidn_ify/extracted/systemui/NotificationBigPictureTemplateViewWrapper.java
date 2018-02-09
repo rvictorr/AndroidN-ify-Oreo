@@ -25,6 +25,7 @@ import android.view.View;
 
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationContentHelper;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
 /**
@@ -40,7 +41,7 @@ public class NotificationBigPictureTemplateViewWrapper extends NotificationTempl
     @Override
     public void onContentUpdated(View row) {
         super.onContentUpdated(row);
-        updateImageTag((StatusBarNotification) ReflectionUtils.invoke(NotificationsStuff.methodGetStatusBarNotification, row));
+        updateImageTag((StatusBarNotification) ReflectionUtils.invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row));
     }
 
     private void updateImageTag(StatusBarNotification notification) {

@@ -1,36 +1,35 @@
 package tk.wasdennnoch.androidn_ify.systemui.notifications;
 
 
-import android.app.Notification;
 import android.content.Context;
 import android.graphics.Rect;
-import android.service.notification.StatusBarNotification;
+import android.os.Handler;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
-import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationViewWrapper;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.TransformState;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.TransformableView;
-import tk.wasdennnoch.androidn_ify.utils.Classes;
 
 import static android.view.View.GONE;
 import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 import static android.view.ViewGroup.getChildMeasureSpec;
 import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
-import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
+import static tk.wasdennnoch.androidn_ify.utils.Classes.*;
+import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.*;
 
 public class NotificationsStuff {
     private static final String TAG = "NotificationsStuff";
@@ -43,101 +42,98 @@ public class NotificationsStuff {
     public static final int VISIBLE_TYPE_AMBIENT_SINGLELINE = 5;
     public static final int UNDEFINED = -1;
 
+    public static Field fieldClipTopOptimization;
+
     public static Field fieldIsHeadsUp;
     public static Field fieldIsPinned;
+    public static Field fieldShowingPublic;
+    public static Field fieldSensitive;
+    public static Field fieldHideSensitiveForIntrinsicHeight;
+    public static Field fieldHeadsUpHeight;
+    public static Field fieldMaxExpandHeight;
+    public static Field fieldChildrenExpanded;
+    public static Field fieldChildrenContainer;
 
-    public static Method methodGetClipTopAmount;
-    public static Method methodUpdateClipping;
-    public static Method methodGetActualHeight;
-
-    public static Method methodGetExpandedChild;
-    public static Method methodGetContractedChild;
-    public static Method methodGetHeadsUpChild;
-    public static Method methodUpdateContentClipping;
-    public static Method methodRunSwitchAnimation;
-
-    public static Method methodIsUserLocked;
-    public static Method methodIsExpanded;
-    public static Method methodGetIntrinsicHeight;
-    public static Method methodGetMaxContentHeight;
-    public static Method methodGetMaxExpandHeight;
-    public static Method methodGetActualHeightRow;
-    public static Method methodNotifyHeightChanged;
-    public static Method methodGetStatusBarNotification;
+    public static Field fieldDark;
+    public static Field fieldAnimate;
+    public static Field fieldClipTopAmount;
+    public static Field fieldContractedChild;
+    public static Field fieldExpandedChild;
+    public static Field fieldHeadsUpChild;
+    public static Field fieldClipBounds;
 
     public static void hook() {
 
-        fieldIsPinned = XposedHelpers.findField(ExpandableNotificationRow, "mIsPinned");
-        fieldIsHeadsUp = XposedHelpers.findField(ExpandableNotificationRow, "mIsHeadsUp");
+        fieldClipTopOptimization = XposedHelpers.findField(SystemUI.ExpandableView, "mClipTopOptimization");
 
-        methodUpdateClipping = XposedHelpers.findMethodBestMatch(ExpandableView, "updateClipping");
-        methodGetClipTopAmount = XposedHelpers.findMethodBestMatch(ExpandableView, "getClipTopAmount");
-        methodGetActualHeight = XposedHelpers.findMethodBestMatch(ExpandableView, "getActualHeight");
+        fieldIsPinned = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mIsPinned");
+        fieldIsHeadsUp = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mIsHeadsUp");
+        fieldShowingPublic = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mShowingPublic");
+        fieldSensitive = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mSensitive");
+        fieldHideSensitiveForIntrinsicHeight = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mHideSensitiveForIntrinsicHeight");
+        fieldHeadsUpHeight = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mHeadsUpHeight");
+        fieldMaxExpandHeight = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mMaxExpandHeight");
+        fieldChildrenExpanded = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mChildrenExpanded");
+        fieldChildrenContainer = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mChildrenContainer");
 
-        methodGetExpandedChild = XposedHelpers.findMethodBestMatch(NotificationContentView, "getExpandedChild");
-        methodGetContractedChild = XposedHelpers.findMethodBestMatch(NotificationContentView, "getContractedChild");
-        methodGetHeadsUpChild = XposedHelpers.findMethodBestMatch(NotificationContentView, "getHeadsUpChild");
-        methodUpdateContentClipping = XposedHelpers.findMethodBestMatch(NotificationContentView, "updateClipping");
-        methodRunSwitchAnimation = XposedHelpers.findMethodBestMatch(NotificationContentView, "runSwitchAnimation", int.class);
-
-        methodIsUserLocked = XposedHelpers.findMethodBestMatch(ExpandableNotificationRow, "isUserLocked");
-        methodGetActualHeightRow = XposedHelpers.findMethodBestMatch(ExpandableNotificationRow, "getActualHeight");
-        methodIsExpanded = XposedHelpers.findMethodBestMatch(ExpandableNotificationRow, "isExpanded");
-        methodGetIntrinsicHeight = XposedHelpers.findMethodBestMatch(ExpandableNotificationRow, "getIntrinsicHeight");
-        methodGetMaxContentHeight = XposedHelpers.findMethodBestMatch(ExpandableNotificationRow, "getMaxContentHeight");
-        methodGetMaxExpandHeight = XposedHelpers.findMethodBestMatch(ExpandableNotificationRow, "getMaxExpandHeight");
-        methodNotifyHeightChanged = XposedHelpers.findMethodBestMatch(ExpandableNotificationRow, "notifyHeightChanged", boolean.class);
-        methodGetStatusBarNotification = XposedHelpers.findMethodBestMatch(ExpandableNotificationRow, "getStatusBarNotification");
+        fieldClipTopAmount = XposedHelpers.findField(SystemUI.NotificationContentView, "mClipTopAmount");
+        fieldDark = XposedHelpers.findField(SystemUI.NotificationContentView, "mDark");
+        fieldAnimate = XposedHelpers.findField(SystemUI.NotificationContentView, "mAnimate");
+        fieldContractedChild = XposedHelpers.findField(SystemUI.NotificationContentView, "mContractedChild");
+        fieldExpandedChild = XposedHelpers.findField(SystemUI.NotificationContentView, "mExpandedChild");
+        fieldHeadsUpChild = XposedHelpers.findField(SystemUI.NotificationContentView, "mHeadsUpChild");
+        fieldClipBounds = XposedHelpers.findField(SystemUI.NotificationContentView, "mClipBounds");
 
         NotificationContentHelper.initFields();
         ExpandableNotificationRowHelper.initFields();
         TransformState.initFields();
 
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "onFinishInflate", new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "onFinishInflate", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
                 helper.onFinishInflate();
             }
         });
-        XposedHelpers.findAndHookConstructor(NotificationContentView, Context.class, AttributeSet.class, constructorHook);
+        XposedHelpers.findAndHookConstructor(SystemUI.NotificationContentView, Context.class, AttributeSet.class, constructorHook);
 
-        XposedHelpers.findAndHookMethod(NotificationContentView, "reset", boolean.class, reset);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "selectLayout", boolean.class, boolean.class, selectLayout);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "onMeasure", int.class, int.class, onMeasure);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "onLayout", boolean.class, int.class, int.class, int.class, int.class, onLayoutHook);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "setContractedChild", View.class, setContractedChild);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "setExpandedChild", View.class, setExpandedChild);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "setHeadsUpChild", View.class, setHeadsUpChild);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "setVisible", boolean.class, setVisible);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "setContentHeight", int.class, setContentHeight);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "updateClipping", updateClipping);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "updateViewVisibilities", int.class, updateViewVisibilities);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "runSwitchAnimation", int.class, animateToVisibleType);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "calculateVisibleType", calculateVisibleType);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "setDark", boolean.class, boolean.class, long.class, setDark);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "setHeadsUp", boolean.class, setHeadsUp);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "setShowingLegacyBackground", boolean.class, setShowingLegacyBackgroundHook);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "notifyContentUpdated", XC_MethodReplacement.DO_NOTHING);
-        XposedHelpers.findAndHookMethod(NotificationContentView, "updateRoundRectClipping", XC_MethodReplacement.DO_NOTHING);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "setContractedChild", View.class, XSetContractedChild);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "setExpandedChild", View.class, XSetExpandedChild);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "setHeadsUpChild", View.class, XSetHeadsUpChild);
 
-        XposedHelpers.findAndHookMethod(ExpandableView, "onMeasure", int.class, int.class, onMeasureRow);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "reset", boolean.class, XReset);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "selectLayout", boolean.class, boolean.class, XSelectLayout);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "onMeasure", int.class, int.class, XOnMeasure);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "onLayout", boolean.class, int.class, int.class, int.class, int.class, onLayoutHook);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "setVisible", boolean.class, XSetVisible);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "setContentHeight", int.class, XSetContentHeight);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "updateClipping", XUpdateClipping);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "updateViewVisibilities", int.class, XUpdateViewVisibilities);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "runSwitchAnimation", int.class, XAnimateToVisibleType);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "calculateVisibleType", XCalculateVisibleType);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "setDark", boolean.class, boolean.class, long.class, XSetDark);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "setHeadsUp", boolean.class, setHeadsUpHook);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "setShowingLegacyBackground", boolean.class, setShowingLegacyBackgroundHook);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "notifyContentUpdated", XC_MethodReplacement.DO_NOTHING);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "updateRoundRectClipping", XC_MethodReplacement.DO_NOTHING);
+
+        //XposedHelpers.findAndHookMethod(ExpandableView, "onMeasure", int.class, int.class, onMeasureExpandableView); //TODO: causes weird issues with clipping on Xperia
         //XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "setStatusBarNotification", StatusBarNotification.class, XC_MethodReplacement.DO_NOTHING);
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "applyExpansionToLayout", XC_MethodReplacement.DO_NOTHING);
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "updateExpandButton", XC_MethodReplacement.DO_NOTHING);
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "applyExpansionToLayout", XC_MethodReplacement.DO_NOTHING);
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "updateExpandButton", XC_MethodReplacement.DO_NOTHING);
         //XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "updateExpandButtonAppearance", XC_MethodReplacement.DO_NOTHING);
 
-        XposedHelpers.findAndHookMethod(NotificationChildrenContainer, "setCollapseClickListener", View.OnClickListener.class, XC_MethodReplacement.DO_NOTHING);
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationChildrenContainer, "setCollapseClickListener", View.OnClickListener.class, XC_MethodReplacement.DO_NOTHING);
 
-        XposedHelpers.findAndHookMethod(ExpandableView, "setClipTopAmount", int.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableView, "setClipTopAmount", int.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                methodUpdateClipping.invoke(param.thisObject);
+                invoke(ExpandableView.updateClipping, param.thisObject);
             }
         });
-        XposedHelpers.findAndHookMethod(ExpandableView, "updateClipping", updateClippingExpandableView);
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableView, "updateClipping", XUpdateClippingExpandableView);
 
-        XposedHelpers.findAndHookMethod(ExpandableView, "getBoundsOnScreen", Rect.class, boolean.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableView, "getBoundsOnScreen", Rect.class, boolean.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 View view = (View) param.thisObject;
@@ -146,25 +142,25 @@ public class NotificationsStuff {
                     // We got clipped to the parent here - make sure we undo that.
                     outRect.top += view.getTop() + view.getTranslationY();
                 }
-                outRect.top += (int) invoke(methodGetClipTopAmount, param.thisObject);
+                outRect.top += (int) invoke(ExpandableView.getClipTopAmount, param.thisObject);
             }
         });
 
-        XposedHelpers.findAndHookMethod(ExpandableView, "notifyHeightChanged", boolean.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableView, "notifyHeightChanged", boolean.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                if (ExpandableNotificationRow.isInstance(param.thisObject))
+                if (SystemUI.ExpandableNotificationRow.isInstance(param.thisObject))
                     ExpandableNotificationRowHelper.getInstance(param.thisObject).notifyHeightChanged((boolean) param.args[0]);
             }
         });
-        XposedHelpers.findAndHookMethod(NotificationContentView, "getMinHeight", new XC_MethodReplacement() {
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "getMinHeight", new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 return NotificationContentHelper.getInstance(param.thisObject).getMinHeight();
             }
         });
 
-        XposedHelpers.findAndHookConstructor(ExpandableNotificationRow, Context.class, AttributeSet.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookConstructor(SystemUI.ExpandableNotificationRow, Context.class, AttributeSet.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
@@ -174,7 +170,7 @@ public class NotificationsStuff {
             }
         });
 
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "setUserLocked", boolean.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setUserLocked", boolean.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 boolean userLocked = (boolean) param.args[0];
@@ -187,7 +183,7 @@ public class NotificationsStuff {
                 }*/
             }
         });
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "setPinned", boolean.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setPinned", boolean.class, new XC_MethodHook() {
             /*@Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 XposedHelpers.setAdditionalInstanceField(param.thisObject, "intrinsicHeight", XposedHelpers.callMethod(param.thisObject, "getIntrinsicHeight"));
@@ -199,50 +195,50 @@ public class NotificationsStuff {
                 ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
                 //int intrinsicHeight = (int) XposedHelpers.getAdditionalInstanceField(param.thisObject, "intrinsicHeight");
                 fieldIsPinned.setBoolean(param.thisObject, pinned);
-                //if (intrinsicHeight != (int) XposedHelpers.callMethod(param.thisObject, "getIntrinsicHeight")) {
-                    //XposedHelpers.callMethod(param.thisObject, "notifyHeightChanged", false  needsAnimation ); //TODO fix notification flashing
-                //}
+//                if (intrinsicHeight != (int) XposedHelpers.callMethod(param.thisObject, "getIntrinsicHeight")) {
+//                    invoke(ExpandableNotificationRow.notifyHeightChanged, param.thisObject, false /* needsAnimation */); //TODO fix notification flashing
+//                }
                 if (pinned) {
                     XposedHelpers.callMethod(param.thisObject, "setIconAnimationRunning", true);
                     helper.mExpandedWhenPinned = false;
                 } else if (helper.mExpandedWhenPinned) {
-                    XposedHelpers.callMethod(param.thisObject, "setUserExpanded", true);
+                    invoke(ExpandableNotificationRow.setUserExpanded, param.thisObject, true);
                 }
             }
         });
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "getHeadsUpHeight", new XC_MethodReplacement() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "getHeadsUpHeight", new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 return ExpandableNotificationRowHelper.getInstance(param.thisObject).getPinnedHeadsUpHeight(true);
             }
         });
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "getIntrinsicHeight", getIntrinsicHeight);
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "getMinHeight", new XC_MethodReplacement() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "getIntrinsicHeight", XGetIntrinsicHeight);
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "getMinHeight", new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 return ExpandableNotificationRowHelper.getInstance(param.thisObject).getMinHeight();
             }
         });
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "setExpandable", boolean.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setExpandable", boolean.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                ExpandableNotificationRowHelper.getInstance(param.thisObject).mPrivateHelper.updateExpandButtons((boolean) XposedHelpers.callMethod(param.thisObject, "isExpandable"));
+                ExpandableNotificationRowHelper.getInstance(param.thisObject).mPrivateHelper.updateExpandButtons((boolean) invoke(ExpandableNotificationRow.isExpandable, param.thisObject));
             }
         });
 
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "setHideSensitive", boolean.class, boolean.class, long.class, long.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setHideSensitive", boolean.class, boolean.class, long.class, long.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                ExpandableNotificationRowHelper.getInstance(param.thisObject).mPrivateHelper.updateExpandButtons((boolean) XposedHelpers.callMethod(param.thisObject, "isExpandable"));
+                ExpandableNotificationRowHelper.getInstance(param.thisObject).mPrivateHelper.updateExpandButtons((boolean) invoke(ExpandableNotificationRow.isExpandable, param.thisObject));
             }
         });
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "reset", new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "reset", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 ExpandableNotificationRowHelper.getInstance(param.thisObject).resetTranslation();
             }
         });
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "resetHeight", new XC_MethodReplacement() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "resetHeight", new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 View expandableRow = (View) param.thisObject;
@@ -251,47 +247,47 @@ public class NotificationsStuff {
                 return null;
             }
         });
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "updateChildrenVisibility", boolean.class, updateChildrenVisibility);
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "setChildrenExpanded", boolean.class, boolean.class, new XC_MethodReplacement() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "updateChildrenVisibility", boolean.class, XUpdateChildrenVisibility);
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setChildrenExpanded", boolean.class, boolean.class, new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                XposedHelpers.setBooleanField(param.thisObject, "mChildrenExpanded", (boolean) param.args[0]);
+                set(fieldChildrenExpanded, param.thisObject, param.args[0]);
                 ExpandableNotificationRowHelper.getInstance(param.thisObject).updateClickAndFocus();
                 return null;
             }
         });
-        XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "updateMaxHeights", updateMaxHeights);
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "updateMaxHeights", XUpdateMaxHeights);
     }
 
-    private static final XC_MethodReplacement updateMaxHeights = new XC_MethodReplacement() {
+    private static final XC_MethodReplacement XUpdateMaxHeights = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
 
-            int intrinsicBefore = (int) methodGetIntrinsicHeight.invoke(param.thisObject);
-            View expandedChild = (View) methodGetExpandedChild.invoke(helper.mPrivateLayout);
+            int intrinsicBefore = invoke(ExpandableNotificationRow.getIntrinsicHeight, param.thisObject);
+            View expandedChild = invoke(NotificationContentView.getExpandedChild, helper.mPrivateLayout);
             if (expandedChild == null) {
-                expandedChild = (View) methodGetContractedChild.invoke(helper.mPrivateLayout);
+                expandedChild = invoke(NotificationContentView.getContractedChild, helper.mPrivateLayout);
             }
-            XposedHelpers.setIntField(param.thisObject, "mMaxExpandHeight", expandedChild.getHeight());
-            View headsUpChild = (View) methodGetHeadsUpChild.invoke(helper.mPrivateLayout);
+            set(fieldMaxExpandHeight, param.thisObject, expandedChild.getHeight());
+            View headsUpChild = invoke(NotificationContentView.getHeadsUpChild, helper.mPrivateLayout);
             if (headsUpChild == null) {
-                headsUpChild = (View) methodGetContractedChild.invoke(helper.mPrivateLayout);
+                headsUpChild = invoke(NotificationContentView.getContractedChild, helper.mPrivateLayout);
             }
-            XposedHelpers.setIntField(param.thisObject, "mHeadsUpHeight", headsUpChild.getHeight());
-            if (intrinsicBefore != (int) methodGetIntrinsicHeight.invoke(param.thisObject)) {
-                methodNotifyHeightChanged.invoke(param.thisObject, true /*needsAnimation*/);
+            set(fieldHeadsUpHeight, param.thisObject, headsUpChild.getHeight());
+            if (intrinsicBefore != (int) invoke(ExpandableNotificationRow.getIntrinsicHeight, param.thisObject)) {
+                invoke(ExpandableNotificationRow.notifyHeightChanged, param.thisObject, true /*needsAnimation*/);
             }
             return null;
         }
     };
 
-    private static final XC_MethodReplacement updateChildrenVisibility = new XC_MethodReplacement() {
+    private static final XC_MethodReplacement XUpdateChildrenVisibility = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
-            View mChildrenContainer = (View) XposedHelpers.getObjectField(param.thisObject, "mChildrenContainer");
-            boolean mShowingPublic = XposedHelpers.getBooleanField(param.thisObject, "mShowingPublic");
+            View mChildrenContainer = get(fieldChildrenContainer, param.thisObject);
+            boolean mShowingPublic = getBoolean(fieldShowingPublic, param.thisObject);
             helper.mPrivateLayout.setVisibility(!mShowingPublic/* && !helper.mIsSummaryWithChildren*/ ? VISIBLE
                     : INVISIBLE);
                 /*if (mChildrenContainer != null) {
@@ -308,48 +304,48 @@ public class NotificationsStuff {
         }
     };
 
-    private static final XC_MethodReplacement getIntrinsicHeight = new XC_MethodReplacement() {
+    private static final XC_MethodReplacement XGetIntrinsicHeight = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-            if ((boolean) methodIsUserLocked.invoke(param.thisObject)) {
-                return methodGetActualHeightRow.invoke(param.thisObject);
+            if (invoke(ExpandableNotificationRow.isUserLocked, param.thisObject)) {
+                return invoke(ExpandableNotificationRow.getActualHeight, param.thisObject);
             }
             ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
-            int mHeadsUpHeight = XposedHelpers.getIntField(param.thisObject, "mHeadsUpHeight");
+            int mHeadsUpHeight = getInt(fieldHeadsUpHeight, param.thisObject);
                 /*if (mGuts != null && mGuts.areGutsExposed()) {
                     return mGuts.getHeight();
                 } else if ((isChildInGroup() && !isGroupExpanded())) {
                     return mPrivateLayout.getMinHeight();
-                } else */if (XposedHelpers.getBooleanField(param.thisObject, "mSensitive") && XposedHelpers.getBooleanField(param.thisObject, "mHideSensitiveForIntrinsicHeight")) {
+                } else */if (getBoolean(fieldSensitive, param.thisObject) && getBoolean(fieldHideSensitiveForIntrinsicHeight, param.thisObject)) {
                 return helper.getMinHeight();
                 /*} else if (mIsSummaryWithChildren && !mOnKeyguard) {
                     return mChildrenContainer.getIntrinsicHeight();*/
             } else if (fieldIsHeadsUp.getBoolean(param.thisObject) || helper.mHeadsupDisappearRunning) {
                 if (fieldIsPinned.getBoolean(param.thisObject) || helper.mHeadsupDisappearRunning) {
                     return helper.getPinnedHeadsUpHeight(true  /*atLeastMinHeight*/ );
-                } else if ((boolean) methodIsExpanded.invoke(param.thisObject)) {
-                    return Math.max((int) methodGetMaxExpandHeight.invoke(param.thisObject), mHeadsUpHeight);
+                } else if (invoke(ExpandableNotificationRow.isExpanded, param.thisObject)) {
+                    return Math.max((int) invoke(ExpandableNotificationRow.getMaxExpandHeight, param.thisObject), mHeadsUpHeight);
                 } else {
                     return Math.max(helper.getCollapsedHeight(), mHeadsUpHeight);
                 }
-            } else if ((boolean) methodIsExpanded.invoke(param.thisObject)) {
-                return methodGetMaxExpandHeight.invoke(param.thisObject);
+            } else if (invoke(ExpandableNotificationRow.isExpanded, param.thisObject)) {
+                return invoke(ExpandableNotificationRow.getMaxExpandHeight, param.thisObject);
             } else {
                 return helper.getCollapsedHeight();
             }
         }
     };
 
-    private static final XC_MethodReplacement updateClippingExpandableView = new XC_MethodReplacement() {
+    private static final XC_MethodReplacement XUpdateClippingExpandableView = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
-            Rect mClipRect = (Rect) XposedHelpers.getStaticObjectField(ExpandableView, "mClipRect");
+            Rect mClipRect = (Rect) XposedHelpers.getStaticObjectField(SystemUI.ExpandableView, "mClipRect");
             View view = (View) param.thisObject;
             if (helper.mClipToActualHeight) {
                 //int top = (int) XposedHelpers.callMethod(view, "getClipTopAmount"); //TODO see why it doesn't work properly
-                int top = XposedHelpers.getIntField(view, "mClipTopOptimization");
-                int actualHeight = (int) methodGetActualHeight.invoke(view);
+                int top = getInt(fieldClipTopOptimization, view);
+                int actualHeight = invoke(ExpandableView.getActualHeight, view);
                 if (top >= actualHeight) {
                     top = actualHeight - 1;
                 }
@@ -362,7 +358,7 @@ public class NotificationsStuff {
         }
     };
 
-    private static final XC_MethodReplacement onMeasureRow = new XC_MethodReplacement() {
+    private static final XC_MethodReplacement XOnMeasureExpandableView = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
             ViewGroup expandableView = (ViewGroup) param.thisObject;
@@ -416,7 +412,7 @@ public class NotificationsStuff {
         }
     };
 
-    private static XC_MethodReplacement reset = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XReset = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             FrameLayout contentView = (FrameLayout) param.thisObject;
@@ -465,11 +461,11 @@ public class NotificationsStuff {
                 contentView.removeView(mHeadsUpChild);
                 helper.mHeadsUpRemoteInput = null;
             }
-            XposedHelpers.setObjectField(contentView, "mContractedChild", null);
+            set(fieldContractedChild, contentView, null);
             helper.mContractedChild = null;
-            XposedHelpers.setObjectField(contentView, "mExpandedChild", null);
+            set(fieldExpandedChild, contentView, null);
             helper.mExpandedChild = null;
-            XposedHelpers.setObjectField(contentView, "mHeadsUpChild", null);
+            set(fieldHeadsUpChild, contentView, null);
             helper.mHeadsUpChild = null;
             return null;
         }
@@ -493,7 +489,7 @@ public class NotificationsStuff {
         }
     };
 
-    private static XC_MethodReplacement animateToVisibleType = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XAnimateToVisibleType = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(final MethodHookParam param) throws Throwable {
             int visibleType = (int) param.args[0];
@@ -521,7 +517,7 @@ public class NotificationsStuff {
         }
     };
 
-    private static XC_MethodReplacement setContractedChild = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XSetContractedChild = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             View child = (View) param.args[0];
@@ -531,16 +527,16 @@ public class NotificationsStuff {
                 helper.getContentView().removeView(helper.mContractedChild);
             }
             helper.getContentView().addView(child);
-            XposedHelpers.setObjectField(param.thisObject, "mContractedChild", child);
+            set(fieldContractedChild, param.thisObject, child);
             helper.mContractedChild = child;
             helper.mContractedWrapper = NotificationViewWrapper.wrap(helper.getContentView().getContext(), child,
                     helper.mContainingNotification);
-            helper.mContractedWrapper.setDark(XposedHelpers.getBooleanField(param.thisObject, "mDark"), false  /*animate*/ , 0  /*delay*/ );
+            helper.mContractedWrapper.setDark(getBoolean(fieldDark, param.thisObject), false  /*animate*/ , 0  /*delay*/ );
             return null;
         }
     };
 
-    private static XC_MethodReplacement setExpandedChild = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XSetExpandedChild = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             View child = (View) param.args[0];
@@ -551,7 +547,7 @@ public class NotificationsStuff {
                 helper.getContentView().removeView(helper.mExpandedChild);
             }
             helper.getContentView().addView(child);
-            XposedHelpers.setObjectField(param.thisObject, "mExpandedChild", child);
+            set(fieldExpandedChild, param.thisObject, child);
             helper.mExpandedChild = child;
             helper.mExpandedWrapper = NotificationViewWrapper.wrap(helper.getContentView().getContext(), child,
                     helper.mContainingNotification);
@@ -589,7 +585,7 @@ public class NotificationsStuff {
         }
     };
 
-    private static XC_MethodReplacement setHeadsUpChild = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XSetHeadsUpChild = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             View child = (View) param.args[0];
@@ -600,7 +596,7 @@ public class NotificationsStuff {
                 helper.getContentView().removeView(helper.mHeadsUpChild);
             }
             helper.getContentView().addView(child);
-            XposedHelpers.setObjectField(param.thisObject, "mHeadsUpChild", child);
+            set(fieldHeadsUpChild, param.thisObject, child);
             helper.mHeadsUpChild = child;
             helper.mHeadsUpWrapper = NotificationViewWrapper.wrap(helper.getContentView().getContext(), child,
                     helper.mContainingNotification);
@@ -638,7 +634,7 @@ public class NotificationsStuff {
         }
     };
 
-    private static XC_MethodReplacement setVisible = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XSetVisible = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             NotificationContentHelper helper = NotificationContentHelper.getInstance(param.thisObject);
@@ -652,13 +648,13 @@ public class NotificationsStuff {
                 helper.getContentView().getViewTreeObserver().addOnPreDrawListener(helper.mEnableAnimationPredrawListener);
             } else {
                 helper.getContentView().getViewTreeObserver().removeOnPreDrawListener(helper.mEnableAnimationPredrawListener);
-                XposedHelpers.setBooleanField(helper.getContentView(), "mAnimate", false);
+                set(fieldAnimate, helper.getContentView(), false);
             }
             return null;
         }
     };
 
-    private static XC_MethodReplacement onMeasure = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XOnMeasure = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             int widthMeasureSpec = (int) param.args[0];
@@ -792,32 +788,32 @@ public class NotificationsStuff {
             if (helper.mExpandedChild != null) {
                 previousHeight = helper.mExpandedChild.getHeight();
             }
-            XposedHelpers.setAdditionalInstanceField(param.thisObject, "previousHeight", previousHeight);
+            helper.previousHeight = previousHeight;
         }
 
         @Override
         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
             NotificationContentHelper helper = NotificationContentHelper.getInstance(param.thisObject);
-            int previousHeight = (int) XposedHelpers.getAdditionalInstanceField(param.thisObject, "previousHeight");
+            int previousHeight = helper.previousHeight;
 
             if (previousHeight != 0 && helper.mExpandedChild.getHeight() != previousHeight) {
                 helper.mContentHeightAtAnimationStart = previousHeight;
             }
-            invoke(NotificationContentHelper.methodSelectLayout, helper.getContentView(), false  /*animate*/, helper.mForceSelectNextLayout  /*force*/ );
+            invoke(NotificationContentView.selectLayout, helper.getContentView(), false  /*animate*/, helper.mForceSelectNextLayout  /*force*/ );
             helper.mForceSelectNextLayout = false;
             helper.updateExpandButtons(helper.mExpandable);
         }
     };
 
-    private static XC_MethodReplacement setContentHeight = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XSetContentHeight = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             NotificationContentHelper helper = NotificationContentHelper.getInstance(param.thisObject);
             int contentHeight = (int) param.args[0];
             set(NotificationContentHelper.fieldContentHeight, helper.getContentView(), Math.max(Math.min(contentHeight, helper.getContentView().getHeight()), helper.getMinHeight()));
 
-            invoke(NotificationContentHelper.methodSelectLayout, helper.getContentView(),
-                    XposedHelpers.getBooleanField(helper.getContentView(), "mAnimate")  /*animate*/ , false  /*force*/ );
+            invoke(NotificationContentView.selectLayout, helper.getContentView(),
+                    getBoolean(fieldAnimate, helper.getContentView()) /*animate*/ , false  /*force*/ );
 
             int minHeightHint = helper.getMinContentHeightHint();
 
@@ -831,13 +827,13 @@ public class NotificationsStuff {
                 wrapper.setContentHeight(helper.getContentHeight(), minHeightHint);
             }
 
-            methodUpdateContentClipping.invoke(helper.getContentView());
+            invoke(NotificationContentView.updateClipping, helper.getContentView());
             helper.getContentView().invalidateOutline();
             return null;
         }
     };
 
-    private static XC_MethodReplacement selectLayout = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XSelectLayout = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             boolean animate = (boolean) param.args[0];
@@ -849,7 +845,7 @@ public class NotificationsStuff {
             if (helper.mUserExpanding) {
                 helper.updateContentTransformation();
             } else {
-                int visibleType = (int) invoke(NotificationContentHelper.methodCalculateVisibleType, helper.getContentView());
+                int visibleType = invoke(NotificationContentView.calculateVisibleType, helper.getContentView());
                 boolean changedType = visibleType != helper.getVisibleType();
                 if (changedType || force) {
                     View visibleView = helper.getViewForVisibleType(visibleType);
@@ -862,10 +858,9 @@ public class NotificationsStuff {
                             || (visibleType == VISIBLE_TYPE_HEADSUP && helper.mHeadsUpChild != null)
                             || (visibleType == VISIBLE_TYPE_SINGLELINE && helper.mSingleLineView != null)
                             || visibleType == VISIBLE_TYPE_CONTRACTED)) {
-                        methodRunSwitchAnimation.invoke(helper.getContentView(), visibleType);
-                        XposedHelpers.callMethod(helper.getContentView(), "runSwitchAnimation", visibleType);
+                        invoke(NotificationContentView.runSwitchAnimation, helper.getContentView(), visibleType);
                     } else {
-                        invoke(NotificationContentHelper.methodUpdateViewVisibilities, helper.getContentView(), visibleType);
+                        invoke(NotificationContentView.updateViewVisibilities, helper.getContentView(), visibleType);
                     }
                     set(NotificationContentHelper.fieldVisibleType, helper.getContentView(), visibleType);
                     if (changedType) {
@@ -882,7 +877,7 @@ public class NotificationsStuff {
         }
     };
 
-    private static XC_MethodReplacement updateViewVisibilities = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XUpdateViewVisibilities = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             int visibleType = (int) param.args[0];
@@ -908,7 +903,7 @@ public class NotificationsStuff {
         }
     };
 
-    private static XC_MethodReplacement calculateVisibleType = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XCalculateVisibleType = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             NotificationContentHelper helper = NotificationContentHelper.getInstance(param.thisObject);
@@ -923,8 +918,8 @@ public class NotificationsStuff {
             }*/
             if (helper.mUserExpanding) {
                 int height = !helper.mIsChildInGroup || helper.isGroupExpanded()
-                        || (boolean) methodIsExpanded.invoke(helper.mContainingNotification/*, (true  *//*allowOnKeyguard*//* */) //TODO finish implementing
-                        ? (int) methodGetMaxContentHeight.invoke(helper.mContainingNotification)
+                        || (boolean) invoke(ExpandableNotificationRow.isExpanded, helper.mContainingNotification/*, (true  *//*allowOnKeyguard*//* */) //TODO finish implementing
+                        ? (int) invoke(ExpandableNotificationRow.getMaxContentHeight, helper.mContainingNotification)
                         : helper.getContainingHelper().getShowingHelper().getMinHeight();
                 if (height == 0) {
                     height = helper.getContentHeight();
@@ -937,7 +932,7 @@ public class NotificationsStuff {
                         ? expandedVisualType
                         : collapsedVisualType;
             }
-            int intrinsicHeight = (int) methodGetIntrinsicHeight.invoke(helper.mContainingNotification);
+            int intrinsicHeight = invoke(ExpandableNotificationRow.getIntrinsicHeight, helper.mContainingNotification);
             int viewHeight = helper.getContentHeight();
             if (intrinsicHeight != 0) {
                 // the intrinsicHeight might be 0 because it was just reset.
@@ -947,14 +942,14 @@ public class NotificationsStuff {
         }
     };
 
-    private static XC_MethodReplacement isContentExpandable = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XIsContentExpandable = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             return NotificationContentHelper.getInstance(param.thisObject).mIsContentExpandable;
         }
     };
 
-    private static XC_MethodReplacement setDark = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XSetDark = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             boolean dark = (boolean) param.args[0];
@@ -965,7 +960,7 @@ public class NotificationsStuff {
             if (helper.mContractedChild == null) {
                 return null;
             }
-            XposedHelpers.setBooleanField(helper.getContentView(), "mDark", dark);
+            set(fieldDark, helper.getContentView(), dark);
             if (visibleType == VISIBLE_TYPE_CONTRACTED || !dark) {
                 helper.mContractedWrapper.setDark(dark, fade, delay);
             }
@@ -983,7 +978,7 @@ public class NotificationsStuff {
         }
     };
 
-    private static XC_MethodHook setHeadsUp = new XC_MethodHook() {
+    private static XC_MethodHook setHeadsUpHook = new XC_MethodHook() {
         @Override
         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
             NotificationContentHelper helper = NotificationContentHelper.getInstance(param.thisObject);
@@ -991,15 +986,15 @@ public class NotificationsStuff {
         }
     };
 
-    private static XC_MethodReplacement updateClipping = new XC_MethodReplacement() {
+    private static XC_MethodReplacement XUpdateClipping = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             NotificationContentHelper helper = NotificationContentHelper.getInstance(param.thisObject);
             if (helper.mClipToActualHeight) {
-                int top = XposedHelpers.getIntField(helper.getContentView(), "mClipTopAmount");
+                int top = getInt(fieldClipTopAmount, helper.getContentView());
                 int bottom = helper.getContentHeight();
-                ((Rect) XposedHelpers.getObjectField(helper.getContentView(), "mClipBounds")).set(0, top, helper.getContentView().getWidth(), bottom);
-                helper.getContentView().setClipBounds((Rect) XposedHelpers.getObjectField(helper.getContentView(), "mClipBounds"));
+                ((Rect) get(fieldClipBounds, helper.getContentView())).set(0, top, helper.getContentView().getWidth(), bottom);
+                helper.getContentView().setClipBounds((Rect) get(fieldClipBounds, helper.getContentView()));
             } else {
                 helper.getContentView().setClipBounds(null);
             }
@@ -1018,14 +1013,14 @@ public class NotificationsStuff {
         HashMap<String, Object> mHeadsUpEntries = (HashMap<String, Object>) XposedHelpers.getObjectField(headsUpManager, "mHeadsUpEntries");
         Object headsUpEntry = mHeadsUpEntries.get(XposedHelpers.getObjectField(entry, "key"));
         if (headsUpEntry != null) {
-            Object headsUpRemoteInputActive = XposedHelpers.getAdditionalInstanceField(headsUpEntry, "remoteInputActive");
-            if (headsUpRemoteInputActive != null && (boolean) headsUpRemoteInputActive != remoteInputActive) {
+            Object isRemoteInputActive = XposedHelpers.getAdditionalInstanceField(headsUpEntry, "remoteInputActive");
+            boolean headsUpRemoteInputActive = isRemoteInputActive != null && (boolean) isRemoteInputActive;
+            if (headsUpRemoteInputActive != remoteInputActive) {
                 XposedHelpers.setAdditionalInstanceField(headsUpEntry, "remoteInputActive", remoteInputActive);
                 if (remoteInputActive) {
-                    XposedHook.logI(TAG, "remoteInputActive!");
                     XposedHelpers.callMethod(headsUpEntry, "removeAutoRemovalCallbacks");
                 } else {
-                    XposedHelpers.callMethod(headsUpEntry, "updateEntry", false /* updatePostTime */);
+                    updateEntry(headsUpManager, headsUpEntry, false /* updatePostTime */);
                 }
             }
         }
@@ -1039,17 +1034,53 @@ public class NotificationsStuff {
         HashMap<String, Object> mHeadsUpEntries = (HashMap<String, Object>) XposedHelpers.getObjectField(headsUpManager, "mHeadsUpEntries");
         Object headsUpEntry = mHeadsUpEntries.get(XposedHelpers.getObjectField(entry, "key"));
         if (headsUpEntry != null) {
-            Object headsUpExpanded = XposedHelpers.getAdditionalInstanceField(headsUpEntry, "expanded");
-            if (headsUpExpanded != null && (boolean) headsUpExpanded != expanded) {
+            Object isExpanded = XposedHelpers.getAdditionalInstanceField(headsUpEntry, "expanded");
+            boolean headsUpExpanded = isExpanded != null && (boolean) isExpanded;
+            if (headsUpExpanded != expanded) {
                 XposedHelpers.setAdditionalInstanceField(headsUpEntry, "expanded", expanded);
                 if (expanded) {
-                    XposedHook.logI(TAG, "expanded!");
                     XposedHelpers.callMethod(headsUpEntry, "removeAutoRemovalCallbacks");
                 } else {
-                    XposedHelpers.callMethod(headsUpEntry, "updateEntry", false /* updatePostTime */);
+                    updateEntry(headsUpManager, headsUpEntry, false /* updatePostTime */);
                 }
             }
         }
     }
+
+    public static void updateEntry(Object headsUpManager, Object entry, boolean updatePostTime) {
+        Object mClock = XposedHelpers.getObjectField(headsUpManager, "mClock");
+        HashSet mEntriesToRemoveAfterExpand = (HashSet) XposedHelpers.getObjectField(headsUpManager, "mEntriesToRemoveAfterExpand");
+        Handler mHandler = (Handler) XposedHelpers.getObjectField(headsUpManager, "mHandler");
+        int mMinimumDisplayTime = XposedHelpers.getIntField(headsUpManager, "mMinimumDisplayTime");
+        long postTime = XposedHelpers.getLongField(entry, "postTime");
+        long currentTime = (long) XposedHelpers.callMethod(mClock, "currentTimeMillis");
+        XposedHelpers.setLongField(entry, "earliestRemovaltime", currentTime + mMinimumDisplayTime);
+        if (updatePostTime) {
+            XposedHelpers.setLongField(entry, "postTime", Math.max(postTime, currentTime));
+            postTime = Math.max(postTime, currentTime);
+        }
+        XposedHelpers.callMethod(entry, "removeAutoRemovalCallbacks");
+        if (mEntriesToRemoveAfterExpand.contains(entry)) {
+            mEntriesToRemoveAfterExpand.remove(entry);
+        }
+        if (!isSticky(headsUpManager, entry)) {
+            long finishTime = postTime + XposedHelpers.getIntField(headsUpManager, "mHeadsUpNotificationDecay");
+            long removeDelay = Math.max(finishTime - currentTime, mMinimumDisplayTime);
+            mHandler.postDelayed((Runnable) XposedHelpers.getObjectField(entry, "mRemoveHeadsUpRunnable"), removeDelay);
+        }
+    }
+
+    private static boolean isSticky(Object headsUpManager, Object headsUpEntry) {
+        Object entry = XposedHelpers.getObjectField(headsUpEntry, "entry");
+        Object isExpanded = XposedHelpers.getAdditionalInstanceField(headsUpEntry, "expanded");
+        boolean expanded = isExpanded != null && (boolean) isExpanded;
+        Object isRemoteInputActive = XposedHelpers.getAdditionalInstanceField(headsUpEntry, "remoteInputActive");
+        boolean remoteInputActive = isRemoteInputActive != null && (boolean) isRemoteInputActive;
+        boolean isPinned = (boolean) XposedHelpers.callMethod(XposedHelpers.getObjectField(entry, "row"), "isPinned");
+
+        return (isPinned && expanded)
+                || remoteInputActive || (boolean) XposedHelpers.callMethod(headsUpManager, "hasFullScreenIntent", entry);
+    }
+
 }
 

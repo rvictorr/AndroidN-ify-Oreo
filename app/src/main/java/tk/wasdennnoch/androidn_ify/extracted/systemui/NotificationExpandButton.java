@@ -20,23 +20,24 @@ import android.annotation.Nullable;
 import android.content.Context;
 import android.graphics.Rect;
 import android.util.AttributeSet;
-import android.view.View;
 import android.widget.ImageView;
 import android.widget.RemoteViews;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
 /**
  * An expand button in a notification
  */
 @RemoteViews.RemoteView
 public class NotificationExpandButton extends ImageView {
+    private Method getBoundsOnScreen;
+
     public NotificationExpandButton(Context context) {
         super(context);
+        getBoundsOnScreen = XposedHelpers.findMethodBestMatch(ImageView.class, "getBoundsOnScreen", Rect.class, boolean.class);
     }
 
     public NotificationExpandButton(Context context, @Nullable AttributeSet attrs) {
@@ -51,29 +52,13 @@ public class NotificationExpandButton extends ImageView {
     public NotificationExpandButton(Context context, @Nullable AttributeSet attrs, int defStyleAttr,
             int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-        XposedHelpers.findAndHookMethod(View.class, "getBoundsOnScreen", Rect.class, boolean.class, getBoundsOnScreen);
     }
 
-    private XC_MethodHook getBoundsOnScreen = new XC_MethodHook() {
-        @Override
-        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-            if (param.thisObject instanceof NotificationExpandButton) {
-                Rect outRect = (Rect) param.args[0];
-                extendRectToMinTouchSize(outRect);
-            }
-        }
-    };
-
-    /*public void getBoundsOnScreen(Rect outRect, boolean clipToParent) {
-        Method getBoundsOnScreen = null;
-        try {
-            getBoundsOnScreen = View.class.getDeclaredMethod("getBoundsOnScreen", Rect.class, boolean.class);
-        } catch (NoSuchMethodException ignore) {}
-        try {
-            getBoundsOnScreen.invoke(this, outRect, clipToParent);
-        } catch (InvocationTargetException | IllegalAccessException ignore) {}
+    public void getBoundsOnScreen(Rect outRect, boolean clipToParent) {
+        //super.getBoundsOnScreen(outRect, clipToParent);
+        ReflectionUtils.invoke(getBoundsOnScreen, this, outRect, clipToParent);
         extendRectToMinTouchSize(outRect);
-    }*/
+    }
 
     private void extendRectToMinTouchSize(Rect rect) {
         int touchTargetSize = (int) (getResources().getDisplayMetrics().density * 48);

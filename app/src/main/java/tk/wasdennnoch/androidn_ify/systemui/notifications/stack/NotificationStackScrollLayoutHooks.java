@@ -46,10 +46,14 @@ import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ScrimHelper;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static tk.wasdennnoch.androidn_ify.XposedHook.PACKAGE_SYSTEMUI;
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
+import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.NotificationStackScrollLayout.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.*;
 
 public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowInsetsListener {
     private static final String TAG = "NotificationStackScrollLayoutHooks";
@@ -64,7 +68,6 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     private int TAG_ANIMATOR_TRANSLATION_Y;
     private int TAG_END_TRANSLATION_Y;
 
-    private Class<?> classStackStateAnimator;
     private static ViewGroup mStackScrollLayout;
     private Context mContext;
     private ResourceUtils mRes;
@@ -154,8 +157,8 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     private Comparator<View> mViewPositionComparator = new Comparator<View>() {
         @Override
         public int compare(View view, View otherView) {
-            float endY = view.getTranslationY() + XposedHelpers.getIntField(view, "mActualHeight");
-            float otherEndY = otherView.getTranslationY() + XposedHelpers.getIntField(otherView, "mActualHeight");
+            float endY = view.getTranslationY() + getInt(SystemUI.ExpandableView.mActualHeight, view);
+            float otherEndY = otherView.getTranslationY() + getInt(SystemUI.ExpandableView.mActualHeight, otherView);
             if (endY < otherEndY) {
                 return -1;
             } else if (endY > otherEndY) {
@@ -199,7 +202,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     // Make sure the clipRect we might have set is removed
-                    XposedHelpers.callMethod(param.args[0], "setClipTopAmount", 0);
+                    invoke(Methods.SystemUI.ExpandableView.setClipTopAmount, param.args[0], 0);
                 }
             });
             XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "startAnimationToState", new XC_MethodHook() {
@@ -210,7 +213,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     willUpdateBackground = false;
                     boolean mNeedsAnimation = XposedHelpers.getBooleanField(mStackScrollLayout, "mNeedsAnimation");
                     if (mNeedsAnimation) {
-                        XposedHelpers.callMethod(mStackScrollLayout, "generateChildHierarchyEvents");
+                        invoke(generateChildHierarchyEvents, mStackScrollLayout);
                         XposedHelpers.setBooleanField(mStackScrollLayout, "mNeedsAnimation", false);
                     }
                     Object mAnimationEvents = XposedHelpers.getObjectField(mStackScrollLayout, "mAnimationEvents");
@@ -366,7 +369,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     } else {
                         setDimAmount(dimmed ? 1.0f : 0.0f);
                     }
-                    XposedHelpers.callMethod(mStackScrollLayout, "requestChildrenUpdate");
+                    invoke(requestChildrenUpdate, mStackScrollLayout);
                     return null;
                 }
             });
@@ -385,7 +388,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     } /*else if (!dark) {
                         setBackgroundFadeAmount(1.0f);
                     }*/
-                    XposedHelpers.callMethod(mStackScrollLayout, "requestChildrenUpdate");
+                    invoke(requestChildrenUpdate, mStackScrollLayout);
                     if (dark) {
                         mStackScrollLayout.setWillNotDraw(true);
                         ScrimHelper.setExcludedBackgroundArea(null);
@@ -464,8 +467,6 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     return null;
                 }
             });
-
-            classStackStateAnimator = XposedHelpers.findClass("com.android.systemui.statusbar.stack.StackStateAnimator", Classes.SystemUI.getClassLoader()); //TODO: move to Classes
         } catch (Throwable t) {
             XposedHook.logE(TAG, "Error hooking NotificationStackScrollLayout", t);
         }
@@ -736,7 +737,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     }
 
     private void updateBackground() {
-        if ((boolean) XposedHelpers.callMethod(mAmbientState, "isDark")) {
+        if ((boolean) XposedHelpers.callMethod(mAmbientState, "isDark")) { //TODO: optimize
             return;
         }
         updateBackgroundBounds();
@@ -1108,7 +1109,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                 // There is no fake shadow to be drawn
                 setFakeShadowIntensity(expandableView, 0.0f, 0.0f, 0, 0);
             } else {
-                float yLocation = previous.getTranslationY() + XposedHelpers.getIntField(previous, "mActualHeight") -
+                float yLocation = previous.getTranslationY() + getInt(SystemUI.ExpandableView.mActualHeight, previous) -
                         expandableView.getTranslationY();
                 setFakeShadowIntensity(expandableView,
                         diff / FakeShadowView.SHADOW_SIBLING_TRESHOLD,
@@ -1152,7 +1153,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     }
 
     private int getFinalActualHeight(View view) {
-        return (int) XposedHelpers.callStaticMethod(classStackStateAnimator, "getFinalActualHeight", view);
+        return invoke(Methods.SystemUI.StackStateAnimator.getFinalActualHeight, null, view);
     }
 
     private boolean instanceOf(Object obj, Class<?> objClass) {
@@ -1262,7 +1263,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     }
 
     private int getIntrinsicHeight(View v) {
-        return (int) XposedHelpers.callMethod(v, "getIntrinsicHeight"); //TODO switch to reflectionutils for these
+        return (int) invoke(Methods.SystemUI.ExpandableView.getIntrinsicHeight, v); //TODO switch to reflectionutils for these
     }
 
     private int getPositionInLinearLayout(View v) {

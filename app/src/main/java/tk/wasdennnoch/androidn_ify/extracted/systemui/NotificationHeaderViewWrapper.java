@@ -36,6 +36,7 @@ import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationContentHelper;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHeaderView;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
 import static tk.wasdennnoch.androidn_ify.extracted.systemui.TransformState.TRANSFORM_Y;
@@ -139,7 +140,7 @@ public class NotificationHeaderViewWrapper extends NotificationViewWrapper {
         updateTransformedTypes();
         addRemainingTransformTypes();
         updateCropToPaddingForImageViews();
-        Notification notification = ((StatusBarNotification) ReflectionUtils.invoke(NotificationsStuff.methodGetStatusBarNotification, row)).getNotification();
+        Notification notification = ((StatusBarNotification) ReflectionUtils.invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row)).getNotification();
         mIcon.setTag(ImageTransformState.ICON_TAG, notification.getSmallIcon());
         // The work profile image is always the same lets just set the icon tag for it not to
         // animate
@@ -230,7 +231,7 @@ public class NotificationHeaderViewWrapper extends NotificationViewWrapper {
     @Override
     public void updateExpandability(boolean expandable, View.OnClickListener onClickListener) {
         if (mNotificationHeader == null) return;
-        mExpandButton.setVisibility(expandable ? View.VISIBLE : View.GONE);
+        mExpandButton.setVisibility(expandable ? View.VISIBLE : View.INVISIBLE);// WTF? setting visibility to GONE leads to OpenGL crashes
         mNotificationHeader.setOnClickListener(expandable ? onClickListener : null);
     }
 

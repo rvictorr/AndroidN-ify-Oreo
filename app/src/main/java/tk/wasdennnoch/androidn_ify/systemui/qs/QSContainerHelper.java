@@ -9,9 +9,8 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
-
-import java.lang.reflect.Method;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
@@ -20,11 +19,18 @@ import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSFooter;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSDetail;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
-import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
+
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
+import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.NotificationPanelView.*;
+import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.QSContainer.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.NotificationPanelView.*;
 
 @SuppressWarnings("ResourceType")
 public class QSContainerHelper {
@@ -41,7 +47,7 @@ public class QSContainerHelper {
     private ViewGroup mQSContainer;
     private ViewGroup mQSPanel;
     private QSFooter mQSFooter;
-    private View mNotificationStackScroller;
+    private View mStackScroller;
     private QSDetail mQSDetail;
     private float mQsExpansion;
     private float mFullElevation;
@@ -50,10 +56,10 @@ public class QSContainerHelper {
 
     private static final int CAP_HEIGHT = 1456;
     private static final int FONT_HEIGHT = 2163;
-    private Object mKeyguardStatusView;
+    private View mKeyguardStatusView;
     private TextView mClockView;
     private Rect mQsBounds = new Rect();
-    private boolean mKeyguardShowing = false;
+    private boolean mIsKeyguardShowing = false;
     private boolean mHeaderAnimating;
 
     public QSContainerHelper(ViewGroup notificationPanelView, ViewGroup qsContainer, ViewGroup header, ViewGroup qsPanel, QSFooter qsFooter) {
@@ -84,15 +90,16 @@ public class QSContainerHelper {
         qsPanel.setLayoutParams(qsPanelLp);
 
         //TODO fix landscape behavior
-        ViewGroup scrollView = mNotificationPanelView.findViewById(mContext.getResources().getIdentifier("scroll_view", "id", XposedHook.PACKAGE_SYSTEMUI));
+        ScrollView scrollView = mNotificationPanelView.findViewById(mContext.getResources().getIdentifier("scroll_view", "id", XposedHook.PACKAGE_SYSTEMUI));
         LinearLayout linearLayout = (LinearLayout) mQSContainer.getParent();
 
         linearLayout.removeAllViews();
         scrollView.removeView(linearLayout);
         scrollView.addView(mQSContainer);
 
+        scrollView.setFillViewport(false);
         ViewGroup.LayoutParams scrollViewLayoutParams = scrollView.getLayoutParams();
-        scrollViewLayoutParams.height = FrameLayout.LayoutParams.WRAP_CONTENT;
+        scrollViewLayoutParams.height = FrameLayout.LayoutParams.MATCH_PARENT;
         scrollView.setLayoutParams(scrollViewLayoutParams);
         scrollView.setClipChildren(false);
         scrollView.setClipToPadding(false);
@@ -114,17 +121,17 @@ public class QSContainerHelper {
         }
 
         setUpOnLayout();
-        mNotificationStackScroller.setFocusable(false);
+        mStackScroller.setFocusable(false);
     }
 
     public void setQsExpansion(float expansion, float headerTranslation) {
         expansion = Math.max(0, expansion);
-        boolean keyguardShowing = XposedHelpers.getBooleanField(mNotificationPanelView, "mKeyguardShowing");
-        if (mKeyguardShowing != keyguardShowing) {
-            mKeyguardShowing = keyguardShowing;
-            if (mKeyguardShowing) {
+        boolean keyguardShowing = getBoolean(mKeyguardShowing, mNotificationPanelView);
+        if (mIsKeyguardShowing != keyguardShowing) {
+            mIsKeyguardShowing = keyguardShowing;
+            if (mIsKeyguardShowing) {
                 expansion = 0;
-                XposedHelpers.setFloatField(mNotificationPanelView, "mQsExpansionHeight", expansion);
+                set(mQsExpansionHeight, mNotificationPanelView, expansion);
             }
         }
         mQsExpansion = expansion;
@@ -132,20 +139,20 @@ public class QSContainerHelper {
         final float translationScaleY = expansion - 1;
         if (!mHeaderAnimating) {
             int height = mHeader.getHeight() + mGutterHeight;
-            if (mKeyguardShowing) {
+            if (mIsKeyguardShowing) {
                 headerTranslation = translationScaleY * height;
             }
             mQSContainer.setTranslationY(headerTranslation);
             if (!reconfigureNotifPanel)
                 mHeader.setTranslationY(height);
         }
-        mQSFooter.setExpansion(mKeyguardShowing ? 1 : expansion);
+        mQSFooter.setExpansion(mIsKeyguardShowing ? 1 : expansion);
         int heightDiff = mQSPanel.getBottom() - mHeader.getBottom() + mHeader.getPaddingBottom()
                 + mQSFooter.getHeight();
         mQSPanel.setTranslationY(translationScaleY * heightDiff);
         mQSDetail.setFullyExpanded(expansion == 1);
 
-        XposedHelpers.callMethod(mHeader, "setExpansion", mKeyguardShowing ? 1 : expansion);
+        XposedHelpers.callMethod(mHeader, "setExpansion", mIsKeyguardShowing ? 1 : expansion);
 
         // Set bounds on the QS panel so it doesn't run over the header.
         mQsBounds.top = (int) -mQSPanel.getTranslationY();
@@ -171,15 +178,15 @@ public class QSContainerHelper {
     }
 
     private int calculateContainerHeight() {
-        int mHeightOverride = XposedHelpers.getIntField(mQSContainer, "mHeightOverride");
+        int mHeightOverride = getInt(Fields.SystemUI.QSContainer.mHeightOverride, mQSContainer);
         int heightOverride = mHeightOverride != -1 ? mHeightOverride : mQSContainer.getMeasuredHeight() - mHeaderHeight;
         return (int) (mQsExpansion * heightOverride) + mHeaderHeight;
     }
 
     private void setUpOnLayout() {
-        mNotificationStackScroller = (View) XposedHelpers.getObjectField(mNotificationPanelView, "mNotificationStackScroller");
-        mKeyguardStatusView = XposedHelpers.getObjectField(mNotificationPanelView, "mKeyguardStatusView");
-        mClockView = (TextView) XposedHelpers.getObjectField(mNotificationPanelView, "mClockView");
+        mStackScroller = get(mNotificationStackScroller, mNotificationPanelView);
+        mKeyguardStatusView = get(Fields.SystemUI.NotificationPanelView.mKeyguardStatusView, mNotificationPanelView);
+        mClockView = get(Fields.SystemUI.NotificationPanelView.mClockView, mNotificationPanelView);
     }
 
     public void notificationPanelViewOnLayout(XC_MethodHook.MethodHookParam param) {
@@ -189,56 +196,52 @@ public class QSContainerHelper {
         FrameLayout notificationPanelView = (FrameLayout) param.thisObject;
 
         // FrameLayout.onLayout
-        XposedHelpers.callMethod(notificationPanelView, "layoutChildren", left, top, right, bottom, false);
+        invoke(layoutChildren, notificationPanelView, left, top, right, bottom, false);
 
         // PanelView.onLayout
-        XposedHelpers.callMethod(notificationPanelView, "requestPanelHeightUpdate");
-        XposedHelpers.setBooleanField(notificationPanelView, "mHasLayoutedSinceDown", true);
-        if (XposedHelpers.getBooleanField(notificationPanelView, "mUpdateFlingOnLayout")) {
-            Method abortAnimations = XposedHelpers.findMethodBestMatch(Classes.SystemUI.PanelView, "abortAnimations");
-            try {
-                abortAnimations.invoke(notificationPanelView);
-            } catch (Throwable ignore) {
-            }
-            XposedHelpers.callMethod(notificationPanelView, "fling", XposedHelpers.getFloatField(notificationPanelView, "mUpdateFlingVelocity"), true);
-            XposedHelpers.setBooleanField(notificationPanelView, "mUpdateFlingOnLayout", false);
+        invoke(requestPanelHeightUpdate, notificationPanelView);
+        set(mHasLayoutedSinceDown, notificationPanelView, true);
+        if (getBoolean(mUpdateFlingOnLayout, notificationPanelView)) {
+            invoke(abortAnimations, notificationPanelView);
+            invoke(fling, notificationPanelView, getFloat(mUpdateFlingVelocity, notificationPanelView), true);
+            set(mUpdateFlingOnLayout, notificationPanelView, false);
         }
+        NotificationHooks.onPanelLaidOut(get(mStatusBar, param.thisObject));
 
         // NotificationPanelView.onLayout
-        XposedHelpers.callMethod(mKeyguardStatusView, "setPivotX", notificationPanelView.getWidth() / 2);
-        XposedHelpers.callMethod(mKeyguardStatusView, "setPivotY", (FONT_HEIGHT - CAP_HEIGHT) / 2048f * mClockView.getTextSize());
+        mKeyguardStatusView.setPivotX(notificationPanelView.getWidth() / 2);
+        mKeyguardStatusView.setPivotY((FONT_HEIGHT - CAP_HEIGHT) / 2048f * mClockView.getTextSize());
 
         // Calculate quick setting heights.
-        int oldMaxHeight = XposedHelpers.getIntField(notificationPanelView, "mQsMaxExpansionHeight");
-        int mQsMinExpansionHeight = XposedHelpers.getBooleanField(notificationPanelView, "mKeyguardShowing") ? 0 : mHeaderHeight;
-        int mQsMaxExpansionHeight = (int) XposedHelpers.callMethod(mQSContainer, "getDesiredHeight");
-        XposedHelpers.setIntField(notificationPanelView, "mQsMinExpansionHeight", mQsMinExpansionHeight);
-        XposedHelpers.setIntField(notificationPanelView, "mQsMaxExpansionHeight", mQsMaxExpansionHeight);
-        XposedHelpers.callMethod(notificationPanelView, "positionClockAndNotifications");
-        boolean mQsExpanded = XposedHelpers.getBooleanField(notificationPanelView, "mQsExpanded");
-        if (mQsExpanded && XposedHelpers.getBooleanField(notificationPanelView, "mQsFullyExpanded")) {
-            XposedHelpers.setIntField(notificationPanelView, "mQsExpansionHeight", mQsMaxExpansionHeight);
-            XposedHelpers.callMethod(notificationPanelView, "requestScrollerTopPaddingUpdate", false);
+        int oldMaxHeight = getInt(mQsMaxExpansionHeight, notificationPanelView);
+        int qsMinExpansionHeight = getBoolean(mKeyguardShowing, notificationPanelView) ? 0 : mHeaderHeight;
+        int qsMaxExpansionHeight = invoke(getDesiredHeight, mQSContainer);
+        set(mQsMinExpansionHeight, notificationPanelView, qsMinExpansionHeight);
+        set(mQsMaxExpansionHeight, notificationPanelView, qsMaxExpansionHeight);
+        invoke(positionClockAndNotifications, notificationPanelView);
+        boolean qsExpanded = getBoolean(mQsExpanded, notificationPanelView);
+        if (qsExpanded && getBoolean(mQsFullyExpanded, notificationPanelView)) {
+            set(mQsExpansionHeight, notificationPanelView, qsMaxExpansionHeight);
+            invoke(requestScrollerTopPaddingUpdate, notificationPanelView, false);
             if (ConfigUtils.M) {
-                XposedHelpers.callMethod(notificationPanelView, "requestPanelHeightUpdate");
+                invoke(requestPanelHeightUpdate, notificationPanelView);
                 // Size has changed, start an animation.
-                if (mQsMaxExpansionHeight != oldMaxHeight) {
-                    XposedHelpers.callMethod(notificationPanelView, "startQsSizeChangeAnimation", oldMaxHeight, mQsMaxExpansionHeight);
+                if (qsMaxExpansionHeight != oldMaxHeight) {
+                    invoke(startQsSizeChangeAnimation, notificationPanelView, oldMaxHeight, qsMaxExpansionHeight);
                 }
             }
-        } else if (!mQsExpanded) {
-            setQsExpansion((float) XposedHelpers.callMethod(param.thisObject, "getQsExpansionFraction"),
-                    (float) XposedHelpers.callMethod(param.thisObject, "getHeaderTranslation"));
+        } else if (!qsExpanded) {
+            setQsExpansion((float) invoke(getQsExpansionFraction, notificationPanelView),
+                    (float) invoke(getHeaderTranslation, notificationPanelView));
             if (!ConfigUtils.M) {
-                XposedHelpers.callMethod(mNotificationStackScroller, "setStackHeight", (float) XposedHelpers.callMethod(notificationPanelView, "getExpandedHeight"));
-                XposedHelpers.callMethod(notificationPanelView, "updateHeader");
+                invoke(Methods.SystemUI.NotificationStackScrollLayout.setStackHeight, mStackScroller, invoke(getExpandedHeight, mNotificationPanelView));
+                invoke(updateHeader, notificationPanelView);
             }
         }
         if (ConfigUtils.M) {
-            XposedHelpers.callMethod(notificationPanelView, "updateStackHeight", (float) XposedHelpers.callMethod(notificationPanelView, "getExpandedHeight"));
-            XposedHelpers.callMethod(notificationPanelView, "updateHeader");
+            invoke(updateStackHeight, notificationPanelView, invoke(getExpandedHeight, notificationPanelView));
+            invoke(updateHeader, notificationPanelView);
         }
-        XposedHelpers.callMethod(mNotificationStackScroller, "updateIsSmallScreen", mHeaderHeight);
 
         if (ConfigUtils.M) {
             // If we are running a size change animation, the animation takes care of the height of
@@ -246,15 +249,17 @@ public class QSContainerHelper {
             // the desired height so when closing the QS detail, it stays smaller after the size change
             // animation is finished but the detail view is still being animated away (this animation
             // takes longer than the size change animation).
-            if (XposedHelpers.getObjectField(notificationPanelView, "mQsSizeChangeAnimator") == null) {
-                if (mQsMaxExpansionHeight != -1) mQsMaxExpansionHeight -= mHeaderHeight;
-                XposedHelpers.callMethod(mQSContainer, "setHeightOverride", mQsMaxExpansionHeight);
+            if (get(mQsSizeChangeAnimator, notificationPanelView) == null) {
+                if (qsMaxExpansionHeight != -1) qsMaxExpansionHeight -= mHeaderHeight;
+                invoke(setHeightOverride, mQSContainer, qsMaxExpansionHeight);
             }
-            XposedHelpers.callMethod(notificationPanelView, "updateMaxHeadsUpTranslation");
+            invoke(updateMaxHeadsUpTranslation, notificationPanelView);
         }
     }
 
     public int getDesiredHeight() {
+//        if (isCustomizing())
+//            return mQSContainer.getHeight();
         if (mQSDetail.isClosingDetail()) {
             ViewGroup.MarginLayoutParams layoutParams = (ViewGroup.MarginLayoutParams) mQSPanel.getLayoutParams();
             int panelHeight = layoutParams.topMargin + layoutParams.bottomMargin +
@@ -266,7 +271,7 @@ public class QSContainerHelper {
     }
 
     public void animateHeaderSlidingIn() {
-        if (!XposedHelpers.getBooleanField(mNotificationPanelView, "mQsExpanded")) {
+        if (!getBoolean(mQsExpanded, mNotificationPanelView)) {
             mHeaderAnimating = true;
             mQSContainer.getViewTreeObserver().addOnPreDrawListener(mStartHeaderSlidingIn);
         }
@@ -283,7 +288,7 @@ public class QSContainerHelper {
                     public void onAnimationEnd(Animator animation) {
                         mQSContainer.animate().setListener(null);
                         mHeaderAnimating = false;
-                        XposedHelpers.callMethod(mNotificationPanelView, "updateQsState");
+                        invoke(updateQsState, mNotificationPanelView);
                     }
                 })
                 .start();
@@ -310,7 +315,7 @@ public class QSContainerHelper {
         @Override
         public void onAnimationEnd(Animator animation) {
             mHeaderAnimating = false;
-            XposedHelpers.callMethod(mNotificationPanelView, "updateQsState");
+            invoke(updateQsState, mNotificationPanelView);
         }
     };
 
@@ -328,7 +333,7 @@ public class QSContainerHelper {
     }
 
     public void setKeyguardShowing(boolean keyguardShowing) {
-        mKeyguardShowing = keyguardShowing;
+        mIsKeyguardShowing = keyguardShowing;
     }
 
     public int getGutterHeight() {
@@ -342,4 +347,10 @@ public class QSContainerHelper {
     public QSDetail getQSDetail() {
         return mQSDetail;
     }
+
+    public ViewGroup getQSContainer() { return mQSContainer; }
+
+    public ViewGroup getQSPanel() { return mQSPanel; }
+
+    public ViewGroup getHeader() { return mHeader; }
 }

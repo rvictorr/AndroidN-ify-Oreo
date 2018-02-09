@@ -74,7 +74,7 @@ public class ScrimHelper {
     }
 
     public int getScrimColorWithAlpha() {
-        mScrimColor = XposedHelpers.getIntField(mScrimView, "mScrimColor");
+        mScrimColor = XposedHelpers.getIntField(mScrimView, "mScrimColor"); //TODO: optimize
         mViewAlpha = XposedHelpers.getFloatField(mScrimView, "mViewAlpha");
         int color = mScrimColor;
         color = Color.argb((int) (Color.alpha(color) * mViewAlpha), Color.red(color),

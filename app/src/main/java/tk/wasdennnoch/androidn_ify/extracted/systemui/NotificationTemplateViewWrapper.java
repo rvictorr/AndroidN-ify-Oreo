@@ -28,6 +28,7 @@ import android.widget.TextView;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationContentHelper;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
 import static tk.wasdennnoch.androidn_ify.XposedHook.PACKAGE_ANDROID;
@@ -139,7 +140,7 @@ public class NotificationTemplateViewWrapper extends NotificationHeaderViewWrapp
     public void onContentUpdated(View row) {
         // Reinspect the notification. Before the super call, because the super call also updates
         // the transformation types and we need to have our values set by then.
-        resolveTemplateViews((StatusBarNotification) ReflectionUtils.invoke(NotificationsStuff.methodGetStatusBarNotification, row));
+        resolveTemplateViews((StatusBarNotification) ReflectionUtils.invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row));
         super.onContentUpdated(row);
     }
 

@@ -83,6 +83,7 @@ import tk.wasdennnoch.androidn_ify.systemui.statusbar.StatusBarHooks;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.MarginSpan;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.NotificationColorUtil;
 import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.RemoteLpTextView;
@@ -146,6 +147,7 @@ public class NotificationHooks {
     public static Object mHeadsUpManager;
 
     public static boolean remoteInputActive = false;
+    private static int mMaxKeyguardNotifications;
     public static Object mStatusBarWindowManager = null;
     public static NotificationStackScrollLayoutHooks mStackScrollLayoutHooks;
 
@@ -191,11 +193,11 @@ public class NotificationHooks {
             rowHelper.onNotificationUpdated(entry);
 
             ConfigUtils.notifications().loadBlacklistedApps();
-            StatusBarNotification sbn = (StatusBarNotification) XposedHelpers.callMethod(row, "getStatusBarNotification");
+            StatusBarNotification sbn = (StatusBarNotification) ReflectionUtils.invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row);
             if (ConfigUtils.notifications().blacklistedApps.contains(sbn.getPackageName())) return;
 
-            View privateView = (View) XposedHelpers.callMethod(contentContainer, "getContractedChild");
-            View publicView = (View) XposedHelpers.callMethod(contentContainerPublic, "getContractedChild");
+            View privateView = ReflectionUtils.invoke(Methods.SystemUI.NotificationContentView.getContractedChild, contentContainer);
+            View publicView = ReflectionUtils.invoke(Methods.SystemUI.NotificationContentView.getContractedChild, contentContainerPublic);
 
             Context context = publicView.getContext();
 
@@ -236,8 +238,8 @@ public class NotificationHooks {
             }*/
 
             // actions background
-            View expandedChild = (View) XposedHelpers.callMethod(contentContainer, "getExpandedChild");
-            View headsUpChild = ConfigUtils.M ? (View) XposedHelpers.callMethod(contentContainer, "getHeadsUpChild") : null;
+            View expandedChild = ReflectionUtils.invoke(Methods.SystemUI.NotificationContentView.getExpandedChild, contentContainer);
+            View headsUpChild = ConfigUtils.M ? (View) ReflectionUtils.invoke(Methods.SystemUI.NotificationContentView.getHeadsUpChild, contentContainer) : null;
             if (!ConfigUtils.notifications().custom_actions_color || !ConfigUtils.notifications().change_colors) {
                 if (expandedChild != null || headsUpChild != null) {
                     int actionsId = context.getResources().getIdentifier("actions", "id", PACKAGE_ANDROID);
@@ -1341,7 +1343,6 @@ public class NotificationHooks {
     public static void hook(ClassLoader classLoader) {
         try {
             if (ConfigUtils.notifications().change_style) {
-                //TODO see if i can figure something out with notifcompat
 
                 final Class classNotificationBuilder = Notification.Builder.class;
                 Class classNotificationStyle = Notification.Style.class;
@@ -1502,8 +1503,10 @@ public class NotificationHooks {
                 boolean foundClass = false;
                 Class classBroadcastReceiver = null;
                 for(int i = 1; !foundClass; i++) {
-                    classBroadcastReceiver = XposedHelpers.findClass("com.android.systemui.statusbar.phone.PhoneStatusBar$" + i, Classes.SystemUI.getClassLoader());
-                    if (BroadcastReceiver.class.isAssignableFrom(classBroadcastReceiver))
+                    try {
+                        classBroadcastReceiver = XposedHelpers.findClass("com.android.systemui.statusbar.phone.PhoneStatusBar$" + i, Classes.SystemUI.getClassLoader());
+                    } catch (XposedHelpers.ClassNotFoundError ignore) {} //wtf Sony?? (some numbers missing)
+                    if (classBroadcastReceiver != null && BroadcastReceiver.class.isAssignableFrom(classBroadcastReceiver))
                         foundClass = true;
                 }
                 final Class<?> classMediaExpandableNotificationRow = getClassMediaExpandableNotificationRow(Classes.SystemUI.getClassLoader());
@@ -1545,6 +1548,20 @@ public class NotificationHooks {
                             XposedHelpers.setIntField(param.thisObject, "mPrivateFlags3",  mPrivateFlags3 & ~0x2000000/* PFLAG3_TEMPORARY_DETACH*/);
                         }
                     });
+
+                    XposedHelpers.findAndHookMethod(Classes.SystemUI.PhoneStatusBar, "getMaxKeyguardNotifications", new XC_MethodReplacement() {
+                        @Override
+                        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                            boolean recompute = false;
+//                            Object shouldRecompute = XposedHelpers.getAdditionalInstanceField(param.thisObject, "recompute");
+//                            if (shouldRecompute != null && (boolean) shouldRecompute) {
+//                                recompute = (boolean) shouldRecompute;
+//                                XposedHelpers.setAdditionalInstanceField(param.thisObject, "recompute", false);
+//                            }
+                            return getMaxKeyguardNotifications(param.thisObject, recompute /* recompute */);
+                        }
+                    });
+
                     XposedHelpers.findAndHookMethod(Classes.SystemUI.PhoneStatusBar, "startKeyguard", new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
@@ -1733,7 +1750,6 @@ public class NotificationHooks {
                                 windowParams.flags &= ~WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM;
                                 param.setResult(null);
                             }
-                            windowParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
                         }
 
                         @Override
@@ -1745,6 +1761,19 @@ public class NotificationHooks {
                         }
                     });
                 }
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.StatusBarWindowManager, "applyFitsSystemWindows", Classes.SystemUI.StatusBarWindowManagerState, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        View mStatusBarView = (View) XposedHelpers.getObjectField(param.thisObject, "mStatusBarView");
+                        Object state = param.args[0];
+                        boolean fitsSystemWindows = !(boolean) XposedHelpers.callMethod(state, "isKeyguardShowingAndNotOccluded");
+                        if (mStatusBarView.getFitsSystemWindows() != fitsSystemWindows) {
+                            mStatusBarView.setFitsSystemWindows(fitsSystemWindows);
+                            mStatusBarView.requestApplyInsets();
+                        }
+                        return null;
+                    }
+                });
                 XposedHelpers.findAndHookMethod(Classes.SystemUI.StackScrollAlgorithm, "initConstants", Context.class, initConstantsHook);
                 XposedHelpers.findAndHookMethod(classNotificationGuts, "onFinishInflate", new XC_MethodHook() {
                     @Override
@@ -1989,6 +2018,30 @@ public class NotificationHooks {
             }
         }
         return false;
+    }
+
+    public static int getMaxKeyguardNotifications(Object statusBar, boolean recompute) { //TODO: make this work
+        View mNotificationPanel = (View) XposedHelpers.getObjectField(statusBar, "mNotificationPanel");
+        if (recompute) {
+            mMaxKeyguardNotifications = Math.max(1,
+                    NotificationPanelViewHooks.computeMaxKeyguardNotifications(mNotificationPanel,
+                            XposedHelpers.getIntField(statusBar, "mKeyguardMaxNotificationCount")));
+            return mMaxKeyguardNotifications;
+        }
+        return mMaxKeyguardNotifications;
+    }
+
+    public static void onPanelLaidOut(Object statusBar) {
+        if (ReflectionUtils.getInt(fieldState, statusBar) == NotificationPanelHooks.STATE_KEYGUARD) {
+            // Since the number of notifications is determined based on the height of the view, we
+            // need to update them.
+            int maxBefore = getMaxKeyguardNotifications(statusBar, false /* recompute */);
+            int maxNotifications = getMaxKeyguardNotifications(statusBar , true /* recompute */);
+            if (maxBefore != maxNotifications) {
+                //XposedHelpers.setAdditionalInstanceField(statusBar, "recompute", true);
+                XposedHelpers.callMethod(statusBar, "updateRowStates");
+            }
+        }
     }
 
     public static void hookResAndroid(XC_InitPackageResources.InitPackageResourcesParam resparam) {

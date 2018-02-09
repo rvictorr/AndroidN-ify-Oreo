@@ -12,7 +12,6 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
@@ -25,6 +24,7 @@ import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationViewWrapper;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.RemoteInputController;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.RemoteInputView;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.TransformableView;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.NotificationColorUtil;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
@@ -34,6 +34,7 @@ import static tk.wasdennnoch.androidn_ify.systemui.SystemUIHooks.post;
 import static  tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff.*;
 import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
+import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.NotificationContentView.*;
 
 
 public class NotificationContentHelper {
@@ -43,13 +44,6 @@ public class NotificationContentHelper {
     public static Field fieldContentHeight;
     public static Field fieldShowingLegacyBackground;
     public static Field fieldIsHeadsUp;
-
-    public static Method methodRequestAccessibilityFocus;
-
-    public static Method methodCalculateVisibleType;
-    public static Method methodUpdateViewVisibilities;
-    public static Method methodIsLayoutRtl;
-    public static Method methodSelectLayout;
 
     private ResourceUtils res;
     private ExpandableNotificationRowHelper mRowHelper;
@@ -116,6 +110,8 @@ public class NotificationContentHelper {
     public boolean mShowAmbient;
     public boolean mOnKeyguard;
 
+    public int previousHeight;
+
     public Runnable mExpandedVisibleListener;
 
     public final ViewTreeObserver.OnPreDrawListener mEnableAnimationPredrawListener
@@ -152,13 +148,6 @@ public class NotificationContentHelper {
         fieldContentHeight = XposedHelpers.findField(NotificationContentView, "mContentHeight");
         fieldShowingLegacyBackground = XposedHelpers.findField(NotificationContentView, "mShowingLegacyBackground");
         fieldIsHeadsUp = XposedHelpers.findField(NotificationContentView, "mIsHeadsUp");
-
-        methodRequestAccessibilityFocus = XposedHelpers.findMethodBestMatch(View.class, "requestAccessibilityFocus");
-
-        methodCalculateVisibleType = XposedHelpers.findMethodBestMatch(NotificationContentView, "calculateVisibleType");
-        methodUpdateViewVisibilities = XposedHelpers.findMethodBestMatch(NotificationContentView, "updateViewVisibilities", int.class);
-        methodSelectLayout = XposedHelpers.findMethodBestMatch(NotificationContentView, "selectLayout", boolean.class, boolean.class);
-        methodIsLayoutRtl = XposedHelpers.findMethodBestMatch(View.class, "isLayoutRtl");
     }
 
     public FrameLayout getContentView() {
@@ -237,7 +226,7 @@ public class NotificationContentHelper {
                         - expandedHeader.getPaddingEnd();
                 if (expandedSize != collapsedSize) {
                     int paddingEnd = contractedHeader.getMeasuredWidth() - expandedSize;
-                    boolean isRtl = (boolean) invoke(methodIsLayoutRtl, contractedHeader);
+                    boolean isRtl = invoke(Methods.Android.View.isLayoutRtl, contractedHeader);
                     contractedHeader.setPadding(
                             isRtl
                                     ? paddingEnd
@@ -253,7 +242,7 @@ public class NotificationContentHelper {
             } else {
                 int paddingEnd = mNotificationContentMarginEnd;
                 if (contractedHeader.getPaddingEnd() != paddingEnd) {
-                    boolean isRtl = (boolean) invoke(methodIsLayoutRtl, contractedHeader);
+                    boolean isRtl = invoke(Methods.Android.View.isLayoutRtl, contractedHeader);
                     contractedHeader.setPadding(
                             isRtl
                                     ? paddingEnd
@@ -291,7 +280,7 @@ public class NotificationContentHelper {
             if (header != null) {
                 ImageView expandButton = header.getExpandButton();
                 if (expandButton != null) {
-                    invoke(methodRequestAccessibilityFocus, expandButton);
+                    invoke(Methods.Android.View.requestAccessibilityFocus, expandButton);
                 }
             }
             mFocusOnVisibilityChange = false;
@@ -369,7 +358,7 @@ public class NotificationContentHelper {
     }
 
     public void updateContentTransformation() {
-        int visibleType = (int) invoke(methodCalculateVisibleType, getContentView());
+        int visibleType = invoke(calculateVisibleType, getContentView());
         if (visibleType != getVisibleType()) {
             // A new transformation starts
             mTransformationStartVisibleType = getVisibleType();
@@ -396,7 +385,7 @@ public class NotificationContentHelper {
             hiddenView.transformTo(shownView, transformationAmount);
             updateBackgroundTransformation(transformationAmount);
         } else {
-            invoke(methodUpdateViewVisibilities, getContentView(), visibleType);
+            invoke(updateViewVisibilities, getContentView(), visibleType);
             updateBackgroundColor(false);
         }
     }
@@ -461,7 +450,7 @@ public class NotificationContentHelper {
 
     public void setClipToActualHeight(boolean clipToActualHeight) {
         mClipToActualHeight = clipToActualHeight;
-        invoke(NotificationsStuff.methodUpdateContentClipping, getContentView());
+        invoke(updateClipping, getContentView());
     }
 
     public void forceUpdateVisibilities() {
@@ -518,8 +507,8 @@ public class NotificationContentHelper {
         // When expanding or user locked we want the new type, when collapsing we want
         // the original type
         final int visibleType = (/*mContainingNotification.isGroupExpanded()
-                || */(boolean) invoke(NotificationsStuff.methodIsUserLocked, mContainingNotification))
-                ? (int) invoke(methodCalculateVisibleType, getContentView())
+                || */invoke(Methods.SystemUI.ExpandableNotificationRow.isUserLocked, mContainingNotification))
+                ? (int) invoke(calculateVisibleType, getContentView())
                 : getVisibleType();
         return getBackgroundColor(visibleType);
     }
@@ -630,7 +619,7 @@ public class NotificationContentHelper {
         } else {
             if (noExpandedChild || (viewHeight <= mContractedChild.getHeight()
                     && (!mIsChildInGroup || isGroupExpanded()
-                    || !(boolean) invoke(NotificationsStuff.methodIsExpanded, mContainingNotification/*, (true  *//*allowOnKeyguard*//* */)))) {
+                    || !(boolean) invoke(Methods.SystemUI.ExpandableNotificationRow.isExpanded, mContainingNotification/*, (true  *//*allowOnKeyguard*//* */)))) {
                 return VISIBLE_TYPE_CONTRACTED;
             } else {
                 return VISIBLE_TYPE_EXPANDED;
@@ -891,7 +880,7 @@ public class NotificationContentHelper {
     }
 
     public void requestSelectLayout(boolean needsAnimation) {
-        invoke(methodSelectLayout, getContentView(), needsAnimation, false);
+        invoke(selectLayout, getContentView(), needsAnimation, false);
     }
 
     public void reInflateViews() {
@@ -908,8 +897,8 @@ public class NotificationContentHelper {
             mTransformationStartVisibleType = getVisibleType();
         } else {
             mTransformationStartVisibleType = UNDEFINED;
-            set(fieldVisibleType, getContentView(), invoke(methodCalculateVisibleType, getContentView()));
-            invoke(methodUpdateViewVisibilities, getContentView(), getVisibleType());
+            set(fieldVisibleType, getContentView(), invoke(calculateVisibleType, getContentView()));
+            invoke(updateViewVisibilities, getContentView(), getVisibleType());
             updateBackgroundColor(false);
         }
     }
@@ -951,7 +940,7 @@ public class NotificationContentHelper {
 
     public void setHeadsUpAnimatingAway(boolean headsUpAnimatingAway) {
         mHeadsUpAnimatingAway = headsUpAnimatingAway;
-        invoke(methodSelectLayout, getContentView(), false /*animate*/, true /*force*/);
+        invoke(selectLayout, getContentView(), false /*animate*/, true /*force*/);
     }
 
     public void setFocusOnVisibilityChange() {

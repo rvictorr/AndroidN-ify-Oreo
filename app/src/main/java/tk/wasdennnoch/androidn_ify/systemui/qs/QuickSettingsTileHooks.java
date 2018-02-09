@@ -190,7 +190,7 @@ public class QuickSettingsTileHooks {
                 Object state = param.args[0];
                 ViewGroup qsTileView = (ViewGroup) param.thisObject;
                 boolean dualTarget = XposedHelpers.getBooleanField(qsTileView, "mDual");
-                String dualLabelContentDescription = (String) XposedHelpers.getObjectField(state, "dualLabelContentDescription");
+                String dualLabelContentDescription = (String) XposedHelpers.getObjectField(state, "dualLabelContentDescription"); //TODO: optimize, too many allocations
                 ButtonRelativeLayout mLabelContainer = (ButtonRelativeLayout) XposedHelpers.getAdditionalInstanceField(qsTileView, "mLabelContainer");
                 ImageView mExpandIndicator = (ImageView) XposedHelpers.getAdditionalInstanceField(qsTileView, "mExpandIndicator");
                 Space mExpandSpace = (Space) XposedHelpers.getAdditionalInstanceField(qsTileView, "mExpandSpace");

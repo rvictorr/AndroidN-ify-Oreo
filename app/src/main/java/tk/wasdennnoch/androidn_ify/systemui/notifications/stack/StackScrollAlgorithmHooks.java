@@ -21,6 +21,7 @@ import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.FakeShadowView;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 import tk.wasdennnoch.androidn_ify.utils.RomUtils;
 
@@ -53,8 +54,6 @@ public class StackScrollAlgorithmHooks {
 
     private static int mLayoutMinHeight = 0;
     private static float mAlpha;
-
-    private static Field fieldQsExpanded;
 
     private static Field fieldVisibleChildren;
     private static Field fieldScrollY;
@@ -148,8 +147,6 @@ public class StackScrollAlgorithmHooks {
 
             
 
-            fieldQsExpanded = XposedHelpers.findField(NotificationPanelView, "mQsExpanded");
-
             fieldCollapsedSize = XposedHelpers.findField(StackScrollAlgorithm, "mCollapsedSize");
             fieldVisibleChildren = XposedHelpers.findField(StackScrollAlgorithmState, "visibleChildren");
             fieldScrollY = XposedHelpers.findField(StackScrollAlgorithmState, "scrollY");
@@ -219,7 +216,7 @@ public class StackScrollAlgorithmHooks {
 
             XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "updateAlgorithmHeightAndPadding", updateAlgorithmHeightAndPadding);
             XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onLayout", boolean.class, int.class, int.class, int.class, int.class, onLayoutHook);
-            XposedHelpers.findAndHookMethod(NotificationPanelView, "updateQsState", updateQsStateHook);
+            XposedHelpers.findAndHookMethod(NotificationPanelView, "updateQsState", updateQsStateHook); //TODO: see if this is really needed
 
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "getStackScrollState", getStackScrollState);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "clampPositionToTopStackEnd", XC_MethodReplacement.DO_NOTHING);
@@ -276,14 +273,14 @@ public class StackScrollAlgorithmHooks {
         mLayoutMinHeight = layoutMinHeight;
     }
 
-    private static void updateAlgorithmLayoutMinHeight() throws IllegalAccessException, InvocationTargetException {
+    private static void updateAlgorithmLayoutMinHeight() {
         if (RomUtils.isOneplusStock()) {
             return;
         }
         setLayoutMinHeight(mQsExpanded && !isOnKeyguard() ? getLayoutMinHeight() : 0);
     }
 
-    private static void setQsExpanded(boolean qsExpanded) throws IllegalAccessException, InvocationTargetException {
+    private static void setQsExpanded(boolean qsExpanded) {
         mQsExpanded = qsExpanded;
         updateAlgorithmLayoutMinHeight();
     }
@@ -291,7 +288,7 @@ public class StackScrollAlgorithmHooks {
     private static final XC_MethodHook updateQsStateHook = new XC_MethodHook() {
         @Override
         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-            setQsExpanded(getBoolean(fieldQsExpanded, param.thisObject));
+            setQsExpanded(getBoolean(Fields.SystemUI.NotificationPanelView.mQsExpanded, param.thisObject));
         }
     };
 
@@ -310,13 +307,13 @@ public class StackScrollAlgorithmHooks {
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             //replacing it rather than hooking it because it's different on Xperias
             Object stackScroller = param.thisObject;
-            Object mAmbientState = fieldAmbientState.get(stackScroller);
-            int mMaxLayoutHeight = fieldMaxLayoutHeight.getInt(stackScroller);
-            int mCurrentStackHeight = fieldCurrentStackHeight.getInt(stackScroller);
+            Object mAmbientState = get(fieldAmbientState, stackScroller);
+            int mMaxLayoutHeight = getInt(fieldMaxLayoutHeight, stackScroller);
+            int mCurrentStackHeight = getInt(fieldCurrentStackHeight, stackScroller);
             int minLayoutHeight = Math.min(mMaxLayoutHeight, mCurrentStackHeight);
-            methodSetLayoutHeight.invoke(mAmbientState, minLayoutHeight);
+            invoke(methodSetLayoutHeight, mAmbientState, minLayoutHeight);
             updateAlgorithmLayoutMinHeight();
-            methodSetTopPadding.invoke(mAmbientState, fieldTopPaddingScroller.getInt(stackScroller));
+            invoke(methodSetTopPadding, mAmbientState, getInt(fieldTopPaddingScroller, stackScroller));
             return null;
         }
     };
@@ -369,7 +366,7 @@ public class StackScrollAlgorithmHooks {
         @Override
         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
             View view = (View) param.args[0];
-            Map mStateMap = (Map) fieldStateMap.get(param.thisObject);
+            Map mStateMap = get(fieldStateMap, param.thisObject);
             Object viewState = mStateMap.get(view);
             XposedHelpers.setAdditionalInstanceField(viewState, "shadowAlpha",  1f);
             XposedHelpers.setAdditionalInstanceField(viewState, "hidden",  false);
@@ -390,14 +387,14 @@ public class StackScrollAlgorithmHooks {
             if (getBoolean(fieldGone, state)) {
                 return false;
             }
-            methodApplyViewState.invoke(param.thisObject, view, state);
+            invoke(methodApplyViewState, param.thisObject, view, state);
 
-            int height = (int) SystemUI.ExpandableView.getActualHeight.invoke(view);
+            int height = invoke(SystemUI.ExpandableView.getActualHeight, view);
             int newHeight = getInt(fieldHeight, state);
 
             // apply height
             if (height != newHeight) {
-                SystemUI.ExpandableView.setActualHeight.invoke(view, newHeight, false /* notifyListeners */);
+                invoke(SystemUI.ExpandableView.setActualHeight, view, newHeight, false /* notifyListeners */);
             }
 
             /*float shadowAlpha = helper.getShadowAlpha();
@@ -409,21 +406,21 @@ public class StackScrollAlgorithmHooks {
             }*/
 
             // apply dimming
-            SystemUI.ExpandableView.setDimmed.invoke(view, fieldDimmed.get(state), false /* animate */);
+            invoke(SystemUI.ExpandableView.setDimmed, view, get(fieldDimmed, state), false /* animate */);
 
             // apply hiding sensitive
-            SystemUI.ExpandableView.setHideSensitive.invoke(view, fieldHideSensitive.get(state), false /* animated */, 0 /* delay */, 0 /* duration */);
+            invoke(SystemUI.ExpandableView.setHideSensitive, view, get(fieldHideSensitive, state), false /* animated */, 0 /* delay */, 0 /* duration */);
 
             // apply speed bump state
-            SystemUI.ExpandableView.setBelowSpeedBump.invoke(view, fieldBelowSpeedBump.get(state));
+            invoke(SystemUI.ExpandableView.setBelowSpeedBump, view, get(fieldBelowSpeedBump, state));
 
             // apply dark
-            SystemUI.ExpandableView.setDark.invoke(view, fieldDark.get(state), false /* animate */, 0 /* delay */);
+            invoke(SystemUI.ExpandableView.setDark, view, get(fieldDark, state), false /* animate */, 0 /* delay */);
 
             // apply clipping
-            float oldClipTopAmount = (int) SystemUI.ExpandableView.getClipTopAmount.invoke(view);
-            if (oldClipTopAmount != (int) fieldClipTopAmount.get(state)) {
-                SystemUI.ExpandableView.setClipTopAmount.invoke(view, fieldClipTopAmount.get(state));
+            float oldClipTopAmount = (int) invoke(SystemUI.ExpandableView.getClipTopAmount, view);
+            if (oldClipTopAmount != (int) get(fieldClipTopAmount, state)) {
+                invoke(SystemUI.ExpandableView.setClipTopAmount, view, get(fieldClipTopAmount, state));
             }
 
             if (ExpandableNotificationRow.isInstance(view)) {
@@ -432,7 +429,7 @@ public class StackScrollAlgorithmHooks {
                 if ((isBottomClipped != null) && (boolean) isBottomClipped) {
                     ExpandableNotificationRowHelper.getInstance(row).setClipToActualHeight(true);
                 }*/
-                methodApplyChildrenState.invoke(row, param.thisObject);
+                invoke(methodApplyChildrenState, row, param.thisObject);
             }
             return true;
         }
@@ -452,11 +449,11 @@ public class StackScrollAlgorithmHooks {
                     continue;
                 }
                 if (DismissView.isInstance(child)) {
-                    boolean willBeGone = (boolean) invoke(methodWillBeGoneDismissView, child);
+                    boolean willBeGone = invoke(methodWillBeGoneDismissView, child);
                     boolean visible = getInt(fieldClipTopAmount, state) < getInt(fieldClearAllTopPadding, stackScrollState);
                     invoke(methodPerformVisibilityAnimationDismissView, child, visible && !willBeGone);
                 } else if (EmptyShadeView.isInstance(child)) {
-                    boolean willBeGone = (boolean) invoke(methodWillBeGoneEmptyShade, child);
+                    boolean willBeGone = invoke(methodWillBeGoneEmptyShade, child);
                     boolean visible = getInt(fieldClipTopAmount, state) <= 0;
                     invoke(methodPerformVisibilityAnimationEmptyShade, child,
                             visible && !willBeGone);
@@ -479,8 +476,9 @@ public class StackScrollAlgorithmHooks {
         for (int i = 0; i < childCount; i++) {
             Object child = visibleChildren.get(i);
             Object state = invoke(methodGetViewStateForView, resultState, child);
-            boolean mIsHeadsUp = ExpandableNotificationRow.isInstance(child) && getBoolean(fieldIsHeadsUp, child);
-            boolean isTransparent = (boolean) invoke(SystemUI.ExpandableView.isTransparent, child);
+            Object headsUp = get(fieldIsHeadsUp, child);
+            boolean mIsHeadsUp = headsUp != null && (boolean) headsUp;
+            boolean isTransparent = invoke(SystemUI.ExpandableView.isTransparent, child);
             if (!mIsHeadsUp) {
                 previousNotificationEnd = Math.max(drawStart, previousNotificationEnd);
                 previousNotificationStart = Math.max(drawStart, previousNotificationStart);
@@ -520,7 +518,8 @@ public class StackScrollAlgorithmHooks {
         float childrenOnTop = 0.0f;
         for (int i = childCount - 1; i >= 0; i--) {
             View child = visibleChildren.get(i);
-            boolean mIsHeadsUp = ExpandableNotificationRow.isInstance(child) && getBoolean(fieldIsHeadsUp, child);
+            Object isHeadsUp = get(fieldIsHeadsUp, child);
+            boolean mIsHeadsUp = isHeadsUp != null && (boolean) isHeadsUp;
             Object childViewState = invoke(methodGetViewStateForView, resultState, child);
             float yTranslation = getFloat(fieldYTranslation, childViewState);
             if (i > (childCount - 1 - itemsInBottomStack)) {
@@ -566,9 +565,9 @@ public class StackScrollAlgorithmHooks {
 
         set(fieldItemsInBottomStack, state, 0.0f);
         set(fieldPartialInBottom, state, 0.0f);
-        float bottomOverScroll = (float) invoke(methodGetOverScrollAmount, ambientState, false /* onTop */);
+        float bottomOverScroll = invoke(methodGetOverScrollAmount, ambientState, false /* onTop */);
 
-        int scrollY = (int) invoke(methodGetScrollY, ambientState);
+        int scrollY = invoke(methodGetScrollY, ambientState);
 
         // Due to the overScroller, the stackscroller can have negative scroll state. This is
         // already accounted for by the top padding and doesn't need an additional adaption
@@ -697,7 +696,7 @@ public class StackScrollAlgorithmHooks {
                 break;
             }
             Object row = child;
-            boolean isHeadsUp = ExpandableNotificationRow.isInstance(row) && getBoolean(fieldIsHeadsUp, row);
+            boolean isHeadsUp = getBoolean(fieldIsHeadsUp, row);
             if (!isHeadsUp) {
                 break;
             }
@@ -713,10 +712,10 @@ public class StackScrollAlgorithmHooks {
                 clampHunToTop(ambientState, childState);
                 clampHunToMaxTranslation(ambientState, row, childState);
             }
-            boolean isPinned = ExpandableView.isInstance(row) && (boolean) invoke(methodIsPinned, row);
+            boolean isPinned = invoke(methodIsPinned, row);
             if (isPinned) {
                 set(fieldYTranslation, childState, Math.max(getFloat(fieldYTranslation, childState), 0));
-                int height = (int) invoke(methodGetHeadsUpHeight, row);
+                int height = invoke(methodGetHeadsUpHeight, row);
                 set(fieldHeight, childState, height);
                 Object topState = invoke(methodGetViewStateForView, resultState, topHeadsUpEntry);
                 if (!isTopEntry && (!mIsExpanded

@@ -17,7 +17,7 @@
     <color name="qs_text">#FFFFFFFF</color>
     <color name="system_accent_color">#ff80CBC4</color>
 
-    <color name="default_remote_input_background">@*android:color/notification_default_color</color>
+    <color name="default_remote_input_background">@color/notification_default_color</color>
     <color name="remote_input_text_enabled">#ffffffff</color>
     <color name="remote_input_hint">#99ffffff</color>
 

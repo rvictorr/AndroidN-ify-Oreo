@@ -1,6 +1,7 @@
 package tk.wasdennnoch.androidn_ify.utils;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import tk.wasdennnoch.androidn_ify.XposedHook;
@@ -14,6 +15,9 @@ public class ReflectionUtils {
             return (T) field.get(object);
         } catch (IllegalAccessException e) {
             XposedHook.logE(TAG, "Error getting value from field " + field.getName(), e);
+            return null;
+        } catch (IllegalArgumentException e) { //TODO: maybe find a better way of handling this with less of a performance impact?
+            //XposedHook.logD(TAG, "Error getting value from field " + field.getName() + ": illegal arguments; " + e);
             return null;
         }
     }
@@ -38,13 +42,18 @@ public class ReflectionUtils {
         }
     }
 
-    public static Object invoke(Method method, Object object, Object... args) {
+    public static <T> T invoke(Method method, Object object, Object... args) {
         try {
-            return method.invoke(object, args);
-        } catch (Throwable t) {
-            XposedHook.logE(TAG, "Error invoking method " + method.getName(), t);
+            return (T) method.invoke(object, args);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            XposedHook.logE(TAG, "Error invoking method " + method.getName(), e);
             return null;
+        } catch (IllegalArgumentException e) {
+            //XposedHook.logD(TAG, "Error invoking method " + method.getName() + ": " + e);
+            throw new UncheckedIllegalArgumentException();
         }
     }
+
+    public static class UncheckedIllegalArgumentException extends RuntimeException { }
 
 }
