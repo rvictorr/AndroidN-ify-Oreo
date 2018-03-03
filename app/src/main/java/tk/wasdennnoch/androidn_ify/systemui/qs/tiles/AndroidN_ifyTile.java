@@ -15,7 +15,7 @@ public class AndroidN_ifyTile extends QSTile {
 
     public AndroidN_ifyTile(TilesManager tilesManager, Object host, String key) {
         super(tilesManager, host, key);
-        mIcon = mResUtils.getDrawable(R.drawable.ic_stat_n);
+        mIcon = mResUtils.getResources().getDrawable(R.drawable.ic_stat_n, mContext.getTheme());
         mLabel = mResUtils.getString(R.string.app_name);
     }
 

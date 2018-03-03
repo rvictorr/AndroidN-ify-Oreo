@@ -23,8 +23,8 @@ import android.graphics.drawable.Drawable;
 import android.support.v4.graphics.ColorUtils;
 import android.view.View;
 
-import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHeaderView;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 
 import static tk.wasdennnoch.androidn_ify.XposedHook.PACKAGE_ANDROID;
 
@@ -168,8 +168,7 @@ public abstract class NotificationViewWrapper implements TransformableView {
 
     public int getCustomBackgroundColor() {
         // Parent notifications should always use the normal background color
-        //return /*mRow.isSummaryWithChildren() ? 0 : */mBackgroundColor; //TODO implement
-        return mBackgroundColor;
+        return NotificationsStuff.isSummaryWithChildren(mRow) ? 0 : mBackgroundColor;
     }
 
     public void setShowingLegacyBackground(boolean showing) {

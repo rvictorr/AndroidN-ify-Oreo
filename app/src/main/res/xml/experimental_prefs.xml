@@ -9,8 +9,15 @@
 
     <SwitchPreference
         android:defaultValue="false"
+        android:dependency="enable_experimental_features"
         android:key="enable_theming"
-        android:title="Enable theming"/>
+        android:title="@string/enable_theming_title"/>
+
+    <SwitchPreference
+        android:defaultValue="false"
+        android:dependency="enable_experimental_features"
+        android:key="enable_bundled_notifications"
+        android:title="@string/enable_bundled_notifications_title"/>
 
     <SwitchPreference
         android:defaultValue="true"

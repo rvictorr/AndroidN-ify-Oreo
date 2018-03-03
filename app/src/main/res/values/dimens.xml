@@ -229,4 +229,10 @@
     <!-- The height of the divider between the individual notifications when the notification wants it to be increased. This is currently the case for notification groups -->
     <dimen name="notification_divider_height_increased">6dp</dimen>
 
+    <!-- The padding between notification children when collapsed -->
+    <dimen name="notification_children_padding">4dp</dimen>
+
+    <!-- The padding on top of the first notification to the children container -->
+    <dimen name="notification_children_container_top_padding">8dp</dimen>
+
 </resources>

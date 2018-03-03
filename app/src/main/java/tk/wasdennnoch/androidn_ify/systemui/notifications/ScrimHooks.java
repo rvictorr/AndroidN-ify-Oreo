@@ -15,6 +15,9 @@ import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationStac
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 
 import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.ScrimView.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.ScrimController.*;
 
 public class ScrimHooks {
 
@@ -47,9 +50,9 @@ public class ScrimHooks {
                     int color = (int) param.args[0];
                     View scrimView = (View) param.thisObject;
                     ScrimHelper helper = ScrimHelper.getInstance(scrimView);
-                    if (color != XposedHelpers.getIntField(scrimView, "mScrimColor")) {
-                        XposedHelpers.setBooleanField(scrimView, "mIsEmpty", Color.alpha(color) == 0);
-                        XposedHelpers.setIntField(scrimView, "mScrimColor", color);
+                    if (color != getInt(mScrimColor, scrimView)) {
+                        set(mIsEmpty, scrimView, Color.alpha(color) == 0);
+                        set(mScrimColor, scrimView, color);
                         scrimView.invalidate();
                         if (helper.mChangeRunnable != null) {
                             helper.mChangeRunnable.run();
@@ -62,8 +65,8 @@ public class ScrimHooks {
             XposedBridge.hookAllMethods(ScrimController, "updateScrimBehindDrawingMode", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    View mBackDropView = (View) XposedHelpers.getObjectField(param.thisObject, "mBackDropView");
-                    boolean asSrc = mBackDropView.getVisibility() != View.VISIBLE && XposedHelpers.getBooleanField(param.thisObject, "mScrimSrcEnabled");
+                    View backDropView = get(mBackDropView, param.thisObject);
+                    boolean asSrc = backDropView.getVisibility() != View.VISIBLE && getBoolean(mScrimSrcEnabled, param.thisObject);
                     NotificationStackScrollLayoutHooks.setDrawBackgroundAsSrc(asSrc);
                 }
             });

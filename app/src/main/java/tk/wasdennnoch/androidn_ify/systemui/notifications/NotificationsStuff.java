@@ -1,38 +1,53 @@
 package tk.wasdennnoch.androidn_ify.systemui.notifications;
 
 
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.EventLogTags;
 import android.graphics.Rect;
+import android.graphics.Region;
 import android.os.Handler;
+import android.service.notification.NotificationListenerService;
+import android.service.notification.StatusBarNotification;
 import android.util.AttributeSet;
+import android.util.EventLog;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 
-import java.lang.reflect.Field;
-import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
+import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
-import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationViewWrapper;
-import tk.wasdennnoch.androidn_ify.extracted.systemui.TransformState;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.TransformableView;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationChildrenContainerHelper;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationGroupManagerHooks;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationStackScrollLayoutHooks;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
+import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
+import tk.wasdennnoch.androidn_ify.utils.RomUtils;
 
 import static android.view.View.GONE;
-import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 import static android.view.ViewGroup.getChildMeasureSpec;
 import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 import static tk.wasdennnoch.androidn_ify.utils.Classes.*;
-import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.*;
 
 public class NotificationsStuff {
     private static final String TAG = "NotificationsStuff";
+
+    public static final boolean ENABLE_CHILD_NOTIFICATIONS = ConfigUtils.notifications().enable_bundled_notifications;
 
     public static final int VISIBLE_TYPE_CONTRACTED = 0;
     public static final int VISIBLE_TYPE_EXPANDED = 1;
@@ -42,51 +57,9 @@ public class NotificationsStuff {
     public static final int VISIBLE_TYPE_AMBIENT_SINGLELINE = 5;
     public static final int UNDEFINED = -1;
 
-    public static Field fieldClipTopOptimization;
-
-    public static Field fieldIsHeadsUp;
-    public static Field fieldIsPinned;
-    public static Field fieldShowingPublic;
-    public static Field fieldSensitive;
-    public static Field fieldHideSensitiveForIntrinsicHeight;
-    public static Field fieldHeadsUpHeight;
-    public static Field fieldMaxExpandHeight;
-    public static Field fieldChildrenExpanded;
-    public static Field fieldChildrenContainer;
-
-    public static Field fieldDark;
-    public static Field fieldAnimate;
-    public static Field fieldClipTopAmount;
-    public static Field fieldContractedChild;
-    public static Field fieldExpandedChild;
-    public static Field fieldHeadsUpChild;
-    public static Field fieldClipBounds;
+    private static Object mGroupManager;
 
     public static void hook() {
-
-        fieldClipTopOptimization = XposedHelpers.findField(SystemUI.ExpandableView, "mClipTopOptimization");
-
-        fieldIsPinned = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mIsPinned");
-        fieldIsHeadsUp = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mIsHeadsUp");
-        fieldShowingPublic = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mShowingPublic");
-        fieldSensitive = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mSensitive");
-        fieldHideSensitiveForIntrinsicHeight = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mHideSensitiveForIntrinsicHeight");
-        fieldHeadsUpHeight = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mHeadsUpHeight");
-        fieldMaxExpandHeight = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mMaxExpandHeight");
-        fieldChildrenExpanded = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mChildrenExpanded");
-        fieldChildrenContainer = XposedHelpers.findField(SystemUI.ExpandableNotificationRow, "mChildrenContainer");
-
-        fieldClipTopAmount = XposedHelpers.findField(SystemUI.NotificationContentView, "mClipTopAmount");
-        fieldDark = XposedHelpers.findField(SystemUI.NotificationContentView, "mDark");
-        fieldAnimate = XposedHelpers.findField(SystemUI.NotificationContentView, "mAnimate");
-        fieldContractedChild = XposedHelpers.findField(SystemUI.NotificationContentView, "mContractedChild");
-        fieldExpandedChild = XposedHelpers.findField(SystemUI.NotificationContentView, "mExpandedChild");
-        fieldHeadsUpChild = XposedHelpers.findField(SystemUI.NotificationContentView, "mHeadsUpChild");
-        fieldClipBounds = XposedHelpers.findField(SystemUI.NotificationContentView, "mClipBounds");
-
-        NotificationContentHelper.initFields();
-        ExpandableNotificationRowHelper.initFields();
-        TransformState.initFields();
 
         XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "onFinishInflate", new XC_MethodHook() {
             @Override
@@ -117,18 +90,46 @@ public class NotificationsStuff {
         XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "notifyContentUpdated", XC_MethodReplacement.DO_NOTHING);
         XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "updateRoundRectClipping", XC_MethodReplacement.DO_NOTHING);
 
-        //XposedHelpers.findAndHookMethod(ExpandableView, "onMeasure", int.class, int.class, onMeasureExpandableView); //TODO: causes weird issues with clipping on Xperia
-        //XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "setStatusBarNotification", StatusBarNotification.class, XC_MethodReplacement.DO_NOTHING);
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "addChildNotification", SystemUI.ExpandableNotificationRow, int.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                ExpandableNotificationRowHelper rowHelper = ExpandableNotificationRowHelper.getInstance(param.args[0]);
+                helper.onChildrenCountChanged();
+                rowHelper.setIsChildInGroup(true, (FrameLayout) param.thisObject);
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "removeChildNotification", SystemUI.ExpandableNotificationRow, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                ExpandableNotificationRowHelper rowHelper = ExpandableNotificationRowHelper.getInstance(param.args[0]);
+                helper.onChildrenCountChanged();
+                rowHelper.setIsChildInGroup(false, null);
+            }
+        });
+        XposedBridge.hookAllMethods(SystemUI.ExpandableNotificationRow, "setGroupManager", new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                helper.setGroupManager(param.args[0]);
+            }
+        });
+//        XposedHelpers.findAndHookMethod(SystemUI.ExpandableView, "onMeasure", int.class, int.class, XOnMeasureExpandableView); //TODO: causes weird issues with clipping on Xperia
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setStatusBarNotification", StatusBarNotification.class, XC_MethodReplacement.DO_NOTHING);
         XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "applyExpansionToLayout", XC_MethodReplacement.DO_NOTHING);
         XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "updateExpandButton", XC_MethodReplacement.DO_NOTHING);
-        //XposedHelpers.findAndHookMethod(ExpandableNotificationRow, "updateExpandButtonAppearance", XC_MethodReplacement.DO_NOTHING);
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "updateExpandButtonAppearance", XC_MethodReplacement.DO_NOTHING);
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "canHaveBottomDecor", XC_MethodReplacement.returnConstant(false));
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "isChildInvisible", View.class, XC_MethodReplacement.returnConstant(false));
 
-        XposedHelpers.findAndHookMethod(SystemUI.NotificationChildrenContainer, "setCollapseClickListener", View.OnClickListener.class, XC_MethodReplacement.DO_NOTHING);
+//        XposedHelpers.findAndHookMethod(SystemUI.NotificationChildrenContainer, "setCollapseClickListener", View.OnClickListener.class, XC_MethodReplacement.DO_NOTHING);
 
         XposedHelpers.findAndHookMethod(SystemUI.ExpandableView, "setClipTopAmount", int.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                invoke(ExpandableView.updateClipping, param.thisObject);
+                invoke(Methods.SystemUI.ExpandableView.updateClipping, param.thisObject);
             }
         });
         XposedHelpers.findAndHookMethod(SystemUI.ExpandableView, "updateClipping", XUpdateClippingExpandableView);
@@ -142,7 +143,7 @@ public class NotificationsStuff {
                     // We got clipped to the parent here - make sure we undo that.
                     outRect.top += view.getTop() + view.getTranslationY();
                 }
-                outRect.top += (int) invoke(ExpandableView.getClipTopAmount, param.thisObject);
+                outRect.top += (int) invoke(Methods.SystemUI.ExpandableView.getClipTopAmount, param.thisObject);
             }
         });
 
@@ -153,6 +154,13 @@ public class NotificationsStuff {
                     ExpandableNotificationRowHelper.getInstance(param.thisObject).notifyHeightChanged((boolean) param.args[0]);
             }
         });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableView, "setActualHeight", int.class, boolean.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                set(Fields.SystemUI.ExpandableView.mActualHeightInitialized, param.thisObject, false);
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableView, "getBottomDecorHeight", XC_MethodReplacement.returnConstant(0));
         XposedHelpers.findAndHookMethod(SystemUI.NotificationContentView, "getMinHeight", new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
@@ -174,35 +182,53 @@ public class NotificationsStuff {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 boolean userLocked = (boolean) param.args[0];
-                ExpandableNotificationRowHelper.getInstance(param.thisObject).mPrivateHelper.setUserExpanding(userLocked);
-                /*if (mIsSummaryWithChildren) {
-                    mChildrenContainer.setUserLocked(userLocked);
-                    if (userLocked || !isGroupExpanded()) {
-                        updateBackgroundForGroupState();
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                helper.getPrivateHelper().setUserExpanding(userLocked);
+                if (helper.mIsSummaryWithChildren) {
+                    helper.mChildrenContainerHelper.setUserLocked(userLocked);
+                    if (userLocked || !helper.isGroupExpanded()) {
+                        helper.updateBackgroundForGroupState();
                     }
-                }*/
+                }
             }
         });
-        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setPinned", boolean.class, new XC_MethodHook() {
-            /*@Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                XposedHelpers.setAdditionalInstanceField(param.thisObject, "intrinsicHeight", XposedHelpers.callMethod(param.thisObject, "getIntrinsicHeight"));
-            }*/
 
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setIconAnimationRunning", boolean.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                boolean running = (boolean) param.args[0];
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                if (helper.mIsSummaryWithChildren) {
+                    invoke(Methods.SystemUI.ExpandableNotificationRow.setIconAnimationRunningForChild, param.thisObject, running, helper.mChildrenContainerHelper.getHeaderView());
+                    List notificationChildren =
+                            invoke(Methods.SystemUI.NotificationChildrenContainer.getNotificationChildren, helper.mChildrenContainer);
+                    for (int i = 0; i < notificationChildren.size(); i++) {
+                        Object child = notificationChildren.get(i);
+                        invoke(Methods.SystemUI.ExpandableNotificationRow.setIconAnimationRunning, child, running);
+                    }
+                }
+                helper.mIconAnimationRunning = running;
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setPinned", boolean.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 boolean pinned = (boolean) param.args[0];
+                int intrinsicHeight = invoke(Methods.SystemUI.ExpandableNotificationRow.getIntrinsicHeight, param.thisObject);
+                if (intrinsicHeight != (int) invoke(Methods.SystemUI.ExpandableNotificationRow.getIntrinsicHeight, param.thisObject)) {
+                    invoke(Methods.SystemUI.ExpandableNotificationRow.notifyHeightChanged, param.thisObject, false /* needsAnimation */);
+                    invoke(Methods.SystemUI.NotificationContentView.selectLayout,
+                            invoke(Methods.SystemUI.ExpandableNotificationRow.getShowingLayout, param.thisObject),
+                            invoke(Methods.SystemUI.ExpandableNotificationRow.isUserLocked, param.thisObject),
+                            false);
+                }
                 ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
-                //int intrinsicHeight = (int) XposedHelpers.getAdditionalInstanceField(param.thisObject, "intrinsicHeight");
-                fieldIsPinned.setBoolean(param.thisObject, pinned);
-//                if (intrinsicHeight != (int) XposedHelpers.callMethod(param.thisObject, "getIntrinsicHeight")) {
-//                    invoke(ExpandableNotificationRow.notifyHeightChanged, param.thisObject, false /* needsAnimation */); //TODO fix notification flashing
-//                }
                 if (pinned) {
-                    XposedHelpers.callMethod(param.thisObject, "setIconAnimationRunning", true);
+                    invoke(Methods.SystemUI.ExpandableNotificationRow.setIconAnimationRunning, param.thisObject, true);
                     helper.mExpandedWhenPinned = false;
                 } else if (helper.mExpandedWhenPinned) {
-                    invoke(ExpandableNotificationRow.setUserExpanded, param.thisObject, true);
+                    invoke(Methods.SystemUI.ExpandableNotificationRow.setUserExpanded, param.thisObject, true);
                 }
             }
         });
@@ -222,14 +248,96 @@ public class NotificationsStuff {
         XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setExpandable", boolean.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                ExpandableNotificationRowHelper.getInstance(param.thisObject).mPrivateHelper.updateExpandButtons((boolean) invoke(ExpandableNotificationRow.isExpandable, param.thisObject));
+                ExpandableNotificationRowHelper.getInstance(param.thisObject).getPrivateHelper()
+                        .updateExpandButtons((boolean) invoke(Methods.SystemUI.ExpandableNotificationRow.isExpandable, param.thisObject));
             }
         });
 
-        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setHideSensitive", boolean.class, boolean.class, long.class, long.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setHideSensitive", boolean.class, boolean.class, long.class, long.class, new XC_MethodReplacement() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                ExpandableNotificationRowHelper.getInstance(param.thisObject).mPrivateHelper.updateExpandButtons((boolean) invoke(ExpandableNotificationRow.isExpandable, param.thisObject));
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                boolean hideSensitive = (boolean) param.args[0];
+                boolean animated = (boolean) param.args[1];
+                long delay = (long) param.args[2];
+                long duration = (long) param.args[3];
+
+                boolean oldShowingPublic = getBoolean(Fields.SystemUI.ExpandableNotificationRow.mShowingPublic, param.thisObject);
+                set(Fields.SystemUI.ExpandableNotificationRow.mShowingPublic, param.thisObject, getBoolean(Fields.SystemUI.ExpandableNotificationRow.mSensitive, param.thisObject) && hideSensitive);
+                if (getBoolean(Fields.SystemUI.ExpandableNotificationRow.mShowingPublicInitialized, param.thisObject) &&
+                        getBoolean(Fields.SystemUI.ExpandableNotificationRow.mShowingPublic, param.thisObject) == oldShowingPublic) {
+                    return null;
+                }
+
+                // bail out if no public version
+                if (((ViewGroup) get(Fields.SystemUI.ExpandableNotificationRow.mPublicLayout, param.thisObject)).getChildCount() == 0)
+                    return null;
+
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                if (!animated) {
+                    helper.mPublicLayout.animate().cancel();
+                    helper.mPrivateLayout.animate().cancel();
+                    if (helper.mChildrenContainer != null) {
+                        helper.mChildrenContainer.animate().cancel();
+                        helper.mChildrenContainer.setAlpha(1f);
+                    }
+                    helper.mPublicLayout.setAlpha(1f);
+                    helper.mPrivateLayout.setAlpha(1f);
+                    helper.mPublicLayout.setVisibility(getBoolean(Fields.SystemUI.ExpandableNotificationRow.mShowingPublic, param.thisObject) ? View.VISIBLE : View.INVISIBLE);
+                    helper.updateChildrenVisibility();
+                } else {
+                    invoke(Methods.SystemUI.ExpandableNotificationRow.animateShowingPublic, param.thisObject, delay, duration);
+                }
+                helper.getShowingHelper().updateBackgroundColor(animated);
+                helper.getPrivateHelper().updateExpandButtons((boolean) invoke(Methods.SystemUI.ExpandableNotificationRow.isExpandable, param.thisObject));
+                set(Fields.SystemUI.ExpandableNotificationRow.mShowingPublicInitialized, param.thisObject, true);
+                return null;
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "animateShowingPublic", long.class, long.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                long delay = (long) param.args[0];
+                long duration = (long) param.args[1];
+
+                View[] privateViews = isSummaryWithChildren(param.thisObject)
+                        ? new View[]{get(Fields.SystemUI.ExpandableNotificationRow.mChildrenContainer, param.thisObject)}
+                        : new View[]{get(Fields.SystemUI.ExpandableNotificationRow.mPrivateLayout, param.thisObject)};
+                View[] publicViews = new View[]{get(Fields.SystemUI.ExpandableNotificationRow.mPublicLayout, param.thisObject)};
+                View[] hiddenChildren = getBoolean(Fields.SystemUI.ExpandableNotificationRow.mShowingPublic, param.thisObject) ? privateViews : publicViews;
+                View[] shownChildren = getBoolean(Fields.SystemUI.ExpandableNotificationRow.mShowingPublic, param.thisObject) ? publicViews : privateViews;
+                for (final View hiddenView : hiddenChildren) {
+                    hiddenView.setVisibility(View.VISIBLE);
+                    hiddenView.animate().cancel();
+                    hiddenView.animate()
+                            .alpha(0f)
+                            .setStartDelay(delay)
+                            .setDuration(duration)
+                            .withEndAction(new Runnable() {
+                                @Override
+                                public void run() {
+                                    hiddenView.setVisibility(View.INVISIBLE);
+                                }
+                            });
+                }
+                for (View showView : shownChildren) {
+                    showView.setVisibility(View.VISIBLE);
+                    showView.setAlpha(0f);
+                    showView.animate().cancel();
+                    showView.animate()
+                            .alpha(1f)
+                            .setStartDelay(delay)
+                            .setDuration(duration);
+                }
+                return null;
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "getContentView", new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                if (isSummaryWithChildren(param.thisObject) && !getBoolean(Fields.SystemUI.ExpandableNotificationRow.mShowingPublic, param.thisObject)) {
+                    param.setResult(get(Fields.SystemUI.ExpandableNotificationRow.mChildrenContainer, param.thisObject));
+                }
             }
         });
         XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "reset", new XC_MethodHook() {
@@ -247,16 +355,397 @@ public class NotificationsStuff {
                 return null;
             }
         });
-        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "updateChildrenVisibility", boolean.class, XUpdateChildrenVisibility);
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "updateChildrenVisibility", boolean.class, XC_MethodReplacement.DO_NOTHING);
         XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setChildrenExpanded", boolean.class, boolean.class, new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                set(fieldChildrenExpanded, param.thisObject, param.args[0]);
-                ExpandableNotificationRowHelper.getInstance(param.thisObject).updateClickAndFocus();
+                boolean expanded = (boolean) param.args[0];
+                boolean animated = (boolean) param.args[1];
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+
+                set(Fields.SystemUI.ExpandableNotificationRow.mChildrenExpanded, param.thisObject, expanded);
+                helper.setChildrenExpanded((boolean) param.args[0], (boolean) param.args[1]);
                 return null;
             }
         });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setHeadsUp", boolean.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                if (helper.mIsSummaryWithChildren) {
+                    // The overflow might change since we allow more lines as HUN.
+                    helper.mChildrenContainerHelper.updateGroupOverflow();
+                }
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setSystemExpanded", boolean.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                boolean expand = (boolean) param.args[0];
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                if (expand != getBoolean(Fields.SystemUI.ExpandableNotificationRow.mIsSystemExpanded, param.thisObject)) {
+                    if (helper.mIsSummaryWithChildren) {
+                        helper.mChildrenContainerHelper.updateGroupOverflow();
+                    }
+                }
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setExpansionDisabled", boolean.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                boolean onKeyguard = (boolean) param.args[0];
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                if (onKeyguard != getBoolean(Fields.SystemUI.ExpandableNotificationRow.mExpansionDisabled, param.thisObject)) {
+                    final boolean wasExpanded = invoke(Methods.SystemUI.ExpandableNotificationRow.isExpanded, param.thisObject);
+                    set(Fields.SystemUI.ExpandableNotificationRow.mExpansionDisabled, param.thisObject, onKeyguard);
+                    XposedHelpers.callMethod(param.thisObject, "logExpansionEvent", false, wasExpanded);
+                    if (wasExpanded != (boolean) invoke(Methods.SystemUI.ExpandableNotificationRow.isExpanded, param.thisObject)) {
+                        if (helper.mIsSummaryWithChildren) {
+                            helper.mChildrenContainerHelper.updateGroupOverflow();
+                        }
+                        invoke(Methods.SystemUI.ExpandableNotificationRow.notifyHeightChanged, param.thisObject, false  /* needsAnimation */);
+                    }
+                }
+                return null;
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "getMaxContentHeight", new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                if (helper.mIsSummaryWithChildren && !getBoolean(Fields.SystemUI.ExpandableNotificationRow.mShowingPublic, param.thisObject)) {
+                    param.setResult(helper.mChildrenContainerHelper.getMaxContentHeight());
+                }
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setActualHeight", int.class, boolean.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                int height = (int) param.args[0];
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                if (helper.mIsSummaryWithChildren) {
+                    helper.mChildrenContainerHelper.setActualHeight(height);
+                }
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setDark", boolean.class, boolean.class, long.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                boolean dark = (boolean) param.args[0];
+                boolean fade = (boolean) param.args[1];
+                long delay = (long) param.args[2];
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                if (helper.mIsSummaryWithChildren) {
+                    helper.mChildrenContainerHelper.setDark(dark, fade, delay);
+                }
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "isExpandable", new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                if (isSummaryWithChildren(param.thisObject) && !getBoolean(Fields.SystemUI.ExpandableNotificationRow.mShowingPublic, param.thisObject)) {
+                    param.setResult(!getBoolean(Fields.SystemUI.ExpandableNotificationRow.mChildrenExpanded, param.thisObject));
+                }
+            }
+        });
         XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "updateMaxHeights", XUpdateMaxHeights);
+
+        XposedHelpers.findAndHookMethod(SystemUI.PhoneStatusBar, "updateNotificationShadeForChildren", XUpdateNotificationShadeForChildren);
+
+        XposedHelpers.findAndHookMethod(SystemUI.PhoneStatusBar, "maybeEscalateHeadsUp", new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                Object headsUpManager = get(Fields.SystemUI.BaseStatusBar.mHeadsUpManager, param.thisObject);
+                Collection entries = getAllEntries(headsUpManager);
+                for (Object entry : entries) {
+                    Object notificationEntry = get(Fields.SystemUI.HeadsUpEntry.entry, entry);
+                    final StatusBarNotification sbn = get(Fields.SystemUI.NotificationDataEntry.notification, notificationEntry);
+                    final Notification notification = sbn.getNotification();
+                    if (notification.fullScreenIntent != null) {
+                        try {
+                            EventLog.writeEvent(36003 /*EventLogTags.SYSUI_HEADS_UP_ESCALATION*/,
+                                    sbn.getKey());
+                            notification.fullScreenIntent.send();
+                            XposedHelpers.callMethod(notificationEntry, "notifyFullScreenIntentLaunched"); //TODO: maybe optimize
+                        } catch (PendingIntent.CanceledException e) {
+                        }
+                    }
+                }
+                invoke(Methods.SystemUI.HeadsUpManager.releaseAllImmediately, headsUpManager);
+                return null;
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.PhoneStatusBar, "updateNotificationShade", XUpdateNotificationShade);
+        XposedHelpers.findAndHookMethod(SystemUI.BaseStatusBar, "start", new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                XposedHelpers.setStaticBooleanField(SystemUI.BaseStatusBar, "ENABLE_CHILD_NOTIFICATIONS", ENABLE_CHILD_NOTIFICATIONS);
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.PhoneStatusBar, "onHeadsUpStateChanged", SystemUI.NotificationDataEntry, boolean.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                NotificationGroupManagerHooks.onHeadsUpStateChanged(XposedHelpers.getObjectField(param.thisObject, "mGroupManager"), param.args[0], (boolean) param.args[1]);
+            }
+        });
+        XposedHelpers.findAndHookConstructor(SystemUI.NotificationChildrenContainer, Context.class, AttributeSet.class, int.class, int.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                NotificationChildrenContainerHelper.getInstance(param.thisObject).onConstructor();
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationChildrenContainer, "onLayout", boolean.class, int.class, int.class, int.class, int.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                NotificationChildrenContainerHelper.getInstance(param.thisObject).onLayout(false, 0, 0, 0, 0); //passing all zeroes since we don't use them anyway
+                return null;
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationChildrenContainer, "onMeasure", int.class, int.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                NotificationChildrenContainerHelper.getInstance(param.thisObject).onMeasure((int) param.args[0], (int) param.args[1]);
+                return null;
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationChildrenContainer, "addNotification", SystemUI.ExpandableNotificationRow, int.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                NotificationChildrenContainerHelper.getInstance(param.thisObject).addNotification((FrameLayout) param.args[0], (int) param.args[1]);
+                return null;
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationChildrenContainer, "removeNotification", SystemUI.ExpandableNotificationRow, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                NotificationChildrenContainerHelper.getInstance(param.thisObject).removeNotification((FrameLayout) param.args[0]);
+                return null;
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.NotificationChildrenContainer, "getIntrinsicHeight", new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                return NotificationChildrenContainerHelper.getInstance(param.thisObject).getIntrinsicHeight();
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "getChildrenStates", SystemUI.StackScrollState, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                Object resultState = param.args[0];
+                if (helper.mIsSummaryWithChildren) {
+                    Object parentState = invoke(Methods.SystemUI.StackScrollState.getViewStateForView, resultState, param.thisObject);
+                    helper.mChildrenContainerHelper.getState(resultState, parentState);
+                }
+                return null;
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "applyChildrenState", SystemUI.StackScrollState, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                Object state = param.args[0];
+                if (helper.mIsSummaryWithChildren) {
+                    helper.mChildrenContainerHelper.applyState(state);
+                }
+                return null;
+            }
+        });
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "prepareExpansionChanged", SystemUI.StackScrollState, XC_MethodReplacement.DO_NOTHING);
+
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "startChildAnimation",
+                SystemUI.StackScrollState, SystemUI.StackStateAnimator, boolean.class, long.class, long.class, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        Object finalState = param.args[0];
+                        Object stateAnimator = param.args[1];
+                        long delay = (long) param.args[3];
+                        long duration = (long) param.args[4];
+                        ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
+                        if (helper.mIsSummaryWithChildren) {
+                            helper.mChildrenContainerHelper.startAnimationToState(finalState, stateAnimator, delay, duration);
+                        }
+                        return null;
+                    }
+                });
+
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "getViewAtPosition", float.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                if (!isSummaryWithChildren(param.thisObject))
+                    param.setResult(param.thisObject);
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "calculateContentHeightFromActualHeight", int.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                int height = (int) param.args[0];
+                return Math.max(ExpandableNotificationRowHelper.getInstance(param.thisObject).getMinHeight(), height);
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.ExpandableNotificationRow, "setHideSensitiveForIntrinsicHeight", boolean.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                boolean hideSensitive = (boolean) param.args[0];
+                Object childrenContainer = get(Fields.SystemUI.ExpandableNotificationRow.mChildrenContainer, param.thisObject);
+                if (isSummaryWithChildren(param.thisObject)) {
+                    List notificationChildren =
+                            invoke(Methods.SystemUI.NotificationChildrenContainer.getNotificationChildren, childrenContainer);
+                    for (int i = 0; i < notificationChildren.size(); i++) {
+                        Object child = notificationChildren.get(i);
+                        invoke(Methods.SystemUI.ExpandableNotificationRow.setHideSensitiveForIntrinsicHeight, child, hideSensitive);
+                    }
+                }
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.HeadsUpManager, "getTopHeadsUpHeight", new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                Object topEntry = invoke(Methods.SystemUI.HeadsUpManager.getTopEntry, param.thisObject);
+                if (topEntry == null || get(Fields.SystemUI.HeadsUpEntry.entry, topEntry) == null) {
+                    return 0;
+                }
+                View row = get(Fields.SystemUI.NotificationDataEntry.row, get(Fields.SystemUI.HeadsUpEntry.entry, topEntry));
+                ExpandableNotificationRowHelper rowHelper = ExpandableNotificationRowHelper.getInstance(row);
+                if (rowHelper.isChildInGroup()) {
+                    final FrameLayout groupSummary
+                            = invoke(Methods.SystemUI.NotificationGroupManager.getGroupSummary, mGroupManager, invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row));
+                    if (groupSummary != null) {
+                        row = groupSummary;
+                        rowHelper = ExpandableNotificationRowHelper.getInstance(row);
+                    }
+                }
+                return rowHelper.getPinnedHeadsUpHeight(true /* atLeastMinHeight */);
+            }
+        });
+
+        XposedBridge.hookAllMethods(SystemUI.HeadsUpManager, "onComputeInternalInsets", new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                Object info = param.args[0];
+                int[] mTmpTwoArray = get(Fields.SystemUI.HeadsUpManager.mTmpTwoArray, param.thisObject);
+                if (getBoolean(Fields.SystemUI.HeadsUpManager.mIsExpanded, param.thisObject)
+                        || (boolean) XposedHelpers.callMethod(get(Fields.SystemUI.HeadsUpManager.mBar, param.thisObject), "isBouncerShowing")) //TODO: maybe optimize
+                    return null;
+                if (getBoolean(Fields.SystemUI.HeadsUpManager.mHasPinnedNotification, param.thisObject)) {
+                    Object topNotificationEntry = get(Fields.SystemUI.HeadsUpEntry.entry, invoke(Methods.SystemUI.HeadsUpManager.getTopEntry, param.thisObject));
+                    View topEntry = get(Fields.SystemUI.NotificationDataEntry.row, topNotificationEntry);
+                    if (ExpandableNotificationRowHelper.getInstance(topEntry).isChildInGroup()) {
+                        final View groupSummary
+                                = invoke(Methods.SystemUI.NotificationGroupManager.getGroupSummary,
+                                mGroupManager, (StatusBarNotification) invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, topEntry));
+                        if (groupSummary != null) {
+                            topEntry = groupSummary;
+
+                        }
+                    }
+                    topEntry.getLocationOnScreen(mTmpTwoArray);
+                    int minX = mTmpTwoArray[0];
+                    int maxX = mTmpTwoArray[0] + topEntry.getWidth();
+                    int maxY = invoke(Methods.SystemUI.ExpandableNotificationRow.getIntrinsicHeight, topEntry);
+
+                    XposedHelpers.callMethod(info, "setTouchableInsets", 3 /*TOUCHABLE_INSETS_REGION*/);
+                    ((Region) XposedHelpers.getObjectField(info, "touchableRegion")).set(minX, 0, maxX, maxY);
+                } else if (getBoolean(Fields.SystemUI.HeadsUpManager.mHeadsUpGoingAway, param.thisObject) || getBoolean(Fields.SystemUI.HeadsUpManager.mWaitingOnCollapseWhenGoingAway, param.thisObject)) {
+                    XposedHelpers.callMethod(info, "setTouchableInsets", 3 /*TOUCHABLE_INSETS_REGION*/);
+                    ((Region) XposedHelpers.getObjectField(info, "touchableRegion"))
+                            .set(0, 0, ((View) get(Fields.SystemUI.HeadsUpManager.mStatusBarWindowView, param.thisObject)).getWidth(),
+                                    getInt(Fields.SystemUI.HeadsUpManager.mStatusBarHeight, param.thisObject));
+                }
+                return null;
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.HeadsUpManager, "updateNotification", SystemUI.NotificationDataEntry, boolean.class, new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                Object headsUp = param.args[0];
+                boolean alert = (boolean) param.args[1];
+                ((View) get(Fields.SystemUI.NotificationDataEntry.row, headsUp)).sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
+
+                if (alert) {
+                    Object headsUpEntry = ((HashMap) get(Fields.SystemUI.HeadsUpManager.mHeadsUpEntries, param.thisObject)).get(get(Fields.SystemUI.NotificationDataEntry.key, headsUp));
+                    if (headsUpEntry == null) {
+                        // the entry was released before this update (i.e by a listener) This can happen
+                        // with the groupmanager
+                        return null;
+                    }
+                    XposedHelpers.callMethod(headsUpEntry, "updateEntry");
+                    invoke(Methods.SystemUI.HeadsUpManager.setEntryPinned, param.thisObject, headsUpEntry, invoke(Methods.SystemUI.HeadsUpManager.shouldHeadsUpBecomePinned, param.thisObject, headsUp));
+                }
+                return null;
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.HeadsUpManager, "getTopEntry", new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                HashMap headsUpEntries = get(Fields.SystemUI.HeadsUpManager.mHeadsUpEntries, param.thisObject);
+                if (headsUpEntries.isEmpty()) {
+                    return null;
+                }
+                Object topEntry = null;
+                for (Object entry: headsUpEntries.values()) {
+                    if (topEntry == null || (int) invoke(Methods.SystemUI.HeadsUpEntry.compareTo, entry, topEntry) == -1) {
+                        topEntry = entry;
+                    }
+                }
+                return topEntry;
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.HeadsUpEntry, "reset", new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                XposedHelpers.setAdditionalInstanceField(param.thisObject, "expanded",  false);
+                XposedHelpers.setAdditionalInstanceField(param.thisObject, "remoteInputActive", false);
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.HeadsUpEntry, "updateEntry", new XC_MethodReplacement() {
+            @Override
+            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                updateEntry(param.thisObject, true);
+                return null;
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(SystemUI.HeadsUpEntry, "compareTo", SystemUI.HeadsUpEntry, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                Object entry = get(Fields.SystemUI.HeadsUpEntry.entry, param.thisObject);
+                Object row = get(Fields.SystemUI.NotificationDataEntry.row, entry);
+                Object o = param.args[0];
+                Object otherEntry = get(Fields.SystemUI.HeadsUpEntry.entry, o);
+                Object otherRow = get(Fields.SystemUI.NotificationDataEntry.row, otherEntry);
+                boolean isPinned = invoke(Methods.SystemUI.ExpandableNotificationRow.isPinned, row);
+                boolean otherPinned = invoke(Methods.SystemUI.ExpandableNotificationRow.isPinned, otherRow);
+                if (isPinned && !otherPinned) {
+                    param.setResult(-1);
+                } else if (!isPinned && otherPinned) {
+                    param.setResult(1);
+                }
+            }
+
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                Object o = param.args[0];
+                Object temp = XposedHelpers.getAdditionalInstanceField(param.thisObject, "remoteInputActive");
+                boolean remoteInputActive = temp != null && (boolean) temp;
+
+                temp = XposedHelpers.getAdditionalInstanceField(o, "remoteInputActive");
+                boolean otherRemoteInputActive = temp != null && (boolean) temp;
+                if (remoteInputActive && !otherRemoteInputActive) {
+                    param.setResult(-1);
+                } else if (!remoteInputActive && otherRemoteInputActive) {
+                    param.setResult(1);
+                }
+            }
+        });
     }
 
     private static final XC_MethodReplacement XUpdateMaxHeights = new XC_MethodReplacement() {
@@ -264,42 +753,20 @@ public class NotificationsStuff {
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
 
-            int intrinsicBefore = invoke(ExpandableNotificationRow.getIntrinsicHeight, param.thisObject);
-            View expandedChild = invoke(NotificationContentView.getExpandedChild, helper.mPrivateLayout);
+            int intrinsicBefore = invoke(Methods.SystemUI.ExpandableNotificationRow.getIntrinsicHeight, param.thisObject);
+            View expandedChild = invoke(Methods.SystemUI.NotificationContentView.getExpandedChild, helper.mPrivateLayout);
             if (expandedChild == null) {
-                expandedChild = invoke(NotificationContentView.getContractedChild, helper.mPrivateLayout);
+                expandedChild = invoke(Methods.SystemUI.NotificationContentView.getContractedChild, helper.mPrivateLayout);
             }
-            set(fieldMaxExpandHeight, param.thisObject, expandedChild.getHeight());
-            View headsUpChild = invoke(NotificationContentView.getHeadsUpChild, helper.mPrivateLayout);
+            set(Fields.SystemUI.ExpandableNotificationRow.mMaxExpandHeight, param.thisObject, expandedChild.getHeight());
+            View headsUpChild = invoke(Methods.SystemUI.NotificationContentView.getHeadsUpChild, helper.mPrivateLayout);
             if (headsUpChild == null) {
-                headsUpChild = invoke(NotificationContentView.getContractedChild, helper.mPrivateLayout);
+                headsUpChild = invoke(Methods.SystemUI.NotificationContentView.getContractedChild, helper.mPrivateLayout);
             }
-            set(fieldHeadsUpHeight, param.thisObject, headsUpChild.getHeight());
-            if (intrinsicBefore != (int) invoke(ExpandableNotificationRow.getIntrinsicHeight, param.thisObject)) {
-                invoke(ExpandableNotificationRow.notifyHeightChanged, param.thisObject, true /*needsAnimation*/);
+            set(Fields.SystemUI.ExpandableNotificationRow.mHeadsUpHeight, param.thisObject, headsUpChild.getHeight());
+            if (intrinsicBefore != (int) invoke(Methods.SystemUI.ExpandableNotificationRow.getIntrinsicHeight, param.thisObject)) {
+                invoke(Methods.SystemUI.ExpandableNotificationRow.notifyHeightChanged, param.thisObject, true /*needsAnimation*/);
             }
-            return null;
-        }
-    };
-
-    private static final XC_MethodReplacement XUpdateChildrenVisibility = new XC_MethodReplacement() {
-        @Override
-        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-            ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
-            View mChildrenContainer = get(fieldChildrenContainer, param.thisObject);
-            boolean mShowingPublic = getBoolean(fieldShowingPublic, param.thisObject);
-            helper.mPrivateLayout.setVisibility(!mShowingPublic/* && !helper.mIsSummaryWithChildren*/ ? VISIBLE
-                    : INVISIBLE);
-                /*if (mChildrenContainer != null) {
-                    mChildrenContainer.setVisibility(!mShowingPublic && mIsSummaryWithChildren ? VISIBLE
-                            : INVISIBLE);
-                    mChildrenContainer.updateHeaderVisibility(!mShowingPublic && mIsSummaryWithChildren
-                            ? VISIBLE
-                            : INVISIBLE);
-                }*/
-            mChildrenContainer.setVisibility(GONE);
-            // The limits might have changed if the view suddenly became a group or vice versa
-            helper.updateLimits();
             return null;
         }
     };
@@ -307,29 +774,30 @@ public class NotificationsStuff {
     private static final XC_MethodReplacement XGetIntrinsicHeight = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-            if (invoke(ExpandableNotificationRow.isUserLocked, param.thisObject)) {
-                return invoke(ExpandableNotificationRow.getActualHeight, param.thisObject);
+            if (invoke(Methods.SystemUI.ExpandableNotificationRow.isUserLocked, param.thisObject)) {
+                return invoke(Methods.SystemUI.ExpandableNotificationRow.getActualHeight, param.thisObject);
             }
             ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(param.thisObject);
-            int mHeadsUpHeight = getInt(fieldHeadsUpHeight, param.thisObject);
+            int mHeadsUpHeight = getInt(Fields.SystemUI.ExpandableNotificationRow.mHeadsUpHeight, param.thisObject);
                 /*if (mGuts != null && mGuts.areGutsExposed()) {
                     return mGuts.getHeight();
-                } else if ((isChildInGroup() && !isGroupExpanded())) {
-                    return mPrivateLayout.getMinHeight();
-                } else */if (getBoolean(fieldSensitive, param.thisObject) && getBoolean(fieldHideSensitiveForIntrinsicHeight, param.thisObject)) {
+                } else */if ((helper.isChildInGroup() && !helper.isGroupExpanded())) {
+                    return helper.getPrivateHelper().getMinHeight();
+                } else if (getBoolean(Fields.SystemUI.ExpandableNotificationRow.mSensitive, param.thisObject)
+                    && getBoolean(Fields.SystemUI.ExpandableNotificationRow.mHideSensitiveForIntrinsicHeight, param.thisObject)) {
                 return helper.getMinHeight();
-                /*} else if (mIsSummaryWithChildren && !mOnKeyguard) {
-                    return mChildrenContainer.getIntrinsicHeight();*/
-            } else if (fieldIsHeadsUp.getBoolean(param.thisObject) || helper.mHeadsupDisappearRunning) {
-                if (fieldIsPinned.getBoolean(param.thisObject) || helper.mHeadsupDisappearRunning) {
+                } else if (helper.mIsSummaryWithChildren && !helper.isOnKeyguard()) {
+                    return helper.mChildrenContainerHelper.getIntrinsicHeight();
+            } else if (Fields.SystemUI.ExpandableNotificationRow.mIsHeadsUp.getBoolean(param.thisObject) || helper.mHeadsupDisappearRunning) {
+                if (Fields.SystemUI.ExpandableNotificationRow.mIsPinned.getBoolean(param.thisObject) || helper.mHeadsupDisappearRunning) {
                     return helper.getPinnedHeadsUpHeight(true  /*atLeastMinHeight*/ );
-                } else if (invoke(ExpandableNotificationRow.isExpanded, param.thisObject)) {
-                    return Math.max((int) invoke(ExpandableNotificationRow.getMaxExpandHeight, param.thisObject), mHeadsUpHeight);
+                } else if (invoke(Methods.SystemUI.ExpandableNotificationRow.isExpanded, param.thisObject)) {
+                    return Math.max((int) invoke(Methods.SystemUI.ExpandableNotificationRow.getMaxExpandHeight, param.thisObject), mHeadsUpHeight);
                 } else {
                     return Math.max(helper.getCollapsedHeight(), mHeadsUpHeight);
                 }
-            } else if (invoke(ExpandableNotificationRow.isExpanded, param.thisObject)) {
-                return invoke(ExpandableNotificationRow.getMaxExpandHeight, param.thisObject);
+            } else if (invoke(Methods.SystemUI.ExpandableNotificationRow.isExpanded, param.thisObject)) {
+                return invoke(Methods.SystemUI.ExpandableNotificationRow.getMaxExpandHeight, param.thisObject);
             } else {
                 return helper.getCollapsedHeight();
             }
@@ -340,16 +808,17 @@ public class NotificationsStuff {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
-            Rect mClipRect = (Rect) XposedHelpers.getStaticObjectField(SystemUI.ExpandableView, "mClipRect");
+            Rect mClipRect = get(Fields.SystemUI.ExpandableView.mClipRect, null);
             View view = (View) param.thisObject;
             if (helper.mClipToActualHeight) {
                 //int top = (int) XposedHelpers.callMethod(view, "getClipTopAmount"); //TODO see why it doesn't work properly
-                int top = getInt(fieldClipTopOptimization, view);
-                int actualHeight = invoke(ExpandableView.getActualHeight, view);
+                int top = getInt(Fields.SystemUI.ExpandableView.mClipTopOptimization, view);
+                int actualHeight = invoke(Methods.SystemUI.ExpandableView.getActualHeight, view);
                 if (top >= actualHeight) {
                     top = actualHeight - 1;
                 }
-                mClipRect.set(0, top, view.getWidth(), actualHeight/* + getExtraBottomPadding()*/); //TODO implement
+                int extraBottomPadding = SystemUI.ExpandableNotificationRow.isInstance(view) ? helper.getRowHelper().getExtraBottomPadding() : 0;
+                mClipRect.set(0, top, view.getWidth(), actualHeight + extraBottomPadding);
                 view.setClipBounds(mClipRect);
             } else {
                 view.setClipBounds(null);
@@ -407,7 +876,7 @@ public class NotificationsStuff {
             }
             mMatchParentViews.clear();
             int width = View.MeasureSpec.getSize(widthMeasureSpec);
-            XposedHelpers.callMethod(param.thisObject, "setMeasuredDimension", width, ownHeight);
+            invoke(Methods.Android.View.setMeasuredDimension, param.thisObject, width, ownHeight);
             return null;
         }
     };
@@ -421,20 +890,19 @@ public class NotificationsStuff {
             View mContractedChild = helper.mContractedChild;
             View mExpandedChild = helper.mExpandedChild;
             View mHeadsUpChild = helper.mHeadsUpChild;
-            XposedHook.logD(TAG, "reset called");
 
             if (mContractedChild != null) {
                 mContractedChild.animate().cancel();
                 contentView.removeView(mContractedChild);
             }
             helper.mPreviousExpandedRemoteInputIntent = null;
-            XposedHook.logD(TAG, "contentView: " + helper.getContentView());
-            XposedHook.logD(TAG, "helper.mExpandedRemoteInput != null: " + (helper.mExpandedRemoteInput != null));
+//            XposedHook.logD(TAG, "contentView: " + helper.getContentView());
+//            XposedHook.logD(TAG, "helper.mExpandedRemoteInput != null: " + (helper.mExpandedRemoteInput != null));
             if (helper.mExpandedRemoteInput != null) {
                 helper.mExpandedRemoteInput.onNotificationUpdateOrReset();
-                XposedHook.logD(TAG, "helper.mExpandedRemoteInput.isActive(): " + helper.mExpandedRemoteInput.isActive());
+//                XposedHook.logD(TAG, "helper.mExpandedRemoteInput.isActive(): " + helper.mExpandedRemoteInput.isActive());
                 if (helper.mExpandedRemoteInput.isActive()) {
-                    XposedHook.logD(TAG, "helper.mExpandedRemoteInput.isActive()");
+//                    XposedHook.logD(TAG, "helper.mExpandedRemoteInput.isActive()");
                     helper.mPreviousExpandedRemoteInputIntent = helper.mExpandedRemoteInput.getPendingIntent();
                     helper.mCachedExpandedRemoteInput = helper.mExpandedRemoteInput;
                     helper.mExpandedRemoteInput.dispatchStartTemporaryDetach();
@@ -461,11 +929,11 @@ public class NotificationsStuff {
                 contentView.removeView(mHeadsUpChild);
                 helper.mHeadsUpRemoteInput = null;
             }
-            set(fieldContractedChild, contentView, null);
+            set(Fields.SystemUI.NotificationContentView.mContractedChild, contentView, null);
             helper.mContractedChild = null;
-            set(fieldExpandedChild, contentView, null);
+            set(Fields.SystemUI.NotificationContentView.mExpandedChild, contentView, null);
             helper.mExpandedChild = null;
-            set(fieldHeadsUpChild, contentView, null);
+            set(Fields.SystemUI.NotificationContentView.mHeadsUpChild, contentView, null);
             helper.mHeadsUpChild = null;
             return null;
         }
@@ -512,7 +980,7 @@ public class NotificationsStuff {
                     helper.mAnimationStartVisibleType = UNDEFINED;
                 }
             });
-            //helper.fireExpandedVisibleListenerIfVisible();
+//            helper.fireExpandedVisibleListenerIfVisible();
             return null;
         }
     };
@@ -527,11 +995,11 @@ public class NotificationsStuff {
                 helper.getContentView().removeView(helper.mContractedChild);
             }
             helper.getContentView().addView(child);
-            set(fieldContractedChild, param.thisObject, child);
+            set(Fields.SystemUI.NotificationContentView.mContractedChild, param.thisObject, child);
             helper.mContractedChild = child;
             helper.mContractedWrapper = NotificationViewWrapper.wrap(helper.getContentView().getContext(), child,
                     helper.mContainingNotification);
-            helper.mContractedWrapper.setDark(getBoolean(fieldDark, param.thisObject), false  /*animate*/ , 0  /*delay*/ );
+            helper.mContractedWrapper.setDark(getBoolean(Fields.SystemUI.NotificationContentView.mDark, param.thisObject), false  /*animate*/ , 0  /*delay*/ );
             return null;
         }
     };
@@ -547,7 +1015,7 @@ public class NotificationsStuff {
                 helper.getContentView().removeView(helper.mExpandedChild);
             }
             helper.getContentView().addView(child);
-            set(fieldExpandedChild, param.thisObject, child);
+            set(Fields.SystemUI.NotificationContentView.mExpandedChild, param.thisObject, child);
             helper.mExpandedChild = child;
             helper.mExpandedWrapper = NotificationViewWrapper.wrap(helper.getContentView().getContext(), child,
                     helper.mContainingNotification);
@@ -596,7 +1064,7 @@ public class NotificationsStuff {
                 helper.getContentView().removeView(helper.mHeadsUpChild);
             }
             helper.getContentView().addView(child);
-            set(fieldHeadsUpChild, param.thisObject, child);
+            set(Fields.SystemUI.NotificationContentView.mHeadsUpChild, param.thisObject, child);
             helper.mHeadsUpChild = child;
             helper.mHeadsUpWrapper = NotificationViewWrapper.wrap(helper.getContentView().getContext(), child,
                     helper.mContainingNotification);
@@ -648,7 +1116,7 @@ public class NotificationsStuff {
                 helper.getContentView().getViewTreeObserver().addOnPreDrawListener(helper.mEnableAnimationPredrawListener);
             } else {
                 helper.getContentView().getViewTreeObserver().removeOnPreDrawListener(helper.mEnableAnimationPredrawListener);
-                set(fieldAnimate, helper.getContentView(), false);
+                set(Fields.SystemUI.NotificationContentView.mAnimate, helper.getContentView(), false);
             }
             return null;
         }
@@ -775,7 +1243,7 @@ public class NotificationsStuff {
             }*/
             int ownHeight = Math.min(maxChildHeight, maxSize);
 
-            XposedHelpers.callMethod(helper.getContentView(), "setMeasuredDimension", width, ownHeight);
+            invoke(Methods.Android.View.setMeasuredDimension, helper.getContentView(), width, ownHeight);
             return null;
         }
     };
@@ -799,7 +1267,7 @@ public class NotificationsStuff {
             if (previousHeight != 0 && helper.mExpandedChild.getHeight() != previousHeight) {
                 helper.mContentHeightAtAnimationStart = previousHeight;
             }
-            invoke(NotificationContentView.selectLayout, helper.getContentView(), false  /*animate*/, helper.mForceSelectNextLayout  /*force*/ );
+            invoke(Methods.SystemUI.NotificationContentView.selectLayout, helper.getContentView(), false  /*animate*/, helper.mForceSelectNextLayout  /*force*/ );
             helper.mForceSelectNextLayout = false;
             helper.updateExpandButtons(helper.mExpandable);
         }
@@ -809,11 +1277,13 @@ public class NotificationsStuff {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             NotificationContentHelper helper = NotificationContentHelper.getInstance(param.thisObject);
+            View contentView = helper.getContentView();
             int contentHeight = (int) param.args[0];
-            set(NotificationContentHelper.fieldContentHeight, helper.getContentView(), Math.max(Math.min(contentHeight, helper.getContentView().getHeight()), helper.getMinHeight()));
+            set(Fields.SystemUI.NotificationContentView.mContentHeight,
+                    contentView, Math.max(Math.min(contentHeight, contentView.getHeight()), helper.getMinHeight()));
 
-            invoke(NotificationContentView.selectLayout, helper.getContentView(),
-                    getBoolean(fieldAnimate, helper.getContentView()) /*animate*/ , false  /*force*/ );
+            invoke(Methods.SystemUI.NotificationContentView.selectLayout, contentView,
+                    getBoolean(Fields.SystemUI.NotificationContentView.mAnimate, contentView) /*animate*/ , false  /*force*/ );
 
             int minHeightHint = helper.getMinContentHeightHint();
 
@@ -827,8 +1297,8 @@ public class NotificationsStuff {
                 wrapper.setContentHeight(helper.getContentHeight(), minHeightHint);
             }
 
-            invoke(NotificationContentView.updateClipping, helper.getContentView());
-            helper.getContentView().invalidateOutline();
+            invoke(Methods.SystemUI.NotificationContentView.updateClipping, contentView);
+            contentView.invalidateOutline();
             return null;
         }
     };
@@ -845,7 +1315,7 @@ public class NotificationsStuff {
             if (helper.mUserExpanding) {
                 helper.updateContentTransformation();
             } else {
-                int visibleType = invoke(NotificationContentView.calculateVisibleType, helper.getContentView());
+                int visibleType = invoke(Methods.SystemUI.NotificationContentView.calculateVisibleType, helper.getContentView());
                 boolean changedType = visibleType != helper.getVisibleType();
                 if (changedType || force) {
                     View visibleView = helper.getViewForVisibleType(visibleType);
@@ -858,11 +1328,11 @@ public class NotificationsStuff {
                             || (visibleType == VISIBLE_TYPE_HEADSUP && helper.mHeadsUpChild != null)
                             || (visibleType == VISIBLE_TYPE_SINGLELINE && helper.mSingleLineView != null)
                             || visibleType == VISIBLE_TYPE_CONTRACTED)) {
-                        invoke(NotificationContentView.runSwitchAnimation, helper.getContentView(), visibleType);
+                        invoke(Methods.SystemUI.NotificationContentView.runSwitchAnimation, helper.getContentView(), visibleType);
                     } else {
-                        invoke(NotificationContentView.updateViewVisibilities, helper.getContentView(), visibleType);
+                        invoke(Methods.SystemUI.NotificationContentView.updateViewVisibilities, helper.getContentView(), visibleType);
                     }
-                    set(NotificationContentHelper.fieldVisibleType, helper.getContentView(), visibleType);
+                    set(Fields.SystemUI.NotificationContentView.mVisibleType, helper.getContentView(), visibleType);
                     if (changedType) {
                         helper.focusExpandButtonIfNecessary();
                     }
@@ -898,7 +1368,7 @@ public class NotificationsStuff {
             //helper.fireExpandedVisibleListenerIfVisible();
             // updateViewVisibilities cancels outstanding animations without updating the
             // mAnimationStartVisibleType. Do so here instead.
-            helper.mAnimationStartVisibleType = UNDEFINED;
+//            helper.mAnimationStartVisibleType = UNDEFINED;
             return null;
         }
     };
@@ -918,8 +1388,8 @@ public class NotificationsStuff {
             }*/
             if (helper.mUserExpanding) {
                 int height = !helper.mIsChildInGroup || helper.isGroupExpanded()
-                        || (boolean) invoke(ExpandableNotificationRow.isExpanded, helper.mContainingNotification/*, (true  *//*allowOnKeyguard*//* */) //TODO finish implementing
-                        ? (int) invoke(ExpandableNotificationRow.getMaxContentHeight, helper.mContainingNotification)
+                        || ExpandableNotificationRowHelper.isExpanded(helper.mContainingNotification, true /*allowOnKeyguard*/)
+                        ? (int) invoke(Methods.SystemUI.ExpandableNotificationRow.getMaxContentHeight, helper.mContainingNotification)
                         : helper.getContainingHelper().getShowingHelper().getMinHeight();
                 if (height == 0) {
                     height = helper.getContentHeight();
@@ -932,7 +1402,7 @@ public class NotificationsStuff {
                         ? expandedVisualType
                         : collapsedVisualType;
             }
-            int intrinsicHeight = invoke(ExpandableNotificationRow.getIntrinsicHeight, helper.mContainingNotification);
+            int intrinsicHeight = invoke(Methods.SystemUI.ExpandableNotificationRow.getIntrinsicHeight, helper.mContainingNotification);
             int viewHeight = helper.getContentHeight();
             if (intrinsicHeight != 0) {
                 // the intrinsicHeight might be 0 because it was just reset.
@@ -960,7 +1430,7 @@ public class NotificationsStuff {
             if (helper.mContractedChild == null) {
                 return null;
             }
-            set(fieldDark, helper.getContentView(), dark);
+            set(Fields.SystemUI.NotificationContentView.mDark, helper.getContentView(), dark);
             if (visibleType == VISIBLE_TYPE_CONTRACTED || !dark) {
                 helper.mContractedWrapper.setDark(dark, fade, delay);
             }
@@ -991,10 +1461,10 @@ public class NotificationsStuff {
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             NotificationContentHelper helper = NotificationContentHelper.getInstance(param.thisObject);
             if (helper.mClipToActualHeight) {
-                int top = getInt(fieldClipTopAmount, helper.getContentView());
+                int top = getInt(Fields.SystemUI.NotificationContentView.mClipTopAmount, helper.getContentView());
                 int bottom = helper.getContentHeight();
-                ((Rect) get(fieldClipBounds, helper.getContentView())).set(0, top, helper.getContentView().getWidth(), bottom);
-                helper.getContentView().setClipBounds((Rect) get(fieldClipBounds, helper.getContentView()));
+                ((Rect) get(Fields.SystemUI.NotificationContentView.mClipBounds, helper.getContentView())).set(0, top, helper.getContentView().getWidth(), bottom);
+                helper.getContentView().setClipBounds((Rect) get(Fields.SystemUI.NotificationContentView.mClipBounds, helper.getContentView()));
             } else {
                 helper.getContentView().setClipBounds(null);
             }
@@ -1009,18 +1479,190 @@ public class NotificationsStuff {
         }
     };
 
+    private static XC_MethodReplacement XUpdateNotificationShade = new XC_MethodReplacement() {
+        @Override
+        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+            final Object phoneStatusBar = param.thisObject;
+            ViewGroup mStackScroller = get(Fields.SystemUI.BaseStatusBar.mStackScroller, param.thisObject);
+            HashMap mTmpChildOrderMap = get(Fields.SystemUI.PhoneStatusBar.mTmpChildOrderMap, param.thisObject);
+            Object mNotificationData = get(Fields.SystemUI.BaseStatusBar.mNotificationData, param.thisObject);
+            Object mGroupManager = get(Fields.SystemUI.BaseStatusBar.mGroupManager, phoneStatusBar);
+
+            if (mStackScroller == null) return null;
+
+            // Do not modify the notifications during collapse.
+            if (invoke(Methods.SystemUI.PhoneStatusBar.isCollapsing, phoneStatusBar)) {
+                invoke(Methods.SystemUI.PhoneStatusBar.addPostCollapseAction, phoneStatusBar, new Runnable() {
+                    @Override
+                    public void run() {
+                        invoke(Methods.SystemUI.PhoneStatusBar.updateNotificationShade, phoneStatusBar);
+                    }
+                });
+                return null;
+            }
+
+            ArrayList activeNotifications = invoke(Methods.SystemUI.NotificationData.getActiveNotifications, mNotificationData);
+            ArrayList<FrameLayout> toShow = new ArrayList<>(activeNotifications.size());
+            final int N = activeNotifications.size();
+            for (int i=0; i<N; i++) {
+                Object ent = activeNotifications.get(i);
+                StatusBarNotification notification = get(Fields.SystemUI.NotificationDataEntry.notification, ent);
+                int vis = notification.getNotification().visibility;
+
+                // Display public version of the notification if we need to redact.
+                final boolean hideSensitive =
+                        !(boolean) invoke(Methods.SystemUI.BaseStatusBar.userAllowsPrivateNotificationsInPublic, phoneStatusBar, notification.getUserId());
+                boolean sensitiveNote = vis == Notification.VISIBILITY_PRIVATE;
+                boolean sensitivePackage = invoke(Methods.SystemUI.PhoneStatusBar.packageHasVisibilityOverride, phoneStatusBar, notification.getKey());
+                boolean sensitive = (sensitiveNote && hideSensitive) || sensitivePackage;
+                boolean showingPublic = sensitive && (boolean) invoke(Methods.SystemUI.BaseStatusBar.isLockscreenPublicMode, phoneStatusBar);
+//                if (showingPublic) { //TODO: implement maybe?
+//                    updatePublicContentView(ent, ent.notification);
+//                }
+                FrameLayout row = get(Fields.SystemUI.NotificationDataEntry.row, ent);
+                invoke(Methods.SystemUI.ExpandableNotificationRow.setSensitive, row, sensitive/*, hideSensitive*/);
+                if (getBoolean(Fields.SystemUI.NotificationDataEntry.autoRedacted, ent) && getBoolean(Fields.SystemUI.NotificationDataEntry.legacy, ent)) {
+                    // TODO: Also fade this? Or, maybe easier (and better), provide a dark redacted form
+                    // for legacy auto redacted notifications.
+                    if (showingPublic) {
+                        invoke(Methods.SystemUI.ExpandableNotificationRow.setShowingLegacyBackground, row, false);
+                    } else {
+                        invoke(Methods.SystemUI.ExpandableNotificationRow.setShowingLegacyBackground, row, true);
+                    }
+                }
+                if (invoke(Methods.SystemUI.NotificationGroupManager.isChildInGroupWithSummary, mGroupManager, invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row))) {
+                    FrameLayout summary = invoke(Methods.SystemUI.NotificationGroupManager.getGroupSummary, mGroupManager,
+                            invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row));
+                    List<FrameLayout> orderedChildren =
+                            (List) mTmpChildOrderMap.get(summary);
+                    if (orderedChildren == null) {
+                        orderedChildren = new ArrayList<>();
+                        mTmpChildOrderMap.put(summary, orderedChildren);
+                    }
+                    orderedChildren.add(row);
+                } else {
+                    toShow.add(row);
+                }
+
+            }
+
+            ArrayList<FrameLayout> toRemove = new ArrayList<>();
+            for (int i=0; i< mStackScroller.getChildCount(); i++) {
+                View child = mStackScroller.getChildAt(i);
+                if (!toShow.contains(child) && SystemUI.ExpandableNotificationRow.isInstance(child)) {
+                    toRemove.add((FrameLayout) child);
+                }
+            }
+
+            for (FrameLayout remove : toRemove) {
+                ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(remove);
+                if (invoke(Methods.SystemUI.NotificationGroupManager.isChildInGroupWithSummary, mGroupManager, invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, remove))) {
+                    // we are only transfering this notification to its parent, don't generate an animation
+                    NotificationStackScrollLayoutHooks.setChildTransferInProgress(true);
+                }
+                if (helper.isSummaryWithChildren()) {
+                    helper.removeAllChildren();
+                }
+                mStackScroller.removeView(remove);
+                NotificationStackScrollLayoutHooks.setChildTransferInProgress(false);
+            }
+
+            removeNotificationChildren(phoneStatusBar);
+
+            for (int i=0; i<toShow.size(); i++) {
+                View v = toShow.get(i);
+                if (v.getParent() == null) {
+                    mStackScroller.addView(v);
+                }
+            }
+
+            addNotificationChildrenAndSort(phoneStatusBar);
+
+            // So after all this work notifications still aren't sorted correctly.
+            // Let's do that now by advancing through toShow and mStackScroller in
+            // lock-step, making sure mStackScroller matches what we see in toShow.
+            int j = 0;
+            for (int i = 0; i < mStackScroller.getChildCount(); i++) {
+                View child = mStackScroller.getChildAt(i);
+                if (!(SystemUI.ExpandableNotificationRow.isInstance(child))) {
+                    // We don't care about non-notification views.
+                    continue;
+                }
+
+                FrameLayout targetChild = toShow.get(j);
+                if (child != targetChild) {
+                    // Oops, wrong notification at this position. Put the right one
+                    // here and advance both lists.
+                    invoke(Methods.SystemUI.NotificationStackScrollLayout.changeViewPosition, mStackScroller, targetChild, i);
+                }
+                j++;
+
+            }
+            // clear the map again for the next usage
+            mTmpChildOrderMap.clear();
+
+            invoke(Methods.SystemUI.PhoneStatusBar.updateRowStates, phoneStatusBar);
+            invoke(Methods.SystemUI.PhoneStatusBar.updateSpeedbump, phoneStatusBar);
+            invoke(Methods.SystemUI.PhoneStatusBar.updateClearAll, phoneStatusBar);
+            invoke(Methods.SystemUI.PhoneStatusBar.updateEmptyShadeView, phoneStatusBar);
+
+            invoke(Methods.SystemUI.PhoneStatusBar.updateQsExpansionEnabled, phoneStatusBar);
+            XposedHelpers.callMethod(get(Fields.SystemUI.PhoneStatusBar.mShadeUpdates, phoneStatusBar), "check");
+            if (RomUtils.isXperia())
+                XposedHelpers.callMethod(get(Fields.SystemUI.PhoneStatusBar.mIconController, phoneStatusBar) ,"updateNotificationIcons", mNotificationData);
+
+            return null;
+        }
+    };
+
+    public static final XC_MethodReplacement XUpdateNotificationShadeForChildren = new XC_MethodReplacement() {
+        @Override
+        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+            ViewGroup mStackScroller = get(Fields.SystemUI.BaseStatusBar.mStackScroller, param.thisObject);
+            HashMap mTmpChildOrderMap = get(Fields.SystemUI.PhoneStatusBar.mTmpChildOrderMap, param.thisObject);
+            // Let's now add all notification children which are missing
+            boolean orderChanged = false;
+            for (int i = 0; i < mStackScroller.getChildCount(); i++) {
+                View view = mStackScroller.getChildAt(i);
+                if (!SystemUI.ExpandableNotificationRow.isInstance(view)) {
+                    // We don't care about non-notification views.
+                    continue;
+                }
+
+                View parent = view;
+                List<ViewGroup> children = invoke(Methods.SystemUI.ExpandableNotificationRow.getNotificationChildren, parent);
+                List<ViewGroup> orderedChildren = (List) mTmpChildOrderMap.get(parent);
+                for (int childIndex = 0; orderedChildren != null && childIndex < orderedChildren.size();
+                     childIndex++) {
+                    ViewGroup childView = orderedChildren.get(childIndex);
+                    if (children == null || !children.contains(childView)) {
+                        invoke(Methods.SystemUI.ExpandableNotificationRow.addChildNotification, parent, childView, childIndex);
+                        invoke(Methods.SystemUI.NotificationStackScrollLayout.notifyGroupChildAdded, mStackScroller, childView);
+                    }
+                }
+
+                // Finally after removing and adding has been beformed we can apply the order.
+                orderChanged |= (boolean) invoke(Methods.SystemUI.ExpandableNotificationRow.applyChildOrder, parent, orderedChildren);
+            }
+            if (orderChanged) {
+                invoke(Methods.SystemUI.NotificationStackScrollLayout.generateChildOrderChangedEvent, mStackScroller);
+            }
+            return null;
+        }
+    };
+
     public static void setRemoteInputActive(Object headsUpManager, Object entry, boolean remoteInputActive) {
-        HashMap<String, Object> mHeadsUpEntries = (HashMap<String, Object>) XposedHelpers.getObjectField(headsUpManager, "mHeadsUpEntries");
-        Object headsUpEntry = mHeadsUpEntries.get(XposedHelpers.getObjectField(entry, "key"));
+        HashMap<String, Object> mHeadsUpEntries = get(Fields.SystemUI.HeadsUpManager.mHeadsUpEntries, headsUpManager);
+        Object headsUpEntry = mHeadsUpEntries.get(get(Fields.SystemUI.NotificationDataEntry.key, entry));
         if (headsUpEntry != null) {
             Object isRemoteInputActive = XposedHelpers.getAdditionalInstanceField(headsUpEntry, "remoteInputActive");
             boolean headsUpRemoteInputActive = isRemoteInputActive != null && (boolean) isRemoteInputActive;
             if (headsUpRemoteInputActive != remoteInputActive) {
                 XposedHelpers.setAdditionalInstanceField(headsUpEntry, "remoteInputActive", remoteInputActive);
                 if (remoteInputActive) {
-                    XposedHelpers.callMethod(headsUpEntry, "removeAutoRemovalCallbacks");
+                    invoke(Methods.SystemUI.HeadsUpEntry.removeAutoRemovalCallbacks, headsUpEntry);
                 } else {
-                    updateEntry(headsUpManager, headsUpEntry, false /* updatePostTime */);
+                    updateEntry(headsUpEntry, false /* updatePostTime */);
                 }
             }
         }
@@ -1031,56 +1673,204 @@ public class NotificationsStuff {
      * until it's collapsed again.
      */
     public static void setExpanded(Object headsUpManager, Object entry, boolean expanded) {
-        HashMap<String, Object> mHeadsUpEntries = (HashMap<String, Object>) XposedHelpers.getObjectField(headsUpManager, "mHeadsUpEntries");
-        Object headsUpEntry = mHeadsUpEntries.get(XposedHelpers.getObjectField(entry, "key"));
+        HashMap<String, Object> mHeadsUpEntries = get(Fields.SystemUI.HeadsUpManager.mHeadsUpEntries, headsUpManager);
+        Object headsUpEntry = mHeadsUpEntries.get(get(Fields.SystemUI.NotificationDataEntry.key, entry));
         if (headsUpEntry != null) {
             Object isExpanded = XposedHelpers.getAdditionalInstanceField(headsUpEntry, "expanded");
             boolean headsUpExpanded = isExpanded != null && (boolean) isExpanded;
             if (headsUpExpanded != expanded) {
                 XposedHelpers.setAdditionalInstanceField(headsUpEntry, "expanded", expanded);
                 if (expanded) {
-                    XposedHelpers.callMethod(headsUpEntry, "removeAutoRemovalCallbacks");
+                    invoke(Methods.SystemUI.HeadsUpEntry.removeAutoRemovalCallbacks, headsUpEntry);
                 } else {
-                    updateEntry(headsUpManager, headsUpEntry, false /* updatePostTime */);
+                    updateEntry(headsUpEntry, false /* updatePostTime */);
                 }
             }
         }
     }
 
-    public static void updateEntry(Object headsUpManager, Object entry, boolean updatePostTime) {
-        Object mClock = XposedHelpers.getObjectField(headsUpManager, "mClock");
-        HashSet mEntriesToRemoveAfterExpand = (HashSet) XposedHelpers.getObjectField(headsUpManager, "mEntriesToRemoveAfterExpand");
-        Handler mHandler = (Handler) XposedHelpers.getObjectField(headsUpManager, "mHandler");
-        int mMinimumDisplayTime = XposedHelpers.getIntField(headsUpManager, "mMinimumDisplayTime");
-        long postTime = XposedHelpers.getLongField(entry, "postTime");
+    public static void updateEntry(Object headsUpEntry, boolean updatePostTime) {
+        Object headsUpManager = XposedHelpers.getSurroundingThis(headsUpEntry);
+        Object entry = get(Fields.SystemUI.HeadsUpEntry.entry, headsUpEntry);
+        Object mClock = get(Fields.SystemUI.HeadsUpManager.mClock, headsUpManager);
+        HashSet mEntriesToRemoveAfterExpand = get(Fields.SystemUI.HeadsUpManager.mEntriesToRemoveAfterExpand, headsUpManager);
+        Handler mHandler = get(Fields.SystemUI.HeadsUpManager.mHandler, headsUpManager);
+        int mMinimumDisplayTime = getInt(Fields.SystemUI.HeadsUpManager.mMinimumDisplayTime, headsUpManager);
+        long postTime = getLong(Fields.SystemUI.HeadsUpEntry.postTime, headsUpEntry);
         long currentTime = (long) XposedHelpers.callMethod(mClock, "currentTimeMillis");
-        XposedHelpers.setLongField(entry, "earliestRemovaltime", currentTime + mMinimumDisplayTime);
+        set(Fields.SystemUI.HeadsUpEntry.earliestRemovaltime, headsUpEntry, currentTime + mMinimumDisplayTime);
         if (updatePostTime) {
-            XposedHelpers.setLongField(entry, "postTime", Math.max(postTime, currentTime));
+            set(Fields.SystemUI.HeadsUpEntry.postTime, headsUpEntry, Math.max(postTime, currentTime));
             postTime = Math.max(postTime, currentTime);
         }
-        XposedHelpers.callMethod(entry, "removeAutoRemovalCallbacks");
+        invoke(Methods.SystemUI.HeadsUpEntry.removeAutoRemovalCallbacks, headsUpEntry);
         if (mEntriesToRemoveAfterExpand.contains(entry)) {
             mEntriesToRemoveAfterExpand.remove(entry);
         }
-        if (!isSticky(headsUpManager, entry)) {
-            long finishTime = postTime + XposedHelpers.getIntField(headsUpManager, "mHeadsUpNotificationDecay");
+        if (!isSticky(headsUpEntry)) {
+            long finishTime = postTime + getInt(Fields.SystemUI.HeadsUpManager.mHeadsUpNotificationDecay, headsUpManager);
             long removeDelay = Math.max(finishTime - currentTime, mMinimumDisplayTime);
-            mHandler.postDelayed((Runnable) XposedHelpers.getObjectField(entry, "mRemoveHeadsUpRunnable"), removeDelay);
+            mHandler.postDelayed((Runnable) get(Fields.SystemUI.HeadsUpEntry.mRemoveHeadsUpRunnable, headsUpEntry), removeDelay);
         }
     }
 
-    private static boolean isSticky(Object headsUpManager, Object headsUpEntry) {
-        Object entry = XposedHelpers.getObjectField(headsUpEntry, "entry");
+    private static boolean isSticky(Object headsUpEntry) {
+        Object headsUpManager = XposedHelpers.getSurroundingThis(headsUpEntry);
+        Object entry = get(Fields.SystemUI.HeadsUpEntry.entry, headsUpEntry);
         Object isExpanded = XposedHelpers.getAdditionalInstanceField(headsUpEntry, "expanded");
         boolean expanded = isExpanded != null && (boolean) isExpanded;
         Object isRemoteInputActive = XposedHelpers.getAdditionalInstanceField(headsUpEntry, "remoteInputActive");
         boolean remoteInputActive = isRemoteInputActive != null && (boolean) isRemoteInputActive;
-        boolean isPinned = (boolean) XposedHelpers.callMethod(XposedHelpers.getObjectField(entry, "row"), "isPinned");
+        boolean isPinned = getBoolean(Fields.SystemUI.ExpandableNotificationRow.mIsPinned, get(Fields.SystemUI.NotificationDataEntry.row, entry));
 
         return (isPinned && expanded)
                 || remoteInputActive || (boolean) XposedHelpers.callMethod(headsUpManager, "hasFullScreenIntent", entry);
     }
 
+    public static Collection getAllEntries(Object headsUpManager) {
+        return ((HashMap) get(Fields.SystemUI.HeadsUpManager.mHeadsUpEntries, headsUpManager)).values();
+    }
+
+    private static void addNotificationChildrenAndSort(Object phoneStatusBar) {
+        ViewGroup mStackScroller = get(Fields.SystemUI.BaseStatusBar.mStackScroller, phoneStatusBar);
+        HashMap mTmpChildOrderMap = get(Fields.SystemUI.PhoneStatusBar.mTmpChildOrderMap, phoneStatusBar);
+        // Let's now add all notification children which are missing
+        boolean orderChanged = false;
+        for (int i = 0; i < mStackScroller.getChildCount(); i++) {
+            View view = mStackScroller.getChildAt(i);
+            if (!(SystemUI.ExpandableNotificationRow.isInstance(view))) {
+                // We don't care about non-notification views.
+                continue;
+            }
+
+            FrameLayout parent = (FrameLayout) view;
+            List<FrameLayout> children = invoke(Methods.SystemUI.ExpandableNotificationRow.getNotificationChildren, parent);
+            List<FrameLayout> orderedChildren = (List) mTmpChildOrderMap.get(parent);
+
+            for (int childIndex = 0; orderedChildren != null && childIndex < orderedChildren.size();
+                 childIndex++) {
+                FrameLayout childView = orderedChildren.get(childIndex);
+                if (children == null || !children.contains(childView)) {
+                    invoke(Methods.SystemUI.ExpandableNotificationRow.addChildNotification, parent, childView, childIndex);
+                    invoke(Methods.SystemUI.NotificationStackScrollLayout.notifyGroupChildAdded, mStackScroller, childView);
+                }
+            }
+
+            // Finally after removing and adding has been beformed we can apply the order.
+            orderChanged |= (boolean) invoke(Methods.SystemUI.ExpandableNotificationRow.applyChildOrder, parent, orderedChildren);
+        }
+        if (orderChanged) {
+            invoke(Methods.SystemUI.NotificationStackScrollLayout.generateChildOrderChangedEvent, mStackScroller);
+        }
+    }
+
+    private static void removeNotificationChildren(Object phoneStatusBar) {
+        // First let's remove all children which don't belong in the parents
+        ViewGroup mStackScroller = get(Fields.SystemUI.BaseStatusBar.mStackScroller, phoneStatusBar);
+        HashMap mTmpChildOrderMap = get(Fields.SystemUI.PhoneStatusBar.mTmpChildOrderMap, phoneStatusBar);
+        Object mNotificationData = get(Fields.SystemUI.BaseStatusBar.mNotificationData, phoneStatusBar);
+        ArrayList<FrameLayout> toRemove = new ArrayList<>();
+        for (int i = 0; i < mStackScroller.getChildCount(); i++) {
+            View view = mStackScroller.getChildAt(i);
+            if (!(Classes.SystemUI.ExpandableNotificationRow.isInstance(view))) {
+                // We don't care about non-notification views.
+                continue;
+            }
+
+            FrameLayout parent = (FrameLayout) view;
+            List<FrameLayout> children = invoke(Methods.SystemUI.ExpandableNotificationRow.getNotificationChildren, parent);
+            List<FrameLayout> orderedChildren = (List) mTmpChildOrderMap.get(parent);
+
+            if (children != null) {
+                toRemove.clear();
+                for (FrameLayout  childRow : children) {
+                    ExpandableNotificationRowHelper childHelper = ExpandableNotificationRowHelper.getInstance(childRow);
+                    if ((orderedChildren == null
+                            || !orderedChildren.contains(childRow))
+                            && !childHelper.keepInParent()) {
+                        toRemove.add(childRow);
+                    }
+                }
+                for (FrameLayout  remove : toRemove) {
+                    invoke(Methods.SystemUI.ExpandableNotificationRow.removeChildNotification, parent, remove);
+                    if (invoke(Methods.SystemUI.NotificationData.get, mNotificationData,
+                            (((StatusBarNotification) invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, remove)).getKey())) == null) {
+                        // We only want to add an animation if the view is completely removed
+                        // otherwise it's just a transfer
+                        XposedHelpers.callMethod(mStackScroller, "notifyGroupChildRemoved", remove/*, //TODO: implement the new methd for this
+                                get(Fields.SystemUI.ExpandableNotificationRow.mChildrenContainer, parent)*/);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Ensures that the group children are cancelled immediately when the group summary is cancelled
+     * instead of waiting for the notification manager to send all cancels. Otherwise this could
+     * lead to flickers.
+     *
+     * This also ensures that the animation looks nice and only consists of a single disappear
+     * animation instead of multiple.
+     *
+     * @param key the key of the notification was removed
+     * @param ranking the current ranking
+     */
+    public static void handleGroupSummaryRemoved(Object phoneStatusBar, String key,
+                                           NotificationListenerService.RankingMap ranking) {
+        Object mNotificationData = get(Fields.SystemUI.BaseStatusBar.mNotificationData, phoneStatusBar);
+        Object entry = invoke(Methods.SystemUI.NotificationData.get, mNotificationData, key);
+        FrameLayout row = null;
+        ExpandableNotificationRowHelper rowHelper = null;
+        if (entry != null) {
+            row = get(Fields.SystemUI.NotificationDataEntry.row, entry);
+            rowHelper = ExpandableNotificationRowHelper.getInstance(row);
+        }
+        if (entry != null && row != null
+                && rowHelper.isSummaryWithChildren()) {
+            if (/*((StatusBarNotification) XposedHelpers.getObjectField(entry, "notification")).getOverrideGroupKey() != null
+                    && */!rowHelper.isDismissed()) {
+                // We don't want to remove children for autobundled notifications as they are not
+                // always cancelled. We only remove them if they were dismissed by the user.
+                return;
+            }
+            List<FrameLayout> notificationChildren = (List) XposedHelpers.callMethod(row, "getNotificationChildren");
+            ArrayList<FrameLayout> toRemove = new ArrayList<>(notificationChildren);
+            for (int i = 0; i < toRemove.size(); i++) {
+                ExpandableNotificationRowHelper toRemoveHelper = ExpandableNotificationRowHelper.getInstance(toRemove.get(i));
+                toRemoveHelper.setKeepInParent(true);
+                // we need to set this state earlier as otherwise we might generate some weird
+                // animations
+                toRemoveHelper.setRemoved();
+            }
+            for (int i = 0; i < toRemove.size(); i++) {
+                invoke(Methods.SystemUI.BaseStatusBar.removeNotification, phoneStatusBar,
+                        ((StatusBarNotification) invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, toRemove.get(i))).getKey(), ranking);
+                // we need to ensure that the view is actually properly removed from the viewstate
+                // as this won't happen anymore when kept in the parent.
+                NotificationStackScrollLayoutHooks.removeViewStateForView(toRemove.get(i));
+            }
+        }
+    }
+
+//    protected static void performRemoveNotification(StatusBarNotification n, boolean removeView) { //TODO: implement in BaseStatusBar
+//        Entry entry = mNotificationData.get(n.getKey());
+//        if (mRemoteInputController.isRemoteInputActive(entry)) {
+//            mRemoteInputController.removeRemoteInput(entry, null);
+//        }
+//        //super.performRemoveNotification(n, removeView);
+//    }
+
+    public static boolean isSummaryWithChildren(Object row) {
+        Object childrenContainer = get(Fields.SystemUI.ExpandableNotificationRow.mChildrenContainer, row);
+        return ENABLE_CHILD_NOTIFICATIONS &&
+                childrenContainer != null &&
+                NotificationChildrenContainerHelper.getNotificationChildCount(childrenContainer) > 0;
+
+    }
+
+    public static void setGroupManager(Object groupManager) {
+        mGroupManager = groupManager;
+    }
 }
 

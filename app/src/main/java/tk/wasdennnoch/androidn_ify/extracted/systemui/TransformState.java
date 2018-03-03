@@ -16,7 +16,6 @@
 
 package tk.wasdennnoch.androidn_ify.extracted.systemui;
 
-import android.graphics.drawable.Icon;
 import android.util.ArraySet;
 import android.util.Pools;
 import android.view.View;
@@ -27,14 +26,8 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-
-import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ExpandableNotificationRowHelper;
-import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHooks;
-import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 
 /**
@@ -60,29 +53,6 @@ public class TransformState {
     private int[] mOwnPosition = new int[2];
     private float mTransformationEndY = UNDEFINED;
     private float mTransformationEndX = UNDEFINED;
-
-    protected static Field fieldType;
-
-    protected static Method methodGetBitmap;
-    protected static Method methodGetDataLength;
-    protected static Method methodGetDataOffset;
-    protected static Method methodGetDataBytes;
-    protected static Method methodGetResId;
-    protected static Method methodGetResPackage;
-    protected static Method methodGetUriString;
-
-    public static void initFields() {
-        Class classIcon = Icon.class;
-        fieldType = XposedHelpers.findField(classIcon, "mType");
-
-        methodGetBitmap = XposedHelpers.findMethodBestMatch(classIcon, "getBitmap");
-        methodGetDataLength = XposedHelpers.findMethodBestMatch(classIcon, "getDataLength");
-        methodGetDataOffset = XposedHelpers.findMethodBestMatch(classIcon, "getDataOffset");
-        methodGetDataBytes = XposedHelpers.findMethodBestMatch(classIcon, "getDataBytes");
-        methodGetResId = XposedHelpers.findMethodBestMatch(classIcon, "getResId");
-        methodGetResPackage = XposedHelpers.findMethodBestMatch(classIcon, "getResPackage");
-        methodGetUriString = XposedHelpers.findMethodBestMatch(classIcon, "getUriString");
-    }
 
     public void initFrom(View view) {
         mTransformedView = view;
@@ -280,7 +250,7 @@ public class TransformState {
     private void transformViewTo(TransformState otherState, int transformationFlags,
             ViewTransformationHelper.CustomTransformation customTransformation,
             float transformationAmount) {
-        //TODO THIS!!!!
+        //TODO: see if this has anything to do with the problem with colorized media notifications
         // lets animate the positions correctly
 
         final View transformedView = mTransformedView;
@@ -411,12 +381,15 @@ public class TransformState {
                 clipSet.add(transformedView);
                 view.setClipChildren(false);
                 view.setClipToPadding(false);
-                /*if (row != null && row.isChildInGroup()) {
-                    // We still want to clip to the parent's height
-                    row.setClipToActualHeight(false);
-                }*/
+                if (row != null) {
+                    ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(row);
+                    if (helper.isChildInGroup()) {
+                        // We still want to clip to the parent's height
+                        helper.setClipToActualHeight(false);
+                    }
+                }
             }
-            if (row != null/* && !row.isChildInGroup()*/) {
+            if (row != null && !ExpandableNotificationRowHelper.getInstance(row).isChildInGroup()) {
                 return;
             }
             final ViewParent parent = view.getParent();

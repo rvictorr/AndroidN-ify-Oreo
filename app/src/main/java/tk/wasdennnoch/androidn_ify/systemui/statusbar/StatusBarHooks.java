@@ -147,9 +147,9 @@ public class StatusBarHooks {
         try {
             if (mPhone == null)
                 mPhone = XposedHelpers.getObjectField(mobileSignalController, "mPhone");
-            Object mSubscriptionInfo = XposedHelpers.getObjectField(mobileSignalController, "mSubscriptionInfo");
-            int subscriptionId = (int) XposedHelpers.callMethod(mSubscriptionInfo, "getSubscriptionId");
-            return !((boolean) XposedHelpers.callMethod(mPhone, "getDataEnabled", subscriptionId));
+            Object mSubscriptionInfo = XposedHelpers.getObjectField(mobileSignalController, "mSubscriptionInfo"); //TODO: optimize
+            int subscriptionId = (int) XposedHelpers.callMethod(mSubscriptionInfo, "getSubscriptionId"); //TODO: same
+            return !((boolean) XposedHelpers.callMethod(mPhone, "getDataEnabled", subscriptionId)); //TODO: same
         } catch (Throwable t) {
             return false;
         }

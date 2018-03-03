@@ -10,21 +10,19 @@ import android.view.View;
 
 import de.robv.android.xposed.XposedHelpers;
 
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.ScrimView.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.ScrimController.*;
+
 public class ScrimHelper {
     private static final String TAG = "ScrimHelper";
 
     private static ScrimHelper mScrimBehindHelper;
 
-    public static View mScrimBehind;
-
     private View mScrimView;
     private final Paint mPaint = new Paint();
-    private int mScrimColor;
     private int mLeftInset = 0;
-    private boolean mIsEmpty = true;
-    private boolean mDrawAsSrc;
     private boolean mHasExcludedArea;
-    private float mViewAlpha = 1.0f;
     private Rect mExcludedRect = new Rect();
     public Runnable mChangeRunnable;
 
@@ -40,13 +38,12 @@ public class ScrimHelper {
     }
 
     public void onDraw(Canvas canvas) {
-        mScrimColor = XposedHelpers.getIntField(mScrimView, "mScrimColor");
-        mIsEmpty = XposedHelpers.getBooleanField(mScrimView, "mIsEmpty");
-        mDrawAsSrc = XposedHelpers.getBooleanField(mScrimView, "mDrawAsSrc");
-        mViewAlpha = XposedHelpers.getFloatField(mScrimView, "mViewAlpha");
+        boolean isEmpty = getBoolean(mIsEmpty, mScrimView);
+        boolean drawAsSrc = getBoolean(mDrawAsSrc, mScrimView);
+        float viewAlpha = getFloat(mViewAlpha, mScrimView);
 
-        if (mDrawAsSrc || (!mIsEmpty && mViewAlpha > 0f)) {
-            PorterDuff.Mode mode = mDrawAsSrc ? PorterDuff.Mode.SRC : PorterDuff.Mode.SRC_OVER;
+        if (drawAsSrc || (!isEmpty && viewAlpha > 0f)) {
+            PorterDuff.Mode mode = drawAsSrc ? PorterDuff.Mode.SRC : PorterDuff.Mode.SRC_OVER;
             int color = getScrimColorWithAlpha();
             if (!mHasExcludedArea) {
                 canvas.drawColor(color, mode);
@@ -74,16 +71,14 @@ public class ScrimHelper {
     }
 
     public int getScrimColorWithAlpha() {
-        mScrimColor = XposedHelpers.getIntField(mScrimView, "mScrimColor"); //TODO: optimize
-        mViewAlpha = XposedHelpers.getFloatField(mScrimView, "mViewAlpha");
-        int color = mScrimColor;
-        color = Color.argb((int) (Color.alpha(color) * mViewAlpha), Color.red(color),
+        float viewAlpha = getFloat(mViewAlpha, mScrimView);
+        int color = getInt(mScrimColor, mScrimView);
+        color = Color.argb((int) (Color.alpha(color) * viewAlpha), Color.red(color),
                 Color.green(color), Color.blue(color));
         return color;
     }
     public void setDrawAsSrc(boolean asSrc) {
-        mDrawAsSrc = asSrc;
-        mPaint.setXfermode(new PorterDuffXfermode(mDrawAsSrc ? PorterDuff.Mode.SRC
+        mPaint.setXfermode(new PorterDuffXfermode(asSrc ? PorterDuff.Mode.SRC
                 : PorterDuff.Mode.SRC_OVER));
     }
 
@@ -118,8 +113,8 @@ public class ScrimHelper {
     /* ScrimController stuff */
 
     public static void setScrimBehind(Object scrimController) {
-        mScrimBehind = (View) XposedHelpers.getObjectField(scrimController, "mScrimBehind");
-        mScrimBehindHelper = ScrimHelper.getInstance(mScrimBehind);
+        Object scrimBehind = get(mScrimBehind, scrimController);
+        mScrimBehindHelper = ScrimHelper.getInstance(scrimBehind);
     }
 
     public static int getScrimBehindColor() {

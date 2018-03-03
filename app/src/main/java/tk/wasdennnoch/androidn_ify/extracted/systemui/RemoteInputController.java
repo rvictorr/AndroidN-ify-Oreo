@@ -23,11 +23,10 @@ import android.util.Pair;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 
-import de.robv.android.xposed.XposedHelpers;
-import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ExpandableNotificationRowHelper;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
-import tk.wasdennnoch.androidn_ify.systemui.notifications.views.RemoteInputHelper;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
 /**
  * Keeps track of the currently active {@link RemoteInputView}s.
@@ -191,14 +190,14 @@ public class RemoteInputController {
         ArrayList<Object> list = new ArrayList<>(mOpen.size());
         for (int i = mOpen.size() - 1; i >= 0; i--) {
             Object item = mOpen.get(i).first.get();
-            if (item != null && XposedHelpers.getObjectField(item, "row") != null) {
+            if (item != null && ReflectionUtils.get(Fields.SystemUI.NotificationDataEntry.row, item) != null) {
                 list.add(item);
             }
         }
 
         for (int i = list.size() - 1; i >= 0; i--) {
             Object item = list.get(i);
-            Object row = XposedHelpers.getObjectField(item, "row");
+            Object row = ReflectionUtils.get(Fields.SystemUI.NotificationDataEntry.row, item);
             if (row != null) {
                 ExpandableNotificationRowHelper.getInstance(row).closeRemoteInput();
             }

@@ -1,6 +1,7 @@
 package tk.wasdennnoch.androidn_ify.systemui.qs;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Message;
@@ -80,9 +81,10 @@ public class TilesManager {
     @SuppressWarnings("deprecation")
     static Drawable getIcon(Context context, String spec) throws Exception {
         Drawable icon;
+        Resources.Theme theme = context.getTheme();
         switch (spec) {
             case AndroidN_ifyTile.TILE_SPEC:
-                icon = ResourceUtils.getInstance(context).getDrawable(R.drawable.ic_stat_n);
+                icon = ResourceUtils.getInstance(context).getResources().getDrawable(R.drawable.ic_stat_n, theme);
                 break;
             case BatteryTile.TILE_SPEC:
                 BatteryMeterDrawable batteryMeterDrawable = new BatteryMeterDrawable(context, new Handler(), ResourceUtils.getInstance(context).getColor(R.color.qs_batterymeter_frame_color));
@@ -92,12 +94,12 @@ public class TilesManager {
                 icon =  batteryMeterDrawable;
                 break;
             case NekoTile.TILE_SPEC:
-                Drawable nekoIcon =  ResourceUtils.getInstance(context).getDrawable(R.drawable.stat_icon);
+                Drawable nekoIcon =  ResourceUtils.getInstance(context).getResources().getDrawable(R.drawable.stat_icon, theme);
                 nekoIcon.setTint(0x4DFFFFFF);
                 icon =  nekoIcon;
                 break;
             case PartialScreenshotTile.TILE_SPEC:
-                icon = ResourceUtils.getInstance(context).getDrawable(R.drawable.ic_crop);
+                icon = ResourceUtils.getInstance(context).getResources().getDrawable(R.drawable.ic_crop, theme);
                 break;
             default:
                 throw new Exception("No icon for spec '" + spec + "'!");

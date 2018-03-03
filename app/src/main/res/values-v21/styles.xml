@@ -14,9 +14,13 @@
 
     <style name="DeviceDefault" parent="android:Theme.DeviceDefault"/>
 
-    <style name="DefaultSystemUITheme" parent="android:Theme.DeviceDefault"/>
+    <style name="DefaultSystemUITheme" parent="android:Theme.DeviceDefault">
+        <item name="android:colorBackgroundFloating">#ff212121<!--@android:color/material_grey_900--></item>
+    </style>
 
-    <style name="LightSystemUITheme" parent="@android:style/Theme.Material.Light"/>
+    <style name="LightSystemUITheme" parent="android:Theme.DeviceDefault.Light">
+        <item name="android:colorBackgroundFloating">@android:color/white<!--@android:color/material_grey_900--></item>
+    </style>
 
     <!--<style name="Theme.Material.Settings" parent="Theme.Material.Light.LightStatusBar">
         <item name="colorPrimary">@color/primary_material_settings_light</item>

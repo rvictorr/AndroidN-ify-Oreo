@@ -21,10 +21,8 @@ import android.util.Pools;
 import android.view.View;
 import android.widget.ImageView;
 
-import java.util.Objects;
-
 import tk.wasdennnoch.androidn_ify.R;
-import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
+import tk.wasdennnoch.androidn_ify.utils.ViewUtils;
 
 /**
  * A transform state of a image view.
@@ -48,7 +46,7 @@ public class ImageTransformState extends TransformState {
     @Override
     protected boolean sameAs(TransformState otherState) {
         if (otherState instanceof ImageTransformState) {
-            return mIcon != null && sameAs(mIcon, ((ImageTransformState) otherState).getIcon());
+            return mIcon != null && ViewUtils.sameAs(mIcon, ((ImageTransformState) otherState).getIcon());
         }
         return super.sameAs(otherState);
     }
@@ -126,28 +124,5 @@ public class ImageTransformState extends TransformState {
     protected void reset() {
         super.reset();
         mIcon = null;
-    }
-
-    public boolean sameAs(Icon thisIcon, Icon otherIcon) {
-        if (otherIcon == thisIcon) {
-            return true;
-        }
-        if (get(fieldType, thisIcon) != get(fieldType, otherIcon)) {
-            return false;
-        }
-        switch (getInt(fieldType, thisIcon)) {
-            case 1 /*TYPE_BITMAP*/:
-                return invoke(methodGetBitmap, thisIcon) == invoke(methodGetBitmap, otherIcon);
-            case 3 /*TYPE_DATA*/:
-                return invoke(methodGetDataLength, thisIcon) == invoke(methodGetDataLength, otherIcon)
-                        && invoke(methodGetDataOffset, thisIcon) == invoke(methodGetDataOffset, otherIcon)
-                        && invoke(methodGetDataBytes, thisIcon) == invoke(methodGetDataBytes, otherIcon);
-            case 2 /*TYPE_RESOURCE*/:
-                return invoke(methodGetResId, thisIcon) == invoke(methodGetResId, otherIcon)
-                        && Objects.equals(invoke(methodGetResPackage, thisIcon), invoke(methodGetResPackage, otherIcon));
-            case 4 /*TYPE_URI*/:
-                return Objects.equals(invoke(methodGetUriString, thisIcon), invoke(methodGetUriString, otherIcon));
-        }
-        return false;
     }
 }

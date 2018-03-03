@@ -26,8 +26,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import tk.wasdennnoch.androidn_ify.R;
-import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationContentHelper;
-import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
@@ -243,14 +241,14 @@ public class NotificationTemplateViewWrapper extends NotificationHeaderViewWrapp
 
         mContentHeight = contentHeight;
         mMinHeightHint = minHeightHint;
-//        updateActionOffset();
+        updateActionOffset();
     }
 
     private void updateActionOffset() {
         if (mActionsContainer != null) {
             // We should never push the actions higher than they are in the headsup view.
             int constrainedContentHeight = Math.max(mContentHeight, mMinHeightHint);
-            mActionsContainer.setTranslationY(constrainedContentHeight - mView.getHeight()); //TODO why this doesn't work properly
+            mActionsContainer.setTranslationY(constrainedContentHeight - mView.getHeight());
         }
     }
 }

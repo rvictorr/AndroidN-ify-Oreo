@@ -34,6 +34,7 @@ import android.widget.TextView;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.sql.Ref;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
@@ -56,6 +57,7 @@ import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QuickQSPanel;
 import tk.wasdennnoch.androidn_ify.misc.SafeOnClickListener;
 import tk.wasdennnoch.androidn_ify.misc.SafeRunnable;
 import tk.wasdennnoch.androidn_ify.systemui.SystemUIHooks;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationGroupManagerHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.StackScrollAlgorithmHooks;
 import tk.wasdennnoch.androidn_ify.systemui.qs.DetailViewManager;
 import tk.wasdennnoch.androidn_ify.systemui.qs.KeyguardMonitor;
@@ -69,6 +71,7 @@ import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.hooks.WifiTileHook;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
 import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
@@ -76,6 +79,8 @@ import tk.wasdennnoch.androidn_ify.utils.RomUtils;
 import tk.wasdennnoch.androidn_ify.utils.ViewUtils;
 
 import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.NotificationDataEntry.*;
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 
 @SuppressLint("StaticFieldLeak")
 public class StatusBarHeaderHooks {
@@ -151,8 +156,6 @@ public class StatusBarHeaderHooks {
 
     private static final ArrayList<String> mPreviousTiles = new ArrayList<>();
     public static ArrayList<Object> mRecords;
-
-    private static final Rect mClipBounds = new Rect();
 
     public static QSAnimator mQsAnimator;
     public static QuickSettingsHooks qsHooks;
@@ -269,7 +272,7 @@ public class StatusBarHeaderHooks {
                 int topContainerPadding = res.getDimensionPixelSize(R.dimen.qs_top_container_padding);
                 float qsTimeExpandedSize = res.getDimension(R.dimen.qs_time_expanded_size);
 
-                Drawable alarmSmall = mContext.getDrawable(mContext.getResources().getIdentifier("ic_access_alarms_small", "drawable", XposedHook.PACKAGE_SYSTEMUI));
+                Drawable alarmSmall = mContext.getResources().getDrawable(mContext.getResources().getIdentifier("ic_access_alarms_small", "drawable", XposedHook.PACKAGE_SYSTEMUI), mContext.getTheme());
 
                 ((ViewGroup) mClock.getParent()).removeView(mClock);
                 ((ViewGroup) mMultiUserSwitch.getParent()).removeView(mMultiUserSwitch);
@@ -486,17 +489,9 @@ public class StatusBarHeaderHooks {
                 mStatusBarHeaderView.setClickable(false);
                 mStatusBarHeaderView.setFocusable(false);
 
-                mStatusBarHeaderView.setOutlineProvider(new ViewOutlineProvider() {
-                    @Override
-                    public void getOutline(View view, Outline outline) {
-                        outline.setRect(mClipBounds);
-                    }
-                });
-
                 if (ConfigUtils.qs().enable_theming) {
                     XposedHelpers.callMethod(mBattery, "setDarkIntensity", 1.0f);
                     ((Paint) XposedHelpers.getObjectField(mBattery, "mFramePaint")).setColor(darkColor);
-                    mBattery.invalidate();
                     ((TextView) mClock).setTextColor(darkColor);
                 }
 
@@ -1135,26 +1130,54 @@ public class StatusBarHeaderHooks {
                 } catch (Throwable ignore) {
                 }
 
-                XposedHelpers.findAndHookMethod(BaseStatusBar, "updateRowStates", new XC_MethodHook() {
+                XposedHelpers.findAndHookMethod(BaseStatusBar, "updateRowStates", new XC_MethodReplacement() {
                     @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        Object mNotificationData = XposedHelpers.getObjectField(param.thisObject, "mNotificationData");
-                        Object mGroupManager = XposedHelpers.getObjectField(param.thisObject, "mGroupManager");
-                        ArrayList activeNotifications = (ArrayList) XposedHelpers.callMethod(mNotificationData, "getActiveNotifications");
-                        int maxKeyguardNotifications = (int) XposedHelpers.callMethod(param.thisObject, "getMaxKeyguardNotifications");
-                        boolean isLockscreenPublicMode = (boolean) XposedHelpers.callMethod(param.thisObject, "isLockscreenPublicMode");
-                        boolean mShowLockscreenNotifications = XposedHelpers.getBooleanField(param.thisObject, "mShowLockscreenNotifications");
-                        boolean onKeyguard = XposedHelpers.getIntField(param.thisObject, "mState") == NotificationPanelHooks.STATE_KEYGUARD;
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable { //TODO: optimize this
+                        Object keyguardOverFlowContainer = get(Fields.SystemUI.PhoneStatusBar.mKeyguardIconOverflowContainer, param.thisObject);
+                        Object mNotificationData = ReflectionUtils.get(Fields.SystemUI.BaseStatusBar.mNotificationData, param.thisObject);
+                        Object mGroupManager = get(Fields.SystemUI.BaseStatusBar.mGroupManager, param.thisObject);
+                        LinearLayout iconsView = (LinearLayout) XposedHelpers.callMethod(keyguardOverFlowContainer, "getIconsView");
+                        ViewGroup stackScroller = get(Fields.SystemUI.BaseStatusBar.mStackScroller, param.thisObject);
+
+                        boolean isLockscreenPublicMode = invoke(Methods.SystemUI.BaseStatusBar.isLockscreenPublicMode, param.thisObject);
+                        boolean mShowLockscreenNotifications = getBoolean(Fields.SystemUI.BaseStatusBar.mShowLockscreenNotifications, param.thisObject);
+
+                        iconsView.removeAllViews();
+
+                        ArrayList activeNotifications = ReflectionUtils.invoke(Methods.SystemUI.NotificationData.getActiveNotifications, mNotificationData);
                         final int N = activeNotifications.size();
+
                         int visibleNotifications = 0;
+                        boolean onKeyguard = getInt(Fields.SystemUI.BaseStatusBar.mState, param.thisObject) == NotificationPanelHooks.STATE_KEYGUARD;
+                        int maxNotifications = 0;
+                        if (onKeyguard) {
+                            maxNotifications = NotificationHooks.getMaxKeyguardNotifications(param.thisObject, true /* recompute */);
+                        }
+
                         for (int i = 0; i < N; i++) {
                             Object entry = activeNotifications.get(i);
-                            Object notification = XposedHelpers.getObjectField(entry, "notification");
+                            StatusBarNotification notif = get(notification, entry);
+                            View notificationRow = get(row, entry);
+                            ExpandableNotificationRowHelper rowHelper = ExpandableNotificationRowHelper.getInstance(notificationRow);
 
-                            boolean isInvisibleChild = !(boolean) XposedHelpers.callMethod(mGroupManager, "isVisible", notification);
+                            boolean childNotification = invoke(Methods.SystemUI.NotificationGroupManager.isChildInGroupWithSummary, mGroupManager, notif);
+
+                            if (onKeyguard) {
+                                invoke(Methods.SystemUI.ExpandableNotificationRow.setExpansionDisabled, notificationRow, true);
+                            } else {
+                                invoke(Methods.SystemUI.ExpandableNotificationRow.setExpansionDisabled, notificationRow, false);
+                                invoke(Methods.SystemUI.ExpandableNotificationRow.setSystemExpanded, notificationRow, visibleNotifications == 0 && !childNotification);
+                            }
+
+                            boolean suppressedSummary = NotificationGroupManagerHooks.isSummaryOfSuppressedGroup(
+                                    mGroupManager, notif) && !rowHelper.isRemoved();
+                            boolean childWithVisibleSummary = childNotification
+                                    && ((View) ReflectionUtils.invoke(Methods.SystemUI.NotificationGroupManager.getGroupSummary, mGroupManager, notif)).getVisibility()
+                                    == View.VISIBLE;
+
                             boolean showOnKeyguard;
                             try {
-                                showOnKeyguard = ReflectionUtils.invoke(Methods.SystemUI.BaseStatusBar.shouldShowOnKeyguard, param.thisObject, notification);
+                                showOnKeyguard = ReflectionUtils.invoke(Methods.SystemUI.BaseStatusBar.shouldShowOnKeyguard, param.thisObject, notif);
                             } catch (ReflectionUtils.UncheckedIllegalArgumentException e) { //Xperia
                                 boolean show = mShowLockscreenNotifications;
                                 if (XposedHelpers.getBooleanField(param.thisObject, "mIsDisableSecureNotificationsByDpm")) {
@@ -1162,17 +1185,43 @@ public class StatusBarHeaderHooks {
                                 } else if ((boolean) XposedHelpers.callMethod(entry, "isMediaNotification")) {
                                     show = true;
                                 }
-                                showOnKeyguard = ReflectionUtils.invoke(Methods.SystemUI.BaseStatusBar.shouldShowOnKeyguard, param.thisObject, notification, show);
+                                showOnKeyguard = ReflectionUtils.invoke(Methods.SystemUI.BaseStatusBar.shouldShowOnKeyguard, param.thisObject, notif, show);
                             }
-                            if (!((isLockscreenPublicMode && !mShowLockscreenNotifications) ||
-                                    (onKeyguard && (visibleNotifications >= maxKeyguardNotifications
-                                            || !showOnKeyguard || isInvisibleChild)))) {
-                                if (!isInvisibleChild)
+                            if (suppressedSummary || (isLockscreenPublicMode && !mShowLockscreenNotifications) ||
+                                    (onKeyguard && !childWithVisibleSummary
+                                            && (visibleNotifications >= maxNotifications || !showOnKeyguard))) {
+
+                                notificationRow.setVisibility(View.GONE);
+
+                                if (onKeyguard && showOnKeyguard && !childNotification && !suppressedSummary) {
+                                    //TODO: maybe optimize this
+                                    XposedHelpers.callMethod(iconsView, "addNotification", entry);
+                                }
+                            } else {
+                                boolean wasGone = notificationRow.getVisibility() == View.GONE;
+                                notificationRow.setVisibility(View.VISIBLE);
+                                if (!childNotification && !rowHelper.isRemoved()) {
+                                    if (wasGone) {
+                                        // notify the scroller of a child addition
+                                        invoke(Methods.SystemUI.NotificationStackScrollLayout.generateAddAnimation,
+                                                stackScroller, notificationRow, !showOnKeyguard /* fromMoreCard */);
+                                    }
                                     visibleNotifications++;
+                                }
                             }
 
                         }
                         NotificationPanelHooks.setNoVisibleNotifications(visibleNotifications == 0);
+                        invoke(Methods.SystemUI.NotificationStackScrollLayout.updateOverflowContainerVisibility, stackScroller, onKeyguard
+                                && iconsView.getChildCount() > 0);
+
+                        invoke(Methods.SystemUI.NotificationStackScrollLayout.changeViewPosition, stackScroller,
+                                get(Fields.SystemUI.BaseStatusBar.mDismissView, param.thisObject), stackScroller.getChildCount() - 1);
+                        invoke(Methods.SystemUI.NotificationStackScrollLayout.changeViewPosition, stackScroller, get(Fields.SystemUI.BaseStatusBar.mEmptyShadeView, param.thisObject),
+                                stackScroller.getChildCount() - 2);
+                        invoke(Methods.SystemUI.NotificationStackScrollLayout.changeViewPosition, stackScroller, keyguardOverFlowContainer,
+                                stackScroller.getChildCount() - 3);
+                        return null;
                     }
                 });
 

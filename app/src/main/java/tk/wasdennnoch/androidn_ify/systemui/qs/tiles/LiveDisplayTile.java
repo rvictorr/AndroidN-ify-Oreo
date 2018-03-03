@@ -33,7 +33,7 @@ public class LiveDisplayTile extends QSTile {
 
     @Override
     public void handleUpdateState(Object state, Object arg) {
-        mState.icon = mResUtils.getDrawable(mTileEntryIconRes[mCurrentMode]);
+        mState.icon = mResUtils.getResources().getDrawable(mTileEntryIconRes[mCurrentMode], mContext.getTheme());
         mState.label = mTileEntries[mCurrentMode];
         super.handleUpdateState(state, arg);
     }

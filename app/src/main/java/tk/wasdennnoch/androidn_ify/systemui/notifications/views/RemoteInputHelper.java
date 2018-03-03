@@ -7,9 +7,9 @@ import android.view.ViewParent;
 import android.widget.TextView;
 
 import de.robv.android.xposed.XposedHelpers;
-import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.RemoteInputView;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHooks;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
@@ -59,7 +59,7 @@ public class RemoteInputHelper {
         }
         Object row = null;
         while (p != null) {
-            if (p.getClass().getName().equals(XposedHook.PACKAGE_SYSTEMUI + ".statusbar.ExpandableNotificationRow")) {
+            if (Classes.SystemUI.ExpandableNotificationRow.isInstance(p)) {
                 row = p;
                 break;
             }
@@ -72,18 +72,18 @@ public class RemoteInputHelper {
 
         ReflectionUtils.invoke(Methods.SystemUI.ExpandableNotificationRow.setUserExpanded, row, true);
 
-        /*if (!mAllowLockscreenRemoteInput) {
-            if (isLockscreenPublicMode()) {
-                onLockedRemoteInput(row, view);
-                return true;
-            }
-            final int userId = pendingIntent.getCreatorUserHandle().getIdentifier();
-            if (mUserManager.getUserInfo(userId).isManagedProfile()
-                    && mKeyguardManager.isDeviceLocked(userId)) {
-                onLockedWorkRemoteInput(userId, row, view);
-                return true;
-            }
-        }*/
+//        if (!mAllowLockscreenRemoteInput) { //TODO: implement
+//            if (isLockscreenPublicMode()) {
+//                onLockedRemoteInput(row, view);
+//                return true;
+//            }
+////            final int userId = pendingIntent.getCreatorUserHandle().getIdentifier();
+////            if (mUserManager.getUserInfo(userId).isManagedProfile()
+////                    && mKeyguardManager.isDeviceLocked(userId)) {
+////                onLockedWorkRemoteInput(userId, row, view);
+////                return true;
+////            }
+//        }
 
         int width = view.getWidth();
         if (view instanceof TextView) {

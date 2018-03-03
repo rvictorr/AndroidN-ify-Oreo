@@ -33,9 +33,8 @@ import java.util.Stack;
 
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
-import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationContentHelper;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.ExpandableNotificationRowHelper;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHeaderView;
-import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
@@ -107,7 +106,7 @@ public class NotificationHeaderViewWrapper extends NotificationViewWrapper {
     }
 
     protected void resolveHeaderViews() {
-        mIcon = mView.findViewById(android.R.id.icon);
+        mIcon = mView.findViewById(R.id.icon);
         mHeaderText = mView.findViewById(R.id.header_text);
         mExpandButton = mView.findViewById(R.id.expand_button);
         //XposedHelpers.callMethod(mExpandButton, "setLabeledBy", mRow);
@@ -218,7 +217,7 @@ public class NotificationHeaderViewWrapper extends NotificationViewWrapper {
         } else {
             mInvertHelper.update(dark);
         }
-        if (mIcon != null/* && !mRow.isChildInGroup()*/) {
+        if (mIcon != null && !ExpandableNotificationRowHelper.getInstance(mRow).isChildInGroup()) {
             // We don't update the color for children views / their icon is invisible anyway.
             // It also may lead to bugs where the icon isn't correctly greyed out.
             boolean hadColorFilter = mNotificationHeader != null && mNotificationHeader.getOriginalIconColor()

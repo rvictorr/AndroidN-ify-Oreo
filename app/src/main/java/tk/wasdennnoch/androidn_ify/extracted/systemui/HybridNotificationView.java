@@ -23,9 +23,6 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.widget.TextView;
 
-import java.lang.reflect.Constructor;
-
-import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 
 /**
@@ -68,7 +65,6 @@ public class HybridNotificationView extends AlphaOptimizedLinearLayout
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        Constructor invertHelper = XposedHelpers.findConstructorBestMatch(XposedHelpers.findClass("com.android.systemui.ViewInvertHelper", getContext().getClassLoader()), View.class, long.class);
         mTitleView = findViewById(R.id.notification_title);
         mTextView = findViewById(R.id.notification_text);
         mInvertHelper = new ViewInvertHelper(this, 700 /*NotificationPanelView.DOZE_ANIMATION_DURATION*/);

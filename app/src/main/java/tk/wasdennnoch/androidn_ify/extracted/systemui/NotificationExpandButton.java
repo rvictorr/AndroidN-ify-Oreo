@@ -23,21 +23,14 @@ import android.util.AttributeSet;
 import android.widget.ImageView;
 import android.widget.RemoteViews;
 
-import java.lang.reflect.Method;
-
-import de.robv.android.xposed.XposedHelpers;
-import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
-
 /**
  * An expand button in a notification
  */
 @RemoteViews.RemoteView
 public class NotificationExpandButton extends ImageView {
-    private Method getBoundsOnScreen;
 
     public NotificationExpandButton(Context context) {
         super(context);
-        getBoundsOnScreen = XposedHelpers.findMethodBestMatch(ImageView.class, "getBoundsOnScreen", Rect.class, boolean.class);
     }
 
     public NotificationExpandButton(Context context, @Nullable AttributeSet attrs) {
@@ -55,8 +48,8 @@ public class NotificationExpandButton extends ImageView {
     }
 
     public void getBoundsOnScreen(Rect outRect, boolean clipToParent) {
-        //super.getBoundsOnScreen(outRect, clipToParent);
-        ReflectionUtils.invoke(getBoundsOnScreen, this, outRect, clipToParent);
+//        super.getBoundsOnScreen(outRect, clipToParent);
+//        ReflectionUtils.invoke(Methods.Android.View.getBoundsOnScreen, this, outRect, clipToParent);
         extendRectToMinTouchSize(outRect);
     }
 

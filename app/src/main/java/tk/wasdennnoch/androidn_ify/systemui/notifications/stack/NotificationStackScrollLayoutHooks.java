@@ -14,6 +14,7 @@ import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
+import android.service.notification.StatusBarNotification;
 import android.util.FloatProperty;
 import android.util.Property;
 import android.view.MotionEvent;
@@ -29,6 +30,7 @@ import android.widget.OverScroller;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
@@ -38,6 +40,7 @@ import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.FakeShadowView;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
+import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationUtils;
 import tk.wasdennnoch.androidn_ify.misc.SafeOnPreDrawListener;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ExpandableNotificationRowHelper;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ExpandableOutlineViewHelper;
@@ -53,6 +56,7 @@ import static tk.wasdennnoch.androidn_ify.XposedHook.PACKAGE_SYSTEMUI;
 import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
 import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.NotificationStackScrollLayout.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.NotificationStackScrollLayout.*;
 import static tk.wasdennnoch.androidn_ify.utils.Fields.*;
 
 public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowInsetsListener {
@@ -73,8 +77,9 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     private ResourceUtils mRes;
     private static final Paint mBackgroundPaint = new Paint();
     private OverScroller mScroller;
-    private Object mAmbientState;
+    private static Object mAmbientState;
     private Object mSwipeHelper;
+    private static Object mPhoneStatusBar;
     private ArrayList<View> mDraggedViews;
 
     private boolean mDisallowDismissInThisMotion;
@@ -89,6 +94,10 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     private static float mDimAmount;
     private static float mBackgroundFadeAmount = 1.0f;
     private static int mBgColor;
+    private static int mIncreasedPaddingBetweenElements;
+    private static int tempPaddingBetweenElements;
+    private static boolean mChildTransferInProgress;
+    private static boolean mGroupExpandedForMeasure;
     private ValueAnimator mDimAnimator;
 
     private static final Property<ViewGroup, Float> BACKGROUND_FADE =
@@ -269,6 +278,15 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     mIsExpanded = (boolean) param.args[0];
+                    boolean isExpanded = (boolean) param.args[0];
+
+                    boolean changed = isExpanded != XposedHelpers.getBooleanField(param.thisObject, "mIsExpanded");
+
+                    if (changed) {
+                        if (!isExpanded) {
+                            NotificationGroupManagerHooks.collapseAllGroups(get(mGroupManager, param.thisObject));
+                        }
+                    }
                 }
             });
             XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "setTopPadding", int.class, boolean.class, new XC_MethodHook() {
@@ -281,6 +299,19 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     mStackTranslation = (float) param.args[0];
+                }
+            });
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onGroupCreatedFromChildren", NotificationGroup, new XC_MethodReplacement() {
+                @Override
+                protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                    invoke(Methods.SystemUI.PhoneStatusBar.updateNotifications, mPhoneStatusBar);
+                    return null;
+                }
+            });
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "setPhoneStatusBar", PhoneStatusBar, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    mPhoneStatusBar = param.args[0];
                 }
             });
             XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "updateSwipeProgress", View.class, boolean.class, float.class, new XC_MethodHook() {
@@ -384,10 +415,10 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                         XposedHelpers.setBooleanField(mStackScrollLayout, "mDarkNeedsAnimation", true);
                         XposedHelpers.setIntField(mStackScrollLayout, "mDarkAnimationOriginIndex", (int) XposedHelpers.callMethod(mStackScrollLayout, "findDarkAnimationOriginIndex", touchWakeUpScreenLocation));
                         XposedHelpers.setBooleanField(mStackScrollLayout, "mNeedsAnimation", true);
-                        //setBackgroundFadeAmount(0.0f);
-                    } /*else if (!dark) {
+                        setBackgroundFadeAmount(0.0f);
+                    } else if (!dark) {
                         setBackgroundFadeAmount(1.0f);
-                    }*/
+                    }
                     invoke(requestChildrenUpdate, mStackScrollLayout);
                     if (dark) {
                         mStackScrollLayout.setWillNotDraw(true);
@@ -467,6 +498,210 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     return null;
                 }
             });
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "updateChildren", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    updateScrollStateForAddedChildren();
+                }
+            });
+//            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "updateContentHeight", new XC_MethodReplacement() { //TODO: see why this crashes
+//                @Override
+//                protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+//                    int height = 0;
+//                    float previousIncreasedAmount = 0.0f;
+//                    for (int i = 0; i < mStackScrollLayout.getChildCount(); i++) {
+//                        View expandableView = mStackScrollLayout.getChildAt(i);
+//                        if (expandableView.getVisibility() != View.GONE) {
+//                            float increasedPaddingAmount = getIncreasedPaddingAmount(expandableView);
+//                            if (height != 0) {
+//                                height += (int) NotificationUtils.interpolate(
+//                                        getInt(mPaddingBetweenElements, mStackScrollLayout),
+//                                        mIncreasedPaddingBetweenElements,
+//                                        Math.max(previousIncreasedAmount, increasedPaddingAmount));
+//                            }
+//                            previousIncreasedAmount = increasedPaddingAmount;
+//
+//                            height += (int) invoke(Methods.SystemUI.ExpandableView.getIntrinsicHeight, expandableView);
+//                        }
+//                    }
+//                    XposedHelpers.setIntField(mStackScrollLayout, "mContentHeight", height + mTopPadding);
+//                    return null;
+//                }
+//            });
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "updateScrollStateForRemovedChild", View.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    View removedChild = (View) param.args[0];
+                    int padding = (int) NotificationUtils.interpolate(
+                            getInt(mPaddingBetweenElements, mStackScrollLayout),
+                            mIncreasedPaddingBetweenElements,
+                            getIncreasedPaddingAmount(removedChild));
+                    tempPaddingBetweenElements = getInt(mPaddingBetweenElements, mStackScrollLayout);
+                    set(mPaddingBetweenElements, mStackScrollLayout, padding);
+                }
+
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    set(mPaddingBetweenElements, mStackScrollLayout, tempPaddingBetweenElements);
+                }
+            });
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "getPositionInLinearLayout", View.class, new XC_MethodReplacement() {
+                @Override
+                protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                    View requestedView = (View) param.args[0];
+                    ExpandableNotificationRowHelper requestedRowHelper;
+                    FrameLayout childInGroup = null;
+                    FrameLayout requestedRow = null;
+                    if (invoke(isChildInGroup, mStackScrollLayout, requestedRow)) {
+                        // We're asking for a child in a group. Calculate the position of the parent first,
+                        // then within the parent.
+                        childInGroup = (FrameLayout) requestedView;
+                        ExpandableNotificationRowHelper childInGroupHelper = ExpandableNotificationRowHelper.getInstance(childInGroup);
+                        requestedView = requestedRow = childInGroupHelper.getNotificationParent();
+                    }
+                    int position = 0;
+                    float previousIncreasedAmount = 0.0f;
+                    for (int i = 0; i < mStackScrollLayout.getChildCount(); i++) {
+                        View child = mStackScrollLayout.getChildAt(i);
+                        ExpandableNotificationRowHelper childHelper = ExpandableNotificationRowHelper.getInstance(child);
+                        boolean notGone = child.getVisibility() != View.GONE;
+                        if (notGone) {
+                            float increasedPaddingAmount = childHelper.getIncreasedPaddingAmount();
+                            if (position != 0) {
+                                position += (int) NotificationUtils.interpolate(
+                                        getInt(mPaddingBetweenElements, mStackScrollLayout),
+                                        mIncreasedPaddingBetweenElements,
+                                        Math.max(previousIncreasedAmount, increasedPaddingAmount));
+                            }
+                            previousIncreasedAmount = increasedPaddingAmount;
+                        }
+                        if (child == requestedView) {
+                            if (requestedRow != null) {
+                                requestedRowHelper = ExpandableNotificationRowHelper.getInstance(requestedRow);
+                                position += requestedRowHelper.getPositionOfChild(childInGroup);
+                            }
+                            return position;
+                        }
+                        if (notGone) {
+                            position += getIntrinsicHeight(child);
+                        }
+                    }
+                    return 0;
+                }
+            });
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onHeightChanged", ExpandableView, boolean.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    View view = (View) param.args[0];
+                    View row = ExpandableNotificationRow.isInstance(view)
+                            ? view
+                            : null;
+                    if (row != null && (row == mFirstVisibleBackgroundChild
+                            || ExpandableNotificationRowHelper.getInstance(row).getNotificationParent() == mFirstVisibleBackgroundChild)) {
+                        StackScrollAlgorithmHooks.updateAlgorithmLayoutMinHeight();
+                    }
+                }
+            });
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "updateScrollPositionOnExpandInBottom", ExpandableView, new XC_MethodReplacement() {
+                @Override
+                protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                    View view = (View) param.args[0];
+                    if (ExpandableNotificationRow.isInstance(view)) {
+                        View row = view;
+                        if ((boolean) invoke(Methods.SystemUI.ExpandableNotificationRow.isUserLocked, row) && row != invoke(getFirstChildNotGone, mStackScrollLayout)) {
+                            if (NotificationsStuff.isSummaryWithChildren(row)) {
+                                return null;
+                            }
+                            // We are actually expanding this view
+                            float endPosition = row.getTranslationY() + (int) invoke(Methods.SystemUI.ExpandableNotificationRow.getActualHeight, row);
+                            ExpandableNotificationRowHelper rowHelper = ExpandableNotificationRowHelper.getInstance(row);
+                            if (rowHelper.isChildInGroup()) {
+                                endPosition += rowHelper.getNotificationParent().getTranslationY();
+                            }
+                            int stackEnd = getStackEndPosition();
+                            if (endPosition > stackEnd) {
+                                setOwnScrollY((int) (getOwnScrollY() + endPosition - stackEnd));
+                                set(mDisallowScrollingInThisMotion, mStackScrollLayout, true);
+                            }
+                        }
+                    }
+                    return null;
+                }
+            });
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onGroupExpansionChanged", ExpandableNotificationRow, boolean.class, new XC_MethodReplacement() {
+                @Override
+                protected Object replaceHookedMethod(final MethodHookParam param) throws Throwable {
+                    View changedRow = (View) param.args[0];
+                    boolean expanded = (boolean) param.args[1];
+                    boolean animated = !mGroupExpandedForMeasure && mAnimationsEnabled
+                            && (mIsExpanded || (boolean) invoke(Methods.SystemUI.ExpandableNotificationRow.isPinned, changedRow));
+                    if (animated) {
+                        set(mExpandedGroupView, param.thisObject, changedRow);
+                        set(mNeedsAnimation, param.thisObject, true);
+                    }
+                    invoke(Methods.SystemUI.ExpandableNotificationRow.setChildrenExpanded, changedRow, expanded, animated);
+                    if (!mGroupExpandedForMeasure) {
+                        invoke(onHeightChanged, param.thisObject, changedRow, false /* needsAnimation */);
+                    }
+
+                    XposedHelpers.callMethod(mStackScrollLayout, "runAfterAnimationFinished", new Runnable() {
+                        @Override
+                        public void run() {
+                            ExpandableNotificationRowHelper.getInstance(param.args[0]).onFinishedExpansionChange();
+                        }
+                    });
+                    return null;
+                }
+            });
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onChildDismissed", View.class, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    View v = (View) param.args[0];
+                    if (Classes.SystemUI.ExpandableNotificationRow.isInstance(v)) {
+                        ExpandableNotificationRowHelper.getInstance(v).setDismissed(true, false);
+                    }
+                }
+            });
+
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onViewRemovedInternal", View.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    if (mChildTransferInProgress)
+                        param.setResult(null);
+                }
+            });
+
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "setUserExpandedChild", View.class, boolean.class, new XC_MethodReplacement() {
+                @Override
+                protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                    setUserExpandedChild((View) param.args[0], (boolean) param.args[1]); //TODO: hook ExpandHelper, call in the proper place
+                    return null;
+                }
+            });
+
+//            XposedHelpers.findAndHookMethod(ViewScaler, "getNaturalHeight", int.class, new XC_MethodReplacement() {
+//                @Override
+//                protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+//                    return getMaxExpandHeight((View) get(viewScalerView, param.thisObject));
+//                }
+//            });
+
+            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "isChildInInvisibleGroup", View.class, new XC_MethodReplacement() {
+                @Override
+                protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                    View child = (View) param.args[0];
+                    Object groupManager = get(mGroupManager, param.thisObject);
+                    if (ExpandableNotificationRow.isInstance(child)) {
+                        View row = child;
+                        View groupSummary =
+                                invoke(Methods.SystemUI.NotificationGroupManager.getGroupSummary, groupManager, invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row));
+                        if (groupSummary != null && groupSummary != row) {
+                            return row.getVisibility() == View.INVISIBLE;
+                        }
+                    }
+                    return false;
+                }
+            });
         } catch (Throwable t) {
             XposedHook.logE(TAG, "Error hooking NotificationStackScrollLayout", t);
         }
@@ -488,6 +723,10 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                 View view = (View) param.args[0];
                 float translate = (float) param.args[1];
+                if (!ExpandableNotificationRow.isInstance(view)) {
+                    view.setTranslationX(translate);
+                    return null;
+                }
                 ExpandableNotificationRowHelper.getInstance(view).setTranslation(translate);
                 return null;
             }
@@ -729,6 +968,8 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     private void initView() {
         TAG_ANIMATOR_TRANSLATION_Y = mContext.getResources().getIdentifier("translation_y_animator_tag", "id", PACKAGE_SYSTEMUI);
         TAG_END_TRANSLATION_Y = mContext.getResources().getIdentifier("translation_y_animator_end_value_tag", "id", PACKAGE_SYSTEMUI);
+        set(mPaddingBetweenElements, mStackScrollLayout, Math.max(1, mRes.getDimensionPixelSize(R.dimen.notification_divider_height)));
+        mIncreasedPaddingBetweenElements = mRes.getDimensionPixelSize(R.dimen.notification_divider_height_increased);
         mBackgroundPaint.setColor(0xFFEEEEEE);
         mBackgroundPaint.setXfermode(mSrcMode);
         mStackScrollLayout.setWillNotDraw(false);
@@ -737,7 +978,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     }
 
     private void updateBackground() {
-        if ((boolean) XposedHelpers.callMethod(mAmbientState, "isDark")) { //TODO: optimize
+        if (invoke(Methods.SystemUI.AmbientState.isDark, mAmbientState)) {
             return;
         }
         updateBackgroundBounds();
@@ -784,7 +1025,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     }
 
     private void updateFadingState() {
-        if (mFadingOut || mParentFadingOut || (boolean) XposedHelpers.callMethod(mAmbientState, "isDark")) {
+        if (mFadingOut || mParentFadingOut || (boolean) invoke(Methods.SystemUI.AmbientState.isDark, mAmbientState)) {
             ScrimHelper.setExcludedBackgroundArea(null);
         } else {
             applyCurrentBackgroundBounds();
@@ -809,10 +1050,10 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
         int maxLength;
         if (mDarkAnimationOriginIndex == DARK_ANIMATION_ORIGIN_INDEX_ABOVE
                 || mDarkAnimationOriginIndex == DARK_ANIMATION_ORIGIN_INDEX_BELOW) {
-            maxLength = (int) XposedHelpers.callMethod(mStackScrollLayout, "getNotGoneChildCount") - 1;
+            maxLength = (int) invoke(Methods.SystemUI.NotificationStackScrollLayout.getNotGoneChildCount, mStackScrollLayout) - 1;
         } else {
             maxLength = Math.max(mDarkAnimationOriginIndex,
-                    (int) XposedHelpers.callMethod(mStackScrollLayout, "getNotGoneChildCount") - mDarkAnimationOriginIndex - 1);
+                    (int) invoke(Methods.SystemUI.NotificationStackScrollLayout.getNotGoneChildCount, mStackScrollLayout) - mDarkAnimationOriginIndex - 1);
         }
         maxLength = Math.max(0, maxLength);
         long delay = maxLength * ANIMATION_DELAY_PER_ELEMENT_DARK;
@@ -980,7 +1221,7 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                 // we're ending up at the same location as we are now, lets just skip the animation
                 bottom = finalBottom;
             } else {
-                bottom = (int) (lastView.getTranslationY() + (int) XposedHelpers.callMethod(lastView, "getActualHeight"));
+                bottom = (int) (lastView.getTranslationY() + (int) invoke(Methods.SystemUI.ExpandableView.getActualHeight, lastView));
                 bottom = Math.min(bottom, mStackScrollLayout.getHeight());
             }
         } else {
@@ -1100,35 +1341,31 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
 
         // Now lets update the shadow for the views
         View previous = null;
+        ExpandableOutlineViewHelper previousHelper = null;
         for (int i = 0; i < mTmpSortedChildren.size(); i++) {
             View expandableView = mTmpSortedChildren.get(i);
+            ExpandableOutlineViewHelper viewHelper = ExpandableOutlineViewHelper.getInstance(expandableView);
             float translationZ = expandableView.getTranslationZ();
             float otherZ = previous == null ? translationZ : previous.getTranslationZ();
             float diff = otherZ - translationZ;
             if (diff <= 0.0f || diff >= FakeShadowView.SHADOW_SIBLING_TRESHOLD) {
                 // There is no fake shadow to be drawn
-                setFakeShadowIntensity(expandableView, 0.0f, 0.0f, 0, 0);
+                viewHelper.setFakeShadowIntensity(0.0f, 0.0f, 0, 0);
             } else {
-                float yLocation = previous.getTranslationY() + getInt(SystemUI.ExpandableView.mActualHeight, previous) -
-                        expandableView.getTranslationY();
-                setFakeShadowIntensity(expandableView,
-                        diff / FakeShadowView.SHADOW_SIBLING_TRESHOLD,
-                        ExpandableOutlineViewHelper.getInstance(previous).getOutlineAlpha(), (int) yLocation,
-                        ExpandableOutlineViewHelper.getInstance(previous).getOutlineTranslation());
+                int extraBottomPadding = Classes.SystemUI.ExpandableNotificationRow.isInstance(previous)
+                        ? previousHelper.getRowHelper().getExtraBottomPadding()
+                        : 0;
+                float yLocation = previous.getTranslationY() + (int) invoke(Methods.SystemUI.ExpandableView.getActualHeight, previous) -
+                        expandableView.getTranslationY() - extraBottomPadding;
+                viewHelper.setFakeShadowIntensity(diff / FakeShadowView.SHADOW_SIBLING_TRESHOLD,
+                        previousHelper.getOutlineAlpha(), (int) yLocation,
+                        previousHelper.getOutlineTranslation());
             }
             previous = expandableView;
+            previousHelper = viewHelper;
         }
 
         mTmpSortedChildren.clear();
-    }
-
-    private void setFakeShadowIntensity(View activatableNotificationView, float shadowIntensity, float outlineAlpha, int shadowYEnd,
-                                        int outlineTranslation) {
-        FakeShadowView mFakeShadow = activatableNotificationView.findViewById(R.id.fake_shadow);
-        if (mFakeShadow != null)
-            mFakeShadow.setFakeShadowTranslationZ(shadowIntensity * (activatableNotificationView.getTranslationZ()
-                            + FakeShadowView.SHADOW_SIBLING_TRESHOLD), outlineAlpha, shadowYEnd,
-                    outlineTranslation);
     }
 
     public void requestDisallowDismiss() {
@@ -1235,15 +1472,15 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     }
 
     private int getScrollX() {
-        return XposedHelpers.getIntField(mStackScrollLayout, "mScrollX");
+        return getInt(mScrollX, mStackScrollLayout);
     }
 
-    private int getOwnScrollY() {
-        return XposedHelpers.getIntField(mStackScrollLayout, "mOwnScrollY");
+    private static int getOwnScrollY() {
+        return getInt(mOwnScrollY, mStackScrollLayout);
     }
 
-    private void setOwnScrollY(int ownScrollY) {
-        XposedHelpers.setIntField(mStackScrollLayout, "mOwnScrollY", ownScrollY);
+    private static void setOwnScrollY(int ownScrollY) {
+        set(mOwnScrollY, mStackScrollLayout, ownScrollY);
     }
 
     private Runnable mReclamp = new Runnable() {
@@ -1259,18 +1496,111 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
     };
 
     private void dontReportNextOverScroll() {
-        XposedHelpers.setBooleanField(mStackScrollLayout, "mDontReportNextOverScroll", true);
+        set(mDontReportNextOverScroll, mStackScrollLayout, true);
     }
 
-    private int getIntrinsicHeight(View v) {
-        return (int) invoke(Methods.SystemUI.ExpandableView.getIntrinsicHeight, v); //TODO switch to reflectionutils for these
+    private static int getIntrinsicHeight(View v) {
+        return (int) invoke(Methods.SystemUI.ExpandableView.getIntrinsicHeight, v);
     }
 
-    private int getPositionInLinearLayout(View v) {
-        return (int) XposedHelpers.callMethod(mStackScrollLayout, "getPositionInLinearLayout", v);
+    private static int getPositionInLinearLayout(View v) {
+        return (int) invoke(getPositionInLinearLayout, mStackScrollLayout, v);
     }
 
     private int getScrollRange() {
-        return (int) XposedHelpers.callMethod(mStackScrollLayout, "getScrollRange");
+        return (int) invoke(getScrollRange, mStackScrollLayout);
+    }
+
+    /**
+     * Remove the a given view from the viewstate. This is currently used when the children are
+     * kept in the parent artificially to have a nicer animation.
+     * @param view the view to remove
+     */
+    public static void removeViewStateForView(View view) {
+        invoke(Methods.SystemUI.StackScrollState.removeViewStateForView, get(mCurrentStackScrollState, mStackScrollLayout), view);
+    }
+
+    public void setUserExpandedChild(View v, boolean userExpanded) {
+        if (ExpandableNotificationRow.isInstance(v)) {
+            View row = v;
+            ExpandableNotificationRowHelper rowHelper = ExpandableNotificationRowHelper.getInstance(row);
+            rowHelper.setUserExpanded(userExpanded, true /* allowChildrenExpansion */);
+//            rowHelper.onExpandedByGesture(userExpanded); //we don't care about metrics
+        }
+    }
+
+    public static void setChildTransferInProgress(boolean childTransferInProgress) {
+        mChildTransferInProgress = childTransferInProgress;
+    }
+
+    private static void updateScrollStateForAddedChildren() {
+        ArrayList childrenToAddAnimated = get(mChildrenToAddAnimated, mStackScrollLayout);
+        if (childrenToAddAnimated.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < mStackScrollLayout.getChildCount(); i++) {
+            View child = mStackScrollLayout.getChildAt(i);
+            ExpandableNotificationRowHelper helper = ExpandableNotificationRowHelper.getInstance(child);
+            if (childrenToAddAnimated.contains(child)) {
+                int startingPosition = getPositionInLinearLayout(child);
+                int padding = helper.getIncreasedPaddingAmount() == 1.0f
+                        ? mIncreasedPaddingBetweenElements :
+                        getInt(mPaddingBetweenElements, mStackScrollLayout);
+                int childHeight = getIntrinsicHeight(child) + padding;
+                if (startingPosition < getOwnScrollY()) {
+                    // This child starts off screen, so let's keep it offscreen to keep the others visible
+
+                    setOwnScrollY(getOwnScrollY() + childHeight);
+                }
+            }
+        }
+        invoke(clampScrollPosition, mStackScrollLayout);
+    }
+
+    public static float getIncreasedPaddingAmount(View view) {
+        if (ExpandableNotificationRow.isInstance(view)) {
+            return ExpandableNotificationRowHelper.getInstance(view).getIncreasedPaddingAmount();
+        }
+        return 0.0f;
+    }
+
+    private static int getStackEndPosition() {
+        return getInt(mMaxLayoutHeight, mStackScrollLayout) - getInt(mBottomStackPeekSize, mStackScrollLayout) - getInt(mBottomStackSlowDownHeight, mStackScrollLayout)
+                + getInt(mPaddingBetweenElements, mStackScrollLayout) + (int) getFloat(SystemUI.NotificationStackScrollLayout.mStackTranslation, mStackScrollLayout);
+    }
+
+    public static void onGroupsChanged() {
+        invoke(Methods.SystemUI.PhoneStatusBar.updateNotifications, mPhoneStatusBar);
+    }
+
+    public static int getMaxExpandHeight(View view) { //TODO: make this actually work properly, call where it should be called
+        Object groupManager = get(mGroupManager, mStackScrollLayout);
+        int maxContentHeight = invoke(Methods.SystemUI.ExpandableView.getMaxContentHeight, view);
+        if (NotificationsStuff.isSummaryWithChildren(view) && view.getParent() == mStackScrollLayout) {
+            // Faking a measure with the group expanded to simulate how the group would look if
+            // it was. Doing a calculation here would be highly non-trivial because of the
+            // algorithm
+            mGroupExpandedForMeasure = true;
+            View row = view;
+            ExpandableNotificationRowHelper rowHelper = ExpandableNotificationRowHelper.getInstance(row);
+            NotificationGroupManagerHooks.toggleGroupExpansion(groupManager, (StatusBarNotification) invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row));
+            rowHelper.setForceUnlocked(true);
+            invoke(Methods.SystemUI.AmbientState.setLayoutHeight, mAmbientState, get(mMaxLayoutHeight, mStackScrollLayout));
+            invoke(Methods.SystemUI.StackScrollAlgorithm.getStackScrollState, get(mStackScrollAlgorithm, mStackScrollLayout), mAmbientState, get(mCurrentStackScrollState, mStackScrollLayout));
+            invoke(Methods.SystemUI.AmbientState.setLayoutHeight, mAmbientState, getLayoutHeight());
+            NotificationGroupManagerHooks.toggleGroupExpansion(groupManager, (StatusBarNotification) invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row));
+            mGroupExpandedForMeasure = false;
+            rowHelper.setForceUnlocked(false);
+            Object viewState = invoke(Methods.SystemUI.StackScrollState.getViewStateForView, get(mCurrentStackScrollState, mStackScrollLayout), view);
+            if (viewState != null) {
+                // The view could have been removed
+                return Math.min(getInt(SystemUI.StackViewState.height, viewState), maxContentHeight);
+            }
+        }
+        return maxContentHeight;
+    }
+
+    private static int getLayoutHeight() {
+        return Math.min(getInt(mMaxLayoutHeight, mStackScrollLayout), getInt(mCurrentStackHeight, mStackScrollLayout));
     }
 }

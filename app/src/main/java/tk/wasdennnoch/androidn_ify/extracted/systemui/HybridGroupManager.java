@@ -18,11 +18,7 @@ package tk.wasdennnoch.androidn_ify.extracted.systemui;
 
 import android.app.Notification;
 import android.content.Context;
-import android.text.BidiFormatter;
-import android.text.Spannable;
-import android.text.SpannableStringBuilder;
-import android.text.TextUtils;
-import android.text.style.TextAppearanceSpan;
+import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -47,20 +43,38 @@ public class HybridGroupManager {
     }
 
     private HybridNotificationView inflateHybridView() {
-        LayoutInflater inflater = mContext.getSystemService(LayoutInflater.class);
-        HybridNotificationView hybrid = (HybridNotificationView) inflater.inflate(
+        HybridNotificationView hybrid = (HybridNotificationView) getLayoutInflater(mContext).inflate(
                 R.layout.hybrid_notification, mParent, false);
         mParent.addView(hybrid);
         return hybrid;
     }
 
     private TextView inflateOverflowNumber() {
-        LayoutInflater inflater = mContext.getSystemService(LayoutInflater.class);
-        TextView numberView = (TextView) inflater.inflate(
+        TextView numberView = (TextView) getLayoutInflater(mContext).inflate(
                 R.layout.hybrid_overflow_number, mParent, false);
         mParent.addView(numberView);
         updateOverFlowNumberColor(numberView);
         return numberView;
+    }
+
+    private LayoutInflater getLayoutInflater(Context context) {
+        LayoutInflater inflater = LayoutInflater.from(context).cloneInContext(ResourceUtils.createOwnContext(context));
+        inflater.setFactory2(new LayoutInflater.Factory2() {
+            @Override
+            public View onCreateView(String name, Context context, AttributeSet attrs) {
+                if (name.equals(HybridNotificationView.class.getCanonicalName())) {
+                    return new HybridNotificationView(context, attrs);
+                } else {
+                    return null;
+                }
+            }
+
+            @Override
+            public View onCreateView(View parent, String name, Context context, AttributeSet attrs) {
+                return onCreateView(name, context, attrs);
+            }
+        });
+        return inflater;
     }
 
     private void updateOverFlowNumberColor(TextView numberView) {

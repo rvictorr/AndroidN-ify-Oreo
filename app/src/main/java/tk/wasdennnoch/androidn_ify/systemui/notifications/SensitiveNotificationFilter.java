@@ -25,6 +25,8 @@ import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.views.SensitiveFilterButton;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 import tk.wasdennnoch.androidn_ify.utils.SettingsUtils;
 
@@ -71,7 +73,7 @@ public class SensitiveNotificationFilter {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         Object row = param.args[0];
-                        Object sbn = XposedHelpers.getObjectField(row, "mStatusBarNotification");
+                        Object sbn = ReflectionUtils.get(Fields.SystemUI.ExpandableNotificationRow.mStatusBarNotification, row);
                         View guts = (View) XposedHelpers.getObjectField(row, "mGuts");
                         if (sbn == null || guts == null) return;
 
@@ -85,7 +87,7 @@ public class SensitiveNotificationFilter {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                         Object row = param.thisObject;
-                        Object sbn = XposedHelpers.getObjectField(row, "mStatusBarNotification");
+                        Object sbn = ReflectionUtils.get(Fields.SystemUI.ExpandableNotificationRow.mStatusBarNotification, row);
                         if (sbn == null) return;
 
                         if (mRows.containsKey(row)) {

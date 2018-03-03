@@ -28,7 +28,7 @@ public class PartialScreenshotTile extends QSTile {
         super(tilesManager, host, key);
 
         ResourceUtils res = ResourceUtils.getInstance(mContext);
-        mIcon = res.getDrawable(R.drawable.ic_crop);
+        mIcon = res.getResources().getDrawable(R.drawable.ic_crop, mContext.getTheme());
         mLabel = res.getString(R.string.partial_screenshot);
     }
 

@@ -1,5 +1,7 @@
 package tk.wasdennnoch.androidn_ify.utils;
 
+import android.widget.RemoteViews;
+
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 
@@ -12,12 +14,21 @@ public final class Classes {
 
         private static ClassLoader sClassLoader;
 
+        public static Class remoteViewsOnClickHandler;
+
         private Android() {}
 
         public static void init(ClassLoader classLoader) {
             sClassLoader = classLoader;
 
+            remoteViewsOnClickHandler = XposedHelpers.findClass(RemoteViews.class.getName() + "$OnClickHandler", sClassLoader);
+
             Methods.Android.init();
+            Fields.Android.init();
+        }
+
+        public static ClassLoader getClassLoader() {
+            return sClassLoader;
         }
     }
 
@@ -27,8 +38,12 @@ public final class Classes {
         private static ClassLoader sClassLoader;
 
         public static Class SystemUIApplication;
+        public static Class ExpandHelper;
+        public static Class ViewScaler;
 
         public static Class BaseStatusBar;
+        public static Class NotificationData;
+        public static Class NotificationDataEntry;
         public static Class PhoneStatusBar;
         public static Class StatusBarHeaderView;
         public static Class LayoutValues;
@@ -37,9 +52,12 @@ public final class Classes {
         public static Class ObservableScrollView;
         public static Class ScrimController;
         public static Class HeadsUpManager;
+        public static Class HeadsUpEntry;
         public static Class StatusBarClock;
         public static Class StatusBarWindowManager;
         public static Class StatusBarWindowManagerState;
+        public static Class NotificationGroupManager;
+        public static Class NotificationGroup;
 
         public static Class QSPanel;
         public static Class QSRecord;
@@ -50,6 +68,7 @@ public final class Classes {
         public static Class QSTileView;
         public static Class QSDetailItems;
 
+        public static Class NotificationBackgroundView;
         public static Class ExpandableView;
         public static Class ExpandableNotificationRow;
         public static Class ActivatableNotificationView;
@@ -57,6 +76,7 @@ public final class Classes {
 
         public static Class NotificationChildrenContainer;
         public static Class NotificationStackScrollLayout;
+        public static Class AnimationFilter;
         public static Class StackStateAnimator;
         public static Class StackScrollAlgorithm;
         public static Class StackScrollAlgorithmState;
@@ -79,8 +99,12 @@ public final class Classes {
             sClassLoader = classLoader;
 
             SystemUIApplication = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".SystemUIApplication", classLoader);
+            ExpandHelper = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".ExpandHelper", classLoader);
+            ViewScaler = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".ExpandHelper$ViewScaler", classLoader);
 
             BaseStatusBar = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.BaseStatusBar", classLoader);
+            NotificationData = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.NotificationData", classLoader);
+            NotificationDataEntry = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.NotificationData$Entry", classLoader);
             PhoneStatusBar = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.phone.PhoneStatusBar", classLoader);
             StatusBarHeaderView = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.phone.StatusBarHeaderView", classLoader);
             LayoutValues = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.phone.StatusBarHeaderView$LayoutValues", classLoader);
@@ -88,12 +112,16 @@ public final class Classes {
             PanelView = XposedHelpers.findClass(PACKAGE_SYSTEMUI +  ".statusbar.phone.PanelView", classLoader);
             ObservableScrollView = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.phone.ObservableScrollView", classLoader);
             ScrimController = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.phone.ScrimController", classLoader);
+            NotificationGroupManager = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.phone.NotificationGroupManager", classLoader);
+            NotificationGroup = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.phone.NotificationGroupManager$NotificationGroup", classLoader);
 
             HeadsUpManager = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.policy.HeadsUpManager", classLoader);
+            HeadsUpEntry = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.policy.HeadsUpManager$HeadsUpEntry", classLoader);
             StatusBarClock = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.policy.Clock", classLoader);
 
             NotificationStackScrollLayout = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.NotificationStackScrollLayout", classLoader);
             NotificationChildrenContainer = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.NotificationChildrenContainer", classLoader);
+            AnimationFilter = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.AnimationFilter", classLoader);
             StackStateAnimator = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.StackStateAnimator", classLoader);
             StackScrollAlgorithm = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.StackScrollAlgorithm", classLoader);
             StackScrollAlgorithmState = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.stack.StackScrollAlgorithm.StackScrollAlgorithmState", classLoader);
@@ -105,6 +133,7 @@ public final class Classes {
             StatusBarWindowManager = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.phone.StatusBarWindowManager", classLoader);
             StatusBarWindowManagerState = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.phone.StatusBarWindowManager.State", classLoader);
 
+            NotificationBackgroundView = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.NotificationBackgroundView", classLoader);
             ExpandableView = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.ExpandableView", classLoader);
             ExpandableNotificationRow = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.ExpandableNotificationRow", classLoader);
             NotificationContentView = XposedHelpers.findClass(PACKAGE_SYSTEMUI + ".statusbar.NotificationContentView", classLoader);

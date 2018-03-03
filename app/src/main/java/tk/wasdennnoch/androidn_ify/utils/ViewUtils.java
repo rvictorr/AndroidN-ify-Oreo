@@ -8,6 +8,7 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Icon;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,10 +16,13 @@ import android.view.ViewRootImpl;
 import android.widget.TextView;
 
 import java.util.Locale;
+import java.util.Objects;
 
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
+
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 
 @SuppressWarnings("SameParameterValue")
 public class ViewUtils {
@@ -125,5 +129,28 @@ public class ViewUtils {
         int mPrivateFlags3 = XposedHelpers.getIntField(view, "mPrivateFlags3");
         XposedHook.logD("viewutils", "isTemporarilyDetached called, result: " + ((mPrivateFlags3 & 0x2000000) != 0));
         return (mPrivateFlags3 & 0x2000000/* PFLAG3_TEMPORARY_DETACH*/) != 0;
+    }
+
+    public static boolean sameAs(Icon thisIcon, Icon otherIcon) {
+        if (otherIcon == thisIcon) {
+            return true;
+        }
+        if (get(Fields.Android.Icon.mType, thisIcon) != get(Fields.Android.Icon.mType, otherIcon)) {
+            return false;
+        }
+        switch (getInt(Fields.Android.Icon.mType, thisIcon)) {
+            case 1 /*TYPE_BITMAP*/:
+                return invoke(Methods.Android.Icon.getBitmap, thisIcon) == invoke(Methods.Android.Icon.getBitmap, otherIcon);
+            case 3 /*TYPE_DATA*/:
+                return invoke(Methods.Android.Icon.getDataLength, thisIcon) == invoke(Methods.Android.Icon.getDataLength, otherIcon)
+                        && invoke(Methods.Android.Icon.getDataOffset, thisIcon) == invoke(Methods.Android.Icon.getDataOffset, otherIcon)
+                        && invoke(Methods.Android.Icon.getDataBytes, thisIcon) == invoke(Methods.Android.Icon.getDataBytes, otherIcon);
+            case 2 /*TYPE_RESOURCE*/:
+                return invoke(Methods.Android.Icon.getResId, thisIcon) == invoke(Methods.Android.Icon.getResId, otherIcon)
+                        && Objects.equals(invoke(Methods.Android.Icon.getResPackage, thisIcon), invoke(Methods.Android.Icon.getResPackage, otherIcon));
+            case 4 /*TYPE_URI*/:
+                return Objects.equals(invoke(Methods.Android.Icon.getUriString, thisIcon), invoke(Methods.Android.Icon.getUriString, otherIcon));
+        }
+        return false;
     }
 }

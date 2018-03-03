@@ -30,6 +30,8 @@ import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.ButtonRelativeLayout;
 import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.QSTile;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static android.view.View.GONE;
@@ -180,7 +182,7 @@ public class QuickSettingsTileHooks {
                 int h = View.MeasureSpec.getSize(heightMeasureSpec);
                 mIconFrame.measure(View.MeasureSpec.makeMeasureSpec(mIconSizePx, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(mIconSizePx, View.MeasureSpec.EXACTLY));
                 labelContainer.measure(widthMeasureSpec, View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.AT_MOST));
-                XposedHelpers.callMethod(qsTileView, "setMeasuredDimension", w, h);
+                ReflectionUtils.invoke(Methods.Android.View.setMeasuredDimension, qsTileView, w, h);
                 return null;
             }
         });

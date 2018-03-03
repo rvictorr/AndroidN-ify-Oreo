@@ -52,7 +52,7 @@ public class BatteryTile extends QSTile implements BatteryInfoManager.BatterySta
     public BatteryTile(Context context, TilesManager tilesManager, Object host, String key) {
         super(tilesManager, host, key);
         SystemUIHooks.batteryInfoManager.registerListener(this);
-         mBatteryDetail = DetailViewManager.getInstance().createProxy(context, mDetail);
+        mBatteryDetail = DetailViewManager.getInstance().createProxy(context, mDetail);
     }
 
     @Override
@@ -152,6 +152,10 @@ public class BatteryTile extends QSTile implements BatteryInfoManager.BatterySta
         public BatteryView(Context context) {
             super(context);
             mDrawable.setHasIntrinsicSize(false);
+            if (ConfigUtils.qs().enable_theming) { //TODO: do this in a callback instead.
+                mDrawable.setDarkIntensity(1.0f);
+                invalidate();
+            }
             setImageDrawable(mDrawable);
 
             int padding = Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2,

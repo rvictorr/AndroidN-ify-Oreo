@@ -3,6 +3,8 @@ package tk.wasdennnoch.androidn_ify.systemui.notifications;
 import android.app.Notification;
 
 import de.robv.android.xposed.XposedHelpers;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 
 public class SensitiveNotificationRow implements SensitiveNotificationFilter.SensitiveFilterListener {
 
@@ -37,6 +39,6 @@ public class SensitiveNotificationRow implements SensitiveNotificationFilter.Sen
     }
 
     private void updateSensitive() {
-        XposedHelpers.setBooleanField(mRow, "mSensitive", (mEnabled && mPrivate) || mSensitive);
+        ReflectionUtils.set(Fields.SystemUI.ExpandableNotificationRow.mSensitive, mRow, (mEnabled && mPrivate) || mSensitive);
     }
 }

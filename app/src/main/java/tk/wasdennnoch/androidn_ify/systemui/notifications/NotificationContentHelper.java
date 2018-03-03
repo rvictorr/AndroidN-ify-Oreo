@@ -10,8 +10,10 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import java.lang.reflect.Field;
+import java.util.HashMap;
 
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
@@ -24,6 +26,8 @@ import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationViewWrapper;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.RemoteInputController;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.RemoteInputView;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.TransformableView;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationGroupManagerHooks;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
 import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.NotificationColorUtil;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
@@ -34,25 +38,22 @@ import static tk.wasdennnoch.androidn_ify.systemui.SystemUIHooks.post;
 import static  tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff.*;
 import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.NotificationContentView.*;
 import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.NotificationContentView.*;
 
 
 public class NotificationContentHelper {
     private static final String TAG = "NotificationContentHelper";
 
-    public static Field fieldVisibleType;
-    public static Field fieldContentHeight;
-    public static Field fieldShowingLegacyBackground;
-    public static Field fieldIsHeadsUp;
-
     private ResourceUtils res;
     private ExpandableNotificationRowHelper mRowHelper;
 
+    public Object mGroupManager;
     public RemoteInputController mRemoteInputController;
     public StatusBarNotification mStatusBarNotification;
     public View.OnClickListener mExpandClickListener;
 
-    public boolean mIsChildInGroup = false; //TODO implement
+    public boolean mIsChildInGroup;
 
     private FrameLayout mNotificationContentView;
     public View mContainingNotification;
@@ -142,24 +143,16 @@ public class NotificationContentHelper {
         return helper != null ? helper : new NotificationContentHelper(obj);
     }
 
-    public static void initFields() {
-
-        fieldVisibleType = XposedHelpers.findField(NotificationContentView, "mVisibleType");
-        fieldContentHeight = XposedHelpers.findField(NotificationContentView, "mContentHeight");
-        fieldShowingLegacyBackground = XposedHelpers.findField(NotificationContentView, "mShowingLegacyBackground");
-        fieldIsHeadsUp = XposedHelpers.findField(NotificationContentView, "mIsHeadsUp");
-    }
-
     public FrameLayout getContentView() {
         return mNotificationContentView;
     }
 
     public void onNotificationUpdated(Object entry) {
-        mStatusBarNotification = (StatusBarNotification) XposedHelpers.getObjectField(entry, "notification");
-        mBeforeN = XposedHelpers.getIntField(entry, "targetSdk") < Build.VERSION_CODES.N;
+        mStatusBarNotification = get(Fields.SystemUI.NotificationDataEntry.notification, entry);
+        mBeforeN = getInt(Fields.SystemUI.NotificationDataEntry.targetSdk, entry) < Build.VERSION_CODES.N;
         updateSingleLineView();
         applyRemoteInput(entry);
-        View row = (View) XposedHelpers.getObjectField(entry, "row");
+        View row = get(Fields.SystemUI.NotificationDataEntry.row, entry);
         if (mContractedChild != null) {
             mContractedWrapper.onContentUpdated(row);
         }
@@ -193,6 +186,18 @@ public class NotificationContentHelper {
             notifyHeightChanged(false*//* needsAnimation*//*);
         }
     }*/
+
+    public View getContractedChild() {
+        return mContractedChild;
+    }
+
+    public View getExpandedChild() {
+        return mExpandedChild;
+    }
+
+    public View getHeadsUpChild() {
+        return mHeadsUpChild;
+    }
 
     public void init() {
         mHybridGroupManager = new HybridGroupManager(getContentView().getContext(), getContentView());
@@ -288,7 +293,7 @@ public class NotificationContentHelper {
     }
 
     public void updateShowingLegacyBackground() {
-        boolean mShowingLegacyBackground = getBoolean(fieldShowingLegacyBackground, getContentView());
+        boolean mShowingLegacyBackground = getBoolean(Fields.SystemUI.NotificationContentView.mShowingLegacyBackground, getContentView());
         if (mContractedChild != null) {
             mContractedWrapper.setShowingLegacyBackground(mShowingLegacyBackground);
         }
@@ -302,7 +307,7 @@ public class NotificationContentHelper {
 
     public int getMinContentHeightHint() {
         if (mIsChildInGroup && isVisibleOrTransitioning(VISIBLE_TYPE_SINGLELINE)) {
-            return res.getResources().getDimensionPixelSize(
+            return res.getDimensionPixelSize(
                     R.dimen.notification_action_list_height);
         }
 
@@ -312,8 +317,8 @@ public class NotificationContentHelper {
                     isTransitioningFromTo(VISIBLE_TYPE_HEADSUP, VISIBLE_TYPE_EXPANDED) ||
                     isTransitioningFromTo(VISIBLE_TYPE_EXPANDED, VISIBLE_TYPE_HEADSUP);
             boolean pinned = !isVisibleOrTransitioning(VISIBLE_TYPE_CONTRACTED)
-                    && (!getBoolean(fieldIsHeadsUp, getContentView()) || mHeadsUpAnimatingAway)
-                    && !mRowHelper.isOnKeyguard();
+                    && (!getBoolean(mIsHeadsUp, getContentView()) || mHeadsUpAnimatingAway);
+//                    && !mRowHelper.isOnKeyguard();
             if (transitioningBetweenHunAndExpanded || pinned) {
                 return Math.min(mHeadsUpChild.getHeight(), mExpandedChild.getHeight());
             }
@@ -337,7 +342,7 @@ public class NotificationContentHelper {
         } else if (mExpandedChild != null) {
             hint = mExpandedChild.getHeight();
         } else {
-            hint = mContractedChild.getHeight() + res.getResources().getDimensionPixelSize(
+            hint = mContractedChild.getHeight() + res.getDimensionPixelSize(
                     R.dimen.notification_action_list_height);
         }
 
@@ -368,7 +373,7 @@ public class NotificationContentHelper {
             shownView.transformFrom(hiddenView, 0.0f);
             getViewForVisibleType(visibleType).setVisibility(VISIBLE);
             hiddenView.transformTo(shownView, 0.0f);
-            set(fieldVisibleType, getContentView(), visibleType);
+            set(mVisibleType, getContentView(), visibleType);
             updateBackgroundColor(true /*animate*/);
         }
         if (mForceSelectNextLayout) {
@@ -385,7 +390,7 @@ public class NotificationContentHelper {
             hiddenView.transformTo(shownView, transformationAmount);
             updateBackgroundTransformation(transformationAmount);
         } else {
-            invoke(updateViewVisibilities, getContentView(), visibleType);
+            invoke(updateViewVisibilities, getContentView(), visibleType); //TODO: here's the problem (expand button visible)
             updateBackgroundColor(false);
         }
     }
@@ -440,7 +445,7 @@ public class NotificationContentHelper {
     }*/
 
     public boolean isGroupExpanded() {
-        return /*mGroupManager.isGroupExpanded(mStatusBarNotification); */false; //TODO implement
+        return NotificationGroupManagerHooks.isGroupExpanded(mGroupManager, mStatusBarNotification);
     }
 
     /*public void setClipBottomAmount(int clipBottomAmount) {
@@ -464,7 +469,7 @@ public class NotificationContentHelper {
 //        fireExpandedVisibleListenerIfVisible();
         // forceUpdateVisibilities cancels outstanding animations without updating the
         // mAnimationStartVisibleType. Do so here instead.
-        mAnimationStartVisibleType = UNDEFINED;
+//        mAnimationStartVisibleType = UNDEFINED;
     }
 
     /*public void fireExpandedVisibleListenerIfVisible() {
@@ -496,18 +501,18 @@ public class NotificationContentHelper {
     }
 
     public int getVisibleType() {
-        return getInt(fieldVisibleType, getContentView());
+        return getInt(mVisibleType, getContentView());
     }
 
     public int getContentHeight() {
-        return getInt(fieldContentHeight, getContentView());
+        return getInt(mContentHeight, getContentView());
     }
 
     public int getBackgroundColorForExpansionState() {
         // When expanding or user locked we want the new type, when collapsing we want
         // the original type
-        final int visibleType = (/*mContainingNotification.isGroupExpanded()
-                || */invoke(Methods.SystemUI.ExpandableNotificationRow.isUserLocked, mContainingNotification))
+        final int visibleType = (getContainingHelper().isGroupExpanded()
+                || (boolean) invoke(Methods.SystemUI.ExpandableNotificationRow.isUserLocked, mContainingNotification))
                 ? (int) invoke(calculateVisibleType, getContentView())
                 : getVisibleType();
         return getBackgroundColor(visibleType);
@@ -609,8 +614,8 @@ public class NotificationContentHelper {
             return VISIBLE_TYPE_SINGLELINE;
         }
 
-        if ((getBoolean(fieldIsHeadsUp, getContentView()) || mHeadsUpAnimatingAway) && mHeadsUpChild != null
-                && !mRowHelper.isOnKeyguard()) {
+        if ((getBoolean(mIsHeadsUp, getContentView()) || mHeadsUpAnimatingAway) && mHeadsUpChild != null
+               /* && !mRowHelper.isOnKeyguard()*/) {
             if (viewHeight <= mHeadsUpChild.getHeight() || noExpandedChild) {
                 return VISIBLE_TYPE_HEADSUP;
             } else {
@@ -619,7 +624,7 @@ public class NotificationContentHelper {
         } else {
             if (noExpandedChild || (viewHeight <= mContractedChild.getHeight()
                     && (!mIsChildInGroup || isGroupExpanded()
-                    || !(boolean) invoke(Methods.SystemUI.ExpandableNotificationRow.isExpanded, mContainingNotification/*, (true  *//*allowOnKeyguard*//* */)))) {
+                    || !ExpandableNotificationRowHelper.isExpanded(mContainingNotification, true  /*allowOnKeyguard*//* */)))) {
                 return VISIBLE_TYPE_CONTRACTED;
             } else {
                 return VISIBLE_TYPE_EXPANDED;
@@ -646,18 +651,18 @@ public class NotificationContentHelper {
 
     public void setIsChildInGroup(boolean isChildInGroup) {
         mIsChildInGroup = isChildInGroup;
-        /*if (mContractedChild != null) {
-            mContractedWrapper.setIsChildInGroup(mIsChildInGroup);
-        }
-        if (mExpandedChild != null) {
-            mExpandedWrapper.setIsChildInGroup(mIsChildInGroup);
-        }
-        if (mHeadsUpChild != null) {
-            mHeadsUpWrapper.setIsChildInGroup(mIsChildInGroup);
-        }
-        if (mAmbientChild != null) {
-            mAmbientWrapper.setIsChildInGroup(mIsChildInGroup);
-        }*/
+//        if (mContractedChild != null) {
+//            mContractedWrapper.setIsChildInGroup(mIsChildInGroup);
+//        }
+//        if (mExpandedChild != null) {
+//            mExpandedWrapper.setIsChildInGroup(mIsChildInGroup);
+//        }
+//        if (mHeadsUpChild != null) {
+//            mHeadsUpWrapper.setIsChildInGroup(mIsChildInGroup);
+//        }
+//        if (mAmbientChild != null) {
+//            mAmbientWrapper.setIsChildInGroup(mIsChildInGroup);
+//        }
         //updateAllSingleLineViews(); //TODO implement
         updateSingleLineView();
     }
@@ -667,7 +672,7 @@ public class NotificationContentHelper {
         updateAmbientSingleLineView();
     }*/
 
-    public void updateSingleLineView() {
+    private void updateSingleLineView() {
         if (mIsChildInGroup) {
             mSingleLineView = mHybridGroupManager.bindFromNotification(
                     mSingleLineView, mStatusBarNotification.getNotification());
@@ -694,7 +699,7 @@ public class NotificationContentHelper {
 
         boolean hasRemoteInput = false;
 
-        Notification notification = (Notification) XposedHelpers.callMethod(XposedHelpers.getObjectField(entry, "notification"), "getNotification");
+        Notification notification = ((StatusBarNotification) get(Fields.SystemUI.NotificationDataEntry.notification, entry)).getNotification();
         Notification.Action[] actions = notification.actions;
         if (actions != null) {
             for (Notification.Action a : actions) {
@@ -725,7 +730,7 @@ public class NotificationContentHelper {
         }
         mCachedExpandedRemoteInput = null;
 
-        View headsUpContentView = (View) XposedHelpers.getObjectField(getContentView(), "mHeadsUpChild");
+        View headsUpContentView = (View) get(Fields.SystemUI.NotificationContentView.mHeadsUpChild, getContentView());
         if (headsUpContentView != null) {
             mHeadsUpRemoteInput = applyRemoteInput(headsUpContentView, entry, hasRemoteInput,
                     mPreviousHeadsUpRemoteInputIntent, mCachedHeadsUpRemoteInput);
@@ -744,7 +749,7 @@ public class NotificationContentHelper {
                                             boolean hasRemoteInput, PendingIntent existingPendingIntent,
                                             RemoteInputView cachedView) {
         //TODO: I think the problem with the onKeyUp and down not working is somewhere here
-        Notification notification = (Notification) XposedHelpers.callMethod(XposedHelpers.getObjectField(entry, "notification"), "getNotification");
+        Notification notification = ((StatusBarNotification) get(Fields.SystemUI.NotificationDataEntry.notification, entry)).getNotification();
         View actionContainerCandidate = view.findViewById(
                 R.id.actions_container);
         if (actionContainerCandidate instanceof FrameLayout) {
@@ -814,9 +819,9 @@ public class NotificationContentHelper {
         }
     }
 
-    /*public void setGroupManager(NotificationGroupManager groupManager) {
+    public void setGroupManager(Object groupManager) {
         mGroupManager = groupManager;
-    }*/
+    }
 
     public void setRemoteInputController(RemoteInputController r) {
         mRemoteInputController = r;
@@ -829,8 +834,8 @@ public class NotificationContentHelper {
     public void updateExpandButtons(boolean expandable) {
         mExpandable = expandable;
         // if the expanded child has the same height as the collapsed one we hide it.
-        if (mExpandedChild != null && mExpandedChild.getHeight() != 0) {
-            if ((!getBoolean(fieldIsHeadsUp, getContentView()) && !mHeadsUpAnimatingAway)
+        if (mExpandedChild != null && mExpandedChild.getHeight() != 0) { //TODO: probably has something to do with the lockscreen issue
+            if ((!getBoolean(mIsHeadsUp, getContentView()) && !mHeadsUpAnimatingAway)
                     || mHeadsUpChild == null || mRowHelper.isOnKeyguard()) {
                 if (mExpandedChild.getHeight() == mContractedChild.getHeight()) {
                     expandable = false;
@@ -887,6 +892,7 @@ public class NotificationContentHelper {
         if (mIsChildInGroup && mSingleLineView != null) {
             getContentView().removeView(mSingleLineView);
             mSingleLineView = null;
+            updateSingleLineView();
             //updateAllSingleLineViews(); //TODO implement
         }
     }
@@ -897,7 +903,7 @@ public class NotificationContentHelper {
             mTransformationStartVisibleType = getVisibleType();
         } else {
             mTransformationStartVisibleType = UNDEFINED;
-            set(fieldVisibleType, getContentView(), invoke(calculateVisibleType, getContentView()));
+            set(mVisibleType, getContentView(), invoke(calculateVisibleType, getContentView()));
             invoke(updateViewVisibilities, getContentView(), getVisibleType());
             updateBackgroundColor(false);
         }

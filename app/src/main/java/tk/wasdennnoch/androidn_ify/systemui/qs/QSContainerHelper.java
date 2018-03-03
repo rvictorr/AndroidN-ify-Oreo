@@ -3,9 +3,12 @@ package tk.wasdennnoch.androidn_ify.systemui.qs;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
+import android.graphics.Outline;
 import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -73,13 +76,15 @@ public class QSContainerHelper {
         mQSDetail = StatusBarHeaderHooks.qsHooks.setupQsDetail(mQSPanel, mHeader, mQSFooter);
 
         mContext = mQSContainer.getContext();
+        int bgColor = android.support.v4.graphics.ColorUtils.setAlphaComponent(ColorUtils.getColorAttr(mContext, android.R.attr.colorPrimary), (int) (0.87 * 255));
+        res = ResourceUtils.getInstance(mContext);
 
         mQSContainer.addView(mQSDetail);
-        mQSContainer.setBackgroundColor(ColorUtils.getColorAttr(mContext, android.R.attr.colorPrimary));
+        mQSContainer.setBackgroundColor(res.getResources().getColor(R.color.qs_background_dark, mContext.getTheme()));
+//        mQSContainer.setBackgroundColor(bgColor);
 
         mFullElevation = mQSPanel.getElevation();
 
-        res = ResourceUtils.getInstance(mContext);
         mHeaderHeight = res.getDimensionPixelSize(R.dimen.status_bar_header_height);
         mGutterHeight = res.getDimensionPixelSize(R.dimen.qs_gutter_height);
 
@@ -106,7 +111,12 @@ public class QSContainerHelper {
 
         mBackground = new View(mContext);
         mBackground.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        mBackground.setBackgroundColor(ColorUtils.getColorAttr(mContext, android.R.attr.colorPrimary));
+        mBackground.setOutlineProvider(new ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, Outline outline) {
+                outline.setRect(-view.getWidth(), -view.getHeight(), 2 * view.getWidth(), view.getHeight()); //only the bottom part of the outline should be visible
+            }
+        }); //workaround for the shadow not being cast if the view is transparent
         mBackground.setElevation(res.getDimensionPixelSize(R.dimen.qs_container_elevation));
         mQSContainer.addView(mBackground, 0);
         mQSDetail.setElevation(res.getDimensionPixelSize(R.dimen.qs_container_elevation));
@@ -115,7 +125,7 @@ public class QSContainerHelper {
             reconfigureNotifPanel = true;
 
             mNotificationPanelView.removeView(mHeader);
-            mQSContainer.addView(mHeader, 2);
+            mQSContainer.addView(mHeader, 1);
             mQSContainer.setClipChildren(false);
             mQSContainer.setClipToPadding(false);
         }
@@ -152,7 +162,7 @@ public class QSContainerHelper {
         mQSPanel.setTranslationY(translationScaleY * heightDiff);
         mQSDetail.setFullyExpanded(expansion == 1);
 
-        XposedHelpers.callMethod(mHeader, "setExpansion", mIsKeyguardShowing ? 1 : expansion);
+        invoke(Methods.SystemUI.StatusBarHeaderView.setExpansion, mHeader, mIsKeyguardShowing ? 1 : expansion);
 
         // Set bounds on the QS panel so it doesn't run over the header.
         mQsBounds.top = (int) -mQSPanel.getTranslationY();
@@ -190,8 +200,6 @@ public class QSContainerHelper {
     }
 
     public void notificationPanelViewOnLayout(XC_MethodHook.MethodHookParam param) {
-        // TODO Too much work for changing just 2 integers? Maybe we could find a better way
-
         int left = (int) param.args[1], top = (int) param.args[2], right = (int) param.args[3], bottom = (int) param.args[4];
         FrameLayout notificationPanelView = (FrameLayout) param.thisObject;
 

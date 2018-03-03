@@ -494,7 +494,9 @@ public class TileAdapter extends RecyclerView.Adapter<TileAdapter.TileViewHolder
         private final ColorDrawable mDrawable;
 
         private TileItemDecoration(Context context) {
-            mDrawable = new ColorDrawable(ColorUtils.getColorAttr(context, android.R.attr.colorPrimaryDark)); //TODO finish theming this(see what to do since we're missing colorSecondary)
+            ResourceUtils res = ResourceUtils.getInstance(context);
+            int color = ConfigUtils.qs().enable_theming ? res.getColor(R.color.color_secondary_light) : res.getColor(R.color.color_secondary_dark);
+            mDrawable = new ColorDrawable(color);
         }
 
         @Override

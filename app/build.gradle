@@ -30,7 +30,7 @@ android {
     buildToolsVersion '27.0.3'
     defaultConfig {
         applicationId "tk.wasdennnoch.androidn_ify"
-        minSdkVersion 21
+        minSdkVersion 23
         //noinspection OldTargetApi
         targetSdkVersion 23
         versionCode 6
@@ -65,6 +65,10 @@ android {
         abortOnError false
     }
     useLibrary 'org.apache.http.legacy'
+    compileOptions {
+//        sourceCompatibility JavaVersion.VERSION_1_8
+//        targetCompatibility JavaVersion.VERSION_1_8
+    }
 }
 
 if (propFile.exists()) {

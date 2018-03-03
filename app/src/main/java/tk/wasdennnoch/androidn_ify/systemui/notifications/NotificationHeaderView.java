@@ -37,6 +37,7 @@ import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Chronometer;
+import android.widget.DateTimeView;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.RemoteViews;
@@ -44,6 +45,7 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 
+import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationExpandButton;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
@@ -98,7 +100,7 @@ public class NotificationHeaderView extends ViewGroup {
         ViewGroup.MarginLayoutParams iconLp = new MarginLayoutParams(iconSize, iconSize);
         iconLp.setMarginEnd(iconMarginEnd);
         ImageView icon = new ImageView(context);
-        icon.setId(android.R.id.icon);
+        icon.setId(R.id.icon);
         icon.setLayoutParams(iconLp);
         headerView.addView(icon);
 
@@ -266,7 +268,7 @@ public class NotificationHeaderView extends ViewGroup {
         if (mExpandButton != null) {
             mExpandButton.setAccessibilityDelegate(mExpandDelegate);
         }
-        mIcon = findViewById(android.R.id.icon);
+        mIcon = findViewById(R.id.icon);
         mProfileBadge = findViewById(R.id.profile_badge);
 
         post(new Runnable() {

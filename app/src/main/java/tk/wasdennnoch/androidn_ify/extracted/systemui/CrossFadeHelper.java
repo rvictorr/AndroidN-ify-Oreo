@@ -120,7 +120,7 @@ public class CrossFadeHelper {
      *
      * @see #fadeOut(View, float, boolean)
      */
-    public static void fadeIn(View view, float fadeInAmount, boolean remap) { //FIXME here
+    public static void fadeIn(View view, float fadeInAmount, boolean remap) { //TODO: here (for colorized media notifications)
         view.animate().cancel();
         if (view.getVisibility() == View.INVISIBLE) {
             view.setVisibility(View.VISIBLE);

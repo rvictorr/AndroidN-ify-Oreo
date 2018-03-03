@@ -42,8 +42,6 @@ public class SystemUIThemingHooks {
 
     public static void hook() {
 
-        if (!ConfigUtils.qs().enable_theming)
-            return;
 
         XposedHelpers.findAndHookMethod(Classes.SystemUI.SystemUIApplication, "onCreate", new XC_MethodHook() {
             @Override
@@ -57,10 +55,16 @@ public class SystemUIThemingHooks {
                 android.content.pm.PackageManager pm = app.getPackageManager();
                 Resources res = pm.getResourcesForApplication(XposedHook.PACKAGE_OWN);
 
-                themeContext.setTheme(res.getIdentifier("LightSystemUITheme", "style", XposedHook.PACKAGE_OWN));
+                int themeId = ConfigUtils.qs().enable_theming
+                        ? res.getIdentifier("LightSystemUITheme", "style", XposedHook.PACKAGE_OWN)
+                        : res.getIdentifier("DefaultSystemUITheme", "style", XposedHook.PACKAGE_OWN);
+                themeContext.setTheme(themeId);
                 app.getTheme().setTo(themeContext.getTheme());
             }
         });
+
+//        if (!ConfigUtils.qs().enable_theming)
+//            return;
 
         XposedHelpers.findAndHookMethod(QSTile.CLASS_RESOURCE_ICON, Classes.SystemUI.getClassLoader(), "getDrawable", Context.class, new XC_MethodHook() {
             @Override
@@ -91,13 +95,13 @@ public class SystemUIThemingHooks {
             @Override
             public void handleLayoutInflated(LayoutInflatedParam liparam) throws Throwable {
                 ViewGroup layout = (ViewGroup) liparam.view;
-                Context context = layout.getContext();
+                int color = ColorUtils.getColorAttr(layout.getContext(), android.R.attr.textColorPrimary);
                 ImageView icon = layout.findViewById(android.R.id.icon);
                 ImageView icon2 = layout.findViewById(android.R.id.icon2);
                 TextView title = layout.findViewById(android.R.id.title);
-                icon.setColorFilter(ColorUtils.getColorAttr(layout.getContext(), android.R.attr.textColorPrimary));
-                icon2.setColorFilter(ColorUtils.getColorAttr(layout.getContext(), android.R.attr.textColorPrimary));
-                title.setTextColor(ColorUtils.getColorAttr(context, android.R.attr.textColorPrimary));
+                icon.setColorFilter(color);
+                icon2.setColorFilter(color);
+                title.setTextColor(color);
             }
         });
 
@@ -117,27 +121,45 @@ public class SystemUIThemingHooks {
             }
         });
 
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "color", "system_primary_color", modRes.fwd(R.color.primary_material_settings_light));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_brightness_thumb", modRes.fwd(R.drawable.ic_brightness_thumb));
+        resparam.res.hookLayout(PACKAGE_SYSTEMUI, "layout", "data_usage", new XC_LayoutInflated() {
+            @Override
+            public void handleLayoutInflated(LayoutInflatedParam liparam) throws Throwable {
+                ViewGroup layout = (ViewGroup) liparam.view;
+                Context context = layout.getContext();
+                int color = ColorUtils.getColorAttr(context, android.R.attr.textColorPrimary);
+                ((TextView) layout.findViewById(android.R.id.title)).setTextColor(color);
+                ((TextView) layout.findViewById(context.getResources().getIdentifier("usage_text", "id", PACKAGE_SYSTEMUI))).setTextColor(color);
+                ((TextView) layout.findViewById(context.getResources().getIdentifier("usage_carrier_text", "id", PACKAGE_SYSTEMUI))).setTextColor(color);
+                ((TextView) layout.findViewById(context.getResources().getIdentifier("usage_info_top_text", "id", PACKAGE_SYSTEMUI))).setTextColor(color);
+                ((TextView) layout.findViewById(context.getResources().getIdentifier("usage_period_text", "id", PACKAGE_SYSTEMUI))).setTextColor(color);
+                ((TextView) layout.findViewById(context.getResources().getIdentifier("usage_info_bottom_text", "id", PACKAGE_SYSTEMUI))).setTextColor(color);
+            }
+        });
 
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_alarm", modRes.fwd(R.drawable.ic_volume_alarm));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_alarm_mute", modRes.fwd(R.drawable.ic_volume_alarm_mute));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_bt_sco", modRes.fwd(R.drawable.ic_volume_bt_sco));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_media", modRes.fwd(R.drawable.ic_volume_media));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_media_bt", modRes.fwd(R.drawable.ic_volume_media_bt));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_media_bt_mute", modRes.fwd(R.drawable.ic_volume_media_bt_mute));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_media_mute", modRes.fwd(R.drawable.ic_volume_media_mute));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_remote", modRes.fwd(R.drawable.ic_volume_remote));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_remote_mute", modRes.fwd(R.drawable.ic_volume_remote_mute));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_ringer", modRes.fwd(R.drawable.ic_volume_ringer));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_ringer_mute", modRes.fwd(R.drawable.ic_volume_ringer_mute));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_ringer_vibrate", modRes.fwd(R.drawable.ic_volume_ringer_vibrate));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_system", modRes.fwd(R.drawable.ic_volume_system));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_system_mute", modRes.fwd(R.drawable.ic_volume_system_mute));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_expand", modRes.fwd(R.drawable.ic_volume_expand));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_collapse", modRes.fwd(R.drawable.ic_volume_collapse));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_expand_animation", modRes.fwd(R.drawable.ic_volume_expand_animation));
-        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_collapse_animation", modRes.fwd(R.drawable.ic_volume_collapse_animation));
+        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "color", "system_primary_color", modRes.fwd(R.color.primary_material_settings_light));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "color", "system_accent_color", modRes.fwd(R.color.));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "color", "data_usage_secondary", modRes.fwd(R.color.text_color_secondary));
+        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_brightness_thumb", modRes.fwd(R.drawable.ic_brightness_thumb));
+        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "brightness_mirror_background", modRes.fwd(R.drawable.brightness_mirror_background));
+
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_alarm", modRes.fwd(R.drawable.ic_volume_alarm));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_alarm_mute", modRes.fwd(R.drawable.ic_volume_alarm_mute));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_bt_sco", modRes.fwd(R.drawable.ic_volume_bt_sco));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_media", modRes.fwd(R.drawable.ic_volume_media));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_media_bt", modRes.fwd(R.drawable.ic_volume_media_bt));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_media_bt_mute", modRes.fwd(R.drawable.ic_volume_media_bt_mute));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_media_mute", modRes.fwd(R.drawable.ic_volume_media_mute));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_remote", modRes.fwd(R.drawable.ic_volume_remote));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_remote_mute", modRes.fwd(R.drawable.ic_volume_remote_mute));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_ringer", modRes.fwd(R.drawable.ic_volume_ringer));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_ringer_mute", modRes.fwd(R.drawable.ic_volume_ringer_mute));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_ringer_vibrate", modRes.fwd(R.drawable.ic_volume_ringer_vibrate));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_system", modRes.fwd(R.drawable.ic_volume_system));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_system_mute", modRes.fwd(R.drawable.ic_volume_system_mute));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_expand", modRes.fwd(R.drawable.ic_volume_expand));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_collapse", modRes.fwd(R.drawable.ic_volume_collapse));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_expand_animation", modRes.fwd(R.drawable.ic_volume_expand_animation));
+//        resparam.res.setReplacement(PACKAGE_SYSTEMUI, "drawable", "ic_volume_collapse_animation", modRes.fwd(R.drawable.ic_volume_collapse_animation));
 
         //resparam.res.setReplacement(XposedHook.PACKAGE_SYSTEMUI, "color", "qs_text", ColorUtils.getColorAttr(AndroidAppHelper.currentApplication(), android.R.attr.textColorPrimary));
     }

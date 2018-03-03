@@ -15,17 +15,23 @@
   ~ limitations under the License
   -->
 
-<FrameLayout xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="wrap_content"
-    android:layout_height="@dimen/notification_header_height"
+<NotificationHeaderView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    tools:ignore="UnusedResources">
+    android:id="@+id/notification_header"
+    android:orientation="horizontal"
+    android:layout_width="wrap_content"
+    android:layout_height="53dp"
+    android:clipChildren="false"
+    android:paddingTop="10dp"
+    android:paddingBottom="16dp"
+    android:paddingStart="@dimen/notification_content_start_margin"
+    android:paddingEnd="16dp">
     <ImageView
         android:id="@+id/icon"
         android:layout_width="18dp"
         android:layout_height="18dp"
         android:layout_marginEnd="3dp"
-        tools:ignore="ContentDescription" />
+        />
     <TextView
         android:id="@+id/app_name_text"
         android:layout_width="wrap_content"
@@ -63,9 +69,9 @@
         android:text="@string/notification_header_divider_symbol"
         android:singleLine="true"
         android:visibility="gone"/>
-    <DateTimeView
+    <RelativeDateTimeView
         android:id="@+id/time"
-        android:textAppearance="@android:style/TextAppearance.Material.Notification.Time"
+        android:textAppearance="@android:style/TextAppearance.Material.Notification.Info"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
@@ -81,13 +87,24 @@
         android:layout_marginEnd="2dp"
         android:layout="@layout/notification_template_part_chronometer"
         android:visibility="gone"
-        tools:ignore="PrivateResource" />
-    <ImageView
+        />
+    <NotificationExpandButton
         android:id="@+id/expand_button"
         android:background="@null"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:paddingTop="1dp"
         android:visibility="gone"
-        tools:ignore="ContentDescription" />
-</FrameLayout>
+        />
+    <ImageView
+        android:id="@+id/profile_badge"
+        android:layout_width="@dimen/notification_badge_size"
+        android:layout_height="@dimen/notification_badge_size"
+        android:layout_gravity="center"
+        android:layout_marginStart="4dp"
+        android:paddingTop="1dp"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        />
+</NotificationHeaderView>
+

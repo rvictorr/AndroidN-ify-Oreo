@@ -31,6 +31,7 @@ import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationPanelViewH
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.ScrimHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationGroupManagerHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.StackScrollAlgorithmHooks;
 import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.misc.LiveDisplayObserver;
 import tk.wasdennnoch.androidn_ify.systemui.recents.doubletap.DoubleTapHwKeys;
@@ -148,9 +149,9 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
                 SettingsHooks.hook(lpparam.classLoader);
                 break;
             case PACKAGE_SYSTEMUI:
-                Classes.SystemUI.init(lpparam.classLoader); //TODO: maybe init these on a different thread or something?
+                Classes.SystemUI.init(lpparam.classLoader);
                 Classes.Keyguard.init(lpparam.classLoader);
-                Classes.Android.init(lpparam.classLoader); //for some reason this need to be initialized again here
+                Classes.Android.init(lpparam.classLoader); //for some reason this needs to be initialized again here
                 SystemUIHooks.hookSystemUI();
                 SystemUIThemingHooks.hook();
                 ScreenshotHooks.hook();
@@ -160,6 +161,7 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
                 StackScrollAlgorithmHooks.hook();
                 ActivatableNotificationViewHooks.hook();
                 NotificationsStuff.hook();
+                NotificationGroupManagerHooks.hook();
                 NotificationHooks.hookSystemUI();
                 ScrimHooks.hook();
                 RecentsStackHooks.hookSystemUI();

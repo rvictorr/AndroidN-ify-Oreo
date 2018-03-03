@@ -215,6 +215,7 @@ public class ConfigUtils {
         public final boolean change_colors;
         public final int keyguard_max;
         public final int actions_color;
+        public final boolean enable_bundled_notifications;
 
         public List<String> blacklistedApps;
 
@@ -232,6 +233,7 @@ public class ConfigUtils {
             filter_sensitive_notifications = M && EXPERIMENTAL;
             keyguard_max = prefs.getInt("notification_keyguard_max", 3);
             actions_color = prefs.getInt("actions_background_colors", 0);
+            enable_bundled_notifications = prefs.getBoolean("enable_bundled_notifications", false) && EXPERIMENTAL;
         }
 
         public void loadBlacklistedApps() {

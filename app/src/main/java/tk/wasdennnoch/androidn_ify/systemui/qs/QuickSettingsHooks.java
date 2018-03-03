@@ -25,6 +25,8 @@ import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static android.view.View.INVISIBLE;
@@ -336,7 +338,7 @@ public class QuickSettingsHooks {
             h = mDetail.getMeasuredHeight();
         }
 
-        XposedHelpers.callMethod(mQsPanel, "setMeasuredDimension", width, h);
+        ReflectionUtils.invoke(Methods.Android.View.setMeasuredDimension, mQsPanel, width, h);
     }
 
     protected void onLayout() {

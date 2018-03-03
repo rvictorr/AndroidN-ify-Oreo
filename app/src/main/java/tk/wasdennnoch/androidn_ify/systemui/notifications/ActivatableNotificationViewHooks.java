@@ -24,11 +24,13 @@ import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationStac
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
 import tk.wasdennnoch.androidn_ify.utils.Fields;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
 
 import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
 import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.ExpandableView.*;
 import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.ActivatableNotificationView.*;
+import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.ActivatableNotificationView.*;
 
 public class ActivatableNotificationViewHooks {
 
@@ -41,20 +43,10 @@ public class ActivatableNotificationViewHooks {
     private static final int ACTIVATE_ANIMATION_LENGTH = 220;
     private static final int DARK_ANIMATION_LENGTH = 170;
 
-    private static Method methodCancelAppearAnimation;
-    private static Method methodStartActivateAnimation;
-    private static Method methodFadeDimmedBackground;
-    private static Method methodUpdateAppearAnimationAlpha;
-    private static Method methodUpdateAppearRect;
-    private static Method methodEnableAppearDrawing;
-    private static Method methodFadeInFromDark;
-    private static Method methodSetContentAlpha;
-
-    private static Field fieldOnActivatedListener;
-
     private static int mBackgroundNormalVisibility;
     private static int mBackgroundDimmedVisibility;
     private static boolean tempDark;
+    private static boolean tempActivated;
 
     private static final Interpolator ACTIVATE_INVERSE_INTERPOLATOR
             = new PathInterpolator(0.6f, 0, 0.5f, 1);
@@ -68,23 +60,13 @@ public class ActivatableNotificationViewHooks {
             if (!ConfigUtils.notifications().enable_notifications_background)
                 return;
 
-            methodCancelAppearAnimation = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "cancelAppearAnimation");
-            methodStartActivateAnimation = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "startActivateAnimation", boolean.class);
-            methodFadeDimmedBackground = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "fadeDimmedBackground");
-            methodUpdateAppearAnimationAlpha = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "updateAppearAnimationAlpha");
-            methodUpdateAppearRect = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "updateAppearRect");
-            methodEnableAppearDrawing = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "enableAppearDrawing", boolean.class);
-            methodFadeInFromDark = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "fadeInFromDark", long.class);
-            methodSetContentAlpha = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "setContentAlpha", float.class);
-            fieldOnActivatedListener = XposedHelpers.findField(ActivatableNotificationView, "mOnActivatedListener");
-
-            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "onFinishInflate", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
-                    helper.updateOutlineAlpha();
-                }
-            });
+//            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "onFinishInflate", new XC_MethodHook() {
+//                @Override
+//                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+//                    ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
+//                    helper.onFinishInflate();
+//                }
+//            });
 
             XposedHelpers.findAndHookMethod(ActivatableNotificationView, "setTintColor", int.class, new XC_MethodReplacement() {
                 @Override
@@ -97,16 +79,26 @@ public class ActivatableNotificationViewHooks {
 
             XposedHelpers.findAndHookMethod(ActivatableNotificationView, "updateBackground", new XC_MethodHook() {
                 @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    tempActivated = getBoolean(Fields.SystemUI.ActivatableNotificationView.mActivated, param.thisObject);
+                }
+
+                @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
                     View mBackgroundNormal = helper.getBackgroundNormal();
+                    View mBackgroundDimmed = helper.getBackgroundDimmed();
                     if (!getBoolean(mDark, param.thisObject)) {
-                        if (getBoolean(mDimmed, param.thisObject))
-                            mBackgroundNormal.setVisibility((getBoolean(mActivated, param.thisObject)
+                        if (getBoolean(mDimmed, param.thisObject)) {
+                            // When groups are animating to the expanded state from the lockscreen, show the
+                            // normal background instead of the dimmed background
+                            final boolean dontShowDimmed = helper.isGroupExpansionChanging() && helper.isChildInGroup();
+                            mBackgroundDimmed.setVisibility(dontShowDimmed ? View.INVISIBLE : View.VISIBLE);
+                            mBackgroundNormal.setVisibility((tempActivated || dontShowDimmed)
                                     ? View.VISIBLE
-                                    : View.INVISIBLE));
-                        else
-                            XposedHelpers.callMethod(param.thisObject, "makeInactive", false);
+                                    : View.INVISIBLE);
+                        } else
+                            invoke(Methods.SystemUI.ActivatableNotificationView.makeInactive, param.thisObject, false);
                     }
                     helper.setNormalBackgroundVisibilityAmount(mBackgroundNormal.getVisibility() == View.VISIBLE ? 1.0f : 0.0f);
                 }
@@ -129,7 +121,7 @@ public class ActivatableNotificationViewHooks {
                     if (enable != getBoolean(mDrawingAppearAnimation, param.thisObject)) {
                         set(mDrawingAppearAnimation, param.thisObject, enable);
                         if (!enable) {
-                            invoke(methodSetContentAlpha, param.thisObject, 1.0f);
+                            invoke(setContentAlpha, param.thisObject, 1.0f);
                             set(mAppearAnimationFraction, param.thisObject, -1);
                             helper.setOutlineRect(null);
                         }
@@ -177,7 +169,7 @@ public class ActivatableNotificationViewHooks {
                 set(mDimmed, expandableView, dimmed);
                 helper.resetBackgroundAlpha();
                 if (fade) {
-                    invoke(methodFadeDimmedBackground, expandableView);
+                    invoke(Methods.SystemUI.ActivatableNotificationView.fadeDimmedBackground, expandableView);
                 } else {
                     helper.updateBackground();
                 }
@@ -197,7 +189,7 @@ public class ActivatableNotificationViewHooks {
             long duration = (long) param.args[3];
             final Runnable onFinishedRunnable = (Runnable) param.args[4];
             float appearAnimationFraction = getFloat(mAppearAnimationFraction, expandableView);
-            invoke(methodCancelAppearAnimation, expandableView);
+            invoke(cancelAppearAnimation, expandableView);
             set(mAnimationTranslationY, expandableView, translationDirection * (int) invoke(getActualHeight, expandableView));
             if (appearAnimationFraction == -1.0f) {
                 // not initialized yet, we start anew
@@ -228,15 +220,15 @@ public class ActivatableNotificationViewHooks {
                 @Override
                 public void onAnimationUpdate(ValueAnimator animation) {
                     set(mAppearAnimationFraction, expandableView, animation.getAnimatedValue());
-                    invoke(methodUpdateAppearAnimationAlpha, expandableView);
-                    invoke(methodUpdateAppearRect, expandableView);
+                    invoke(updateAppearAnimationAlpha, expandableView);
+                    invoke(Methods.SystemUI.ActivatableNotificationView.updateAppearRect, expandableView);
                     expandableView.invalidate();
                 }
             });
             if (delay > 0) {
                 // we need to apply the initial state already to avoid drawn frames in the wrong state
-                invoke(methodUpdateAppearAnimationAlpha, expandableView);
-                invoke(methodUpdateAppearRect, expandableView);
+                invoke(updateAppearAnimationAlpha, expandableView);
+                invoke(Methods.SystemUI.ActivatableNotificationView.updateAppearRect, expandableView);
                 mAppearAnimator.setStartDelay(delay);
             }
             mAppearAnimator.addListener(new AnimatorListenerAdapter() {
@@ -248,7 +240,7 @@ public class ActivatableNotificationViewHooks {
                         onFinishedRunnable.run();
                     }
                     if (!mWasCancelled) {
-                        invoke(methodEnableAppearDrawing, expandableView, false);
+                        invoke(enableAppearDrawing, expandableView, false);
                         if (Classes.SystemUI.ExpandableNotificationRow.isInstance(expandableView))
                             helper.onAppearAnimationFinished(isAppearing);
                     }
@@ -269,7 +261,7 @@ public class ActivatableNotificationViewHooks {
         }
     };
 
-    private static XC_MethodHook setDarkHook = new XC_MethodHook() { //TODO: optimize
+    private static XC_MethodHook setDarkHook = new XC_MethodHook() {
         @Override
         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
             Object expandableView = param.thisObject;
@@ -299,7 +291,7 @@ public class ActivatableNotificationViewHooks {
             tempDark = dark;
             helper.updateBackground();
             if (!dark && fade && !tempDark) {
-                invoke(methodFadeInFromDark, expandableView, delay);
+                invoke(Methods.SystemUI.ActivatableNotificationView.fadeInFromDark, expandableView, delay);
             }
             helper.updateOutlineAlpha();
         }
@@ -311,12 +303,12 @@ public class ActivatableNotificationViewHooks {
             final FrameLayout expandableView = (FrameLayout) param.thisObject;
             final ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
             final boolean reverse = (boolean) param.args[0];
-            View mBackgroundNormal = helper.getBackgroundNormal();
+            View mBackgroundNormal = get(Fields.SystemUI.ActivatableNotificationView.mBackgroundNormal, expandableView);
             if (!expandableView.isAttachedToWindow()) {
                 return null;
             }
             int widthHalf = mBackgroundNormal.getWidth()/2;
-            int heightHalf = ((int) XposedHelpers.callMethod(mBackgroundNormal, "getActualHeight"))/2;
+            int heightHalf = ((int) invoke(Methods.SystemUI.NotificationBackgroundView.getActualHeight, mBackgroundNormal))/2;
             float radius = (float) Math.sqrt(widthHalf*widthHalf + heightHalf*heightHalf);
             Animator animator;
             if (reverse) {
@@ -418,12 +410,12 @@ public class ActivatableNotificationViewHooks {
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             Object expandableView = param.thisObject;
             boolean animate = (boolean) param.args[0];
-            Object mOnActivatedListener = get(fieldOnActivatedListener, expandableView);
+            Object mOnActivatedListener = get(Fields.SystemUI.ActivatableNotificationView.mOnActivatedListener, expandableView);
             if (getBoolean(mActivated, expandableView)) {
                 set(mActivated, expandableView,  false);
                 if (getBoolean(mDimmed, expandableView)) {
                     if (animate) {
-                        invoke(methodStartActivateAnimation, expandableView,  true /* reverse */);
+                        invoke(Methods.SystemUI.ActivatableNotificationView.startActivateAnimation, expandableView,  true /* reverse */);
                     } else {
                         ExpandableOutlineViewHelper.getInstance(expandableView).updateBackground();
                     }
@@ -432,7 +424,7 @@ public class ActivatableNotificationViewHooks {
             if (mOnActivatedListener != null) {
                 XposedHelpers.callMethod(mOnActivatedListener, "onActivationReset", expandableView);
             }
-            ((FrameLayout) expandableView).removeCallbacks((Runnable) XposedHelpers.getObjectField(expandableView, "mTapTimeoutRunnable"));
+            ((FrameLayout) expandableView).removeCallbacks((Runnable) get(Fields.SystemUI.ActivatableNotificationView.mTapTimeoutRunnable, expandableView));
             return null;
         }
     };

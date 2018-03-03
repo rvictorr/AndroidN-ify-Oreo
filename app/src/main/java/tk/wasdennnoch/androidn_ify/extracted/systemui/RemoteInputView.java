@@ -28,7 +28,6 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.Spannable;
-import android.text.SpannableStringBuilder;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
@@ -56,6 +55,9 @@ import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationStackScrollLayoutHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.views.RemoteInputHelper;
+import tk.wasdennnoch.androidn_ify.utils.Classes;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 import tk.wasdennnoch.androidn_ify.utils.ViewUtils;
 
@@ -146,7 +148,7 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
         mSendButton.setVisibility(INVISIBLE);
         mProgressBar.setVisibility(VISIBLE);
         XposedHelpers.setAdditionalInstanceField(mEntry, "remoteInputText", mEditText.getText());
-        mController.addSpinning((String) XposedHelpers.getObjectField(mEntry, "key"), mToken);
+        mController.addSpinning((String) ReflectionUtils.get(Fields.SystemUI.NotificationDataEntry.key, mEntry), mToken);
         mController.removeRemoteInput(mEntry, mToken);
         mEditText.mShowImeOnInputConnection = false;
         mController.remoteInputSent(mEntry);
@@ -230,7 +232,7 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        if (NotificationsStuff.isChangingPosition(XposedHelpers.getObjectField(mEntry, "row"))) {
+        if (NotificationsStuff.isChangingPosition(ReflectionUtils.get(Fields.SystemUI.NotificationDataEntry.row, mEntry))) {
             if (getVisibility() == VISIBLE && mEditText.isFocusable()) {
                 mEditText.requestFocus();
             }
@@ -240,11 +242,11 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        if (NotificationsStuff.isChangingPosition(XposedHelpers.getObjectField(mEntry, "row")) || ViewUtils.isTemporarilyDetached(this)) {
+        if (NotificationsStuff.isChangingPosition(ReflectionUtils.get(Fields.SystemUI.NotificationDataEntry.row, mEntry)) || ViewUtils.isTemporarilyDetached(this)) {
             return;
         }
         mController.removeRemoteInput(mEntry, mToken);
-        mController.removeSpinning((String) XposedHelpers.getObjectField(mEntry, "key"), mToken);
+        mController.removeSpinning((String) ReflectionUtils.get(Fields.SystemUI.NotificationDataEntry.key, mEntry), mToken);
     }
 
     public void setPendingIntent(PendingIntent pendingIntent) {
@@ -295,7 +297,7 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
         mEditText.setEnabled(true);
         mSendButton.setVisibility(VISIBLE);
         mProgressBar.setVisibility(INVISIBLE);
-        mController.removeSpinning((String) XposedHelpers.getObjectField(mEntry, "key"), mToken);
+        mController.removeSpinning((String) ReflectionUtils.get(Fields.SystemUI.NotificationDataEntry.key, mEntry), mToken);
         updateSendButton();
         onDefocus(false /*animate*/);
 
@@ -351,8 +353,9 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
     public boolean requestScrollTo() {
         findScrollContainer();
         NotificationStackScrollLayoutHooks stackScrollLayoutHooks = NotificationHooks.mStackScrollLayoutHooks;
-        if (stackScrollLayoutHooks != null)
+        if (stackScrollLayoutHooks != null) {
             stackScrollLayoutHooks.lockScrollTo(mScrollContainerChild);
+        }
         return true;
     }
 
@@ -361,10 +364,10 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
             mScrollContainerChild = null;
             ViewParent p = this;
             while (p != null) {
-                if (mScrollContainerChild == null && p.getClass().getCanonicalName().equals(XposedHook.PACKAGE_SYSTEMUI + ".statusbar.ExpandableView")) {
+                if (mScrollContainerChild == null && Classes.SystemUI.ExpandableView.isInstance(p)) {
                     mScrollContainerChild = (View) p;
                 }
-                if (p.getParent().getClass().getCanonicalName().equals(XposedHook.PACKAGE_SYSTEMUI + ".statusbar.stack.NotificationStackScrollLayout")) {
+                if (Classes.SystemUI.NotificationStackScrollLayout.isInstance(p.getParent())) {
                     mScrollContainer = p.getParent();
                     if (mScrollContainerChild == null) {
                         mScrollContainerChild = (View) p;
@@ -482,7 +485,7 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
         }
 
         private void defocusIfNeeded(boolean animate) {
-            if (mRemoteInputView != null && NotificationsStuff.isChangingPosition(XposedHelpers.getObjectField(mRemoteInputView.mEntry, "row"))
+            if (mRemoteInputView != null && NotificationsStuff.isChangingPosition(ReflectionUtils.get(Fields.SystemUI.NotificationDataEntry.row, mRemoteInputView.mEntry))
                     || ViewUtils.isTemporarilyDetached(this)) {
                 if (ViewUtils.isTemporarilyDetached(this)) {
                     // We might get reattached but then the other one of HUN / expanded might steal

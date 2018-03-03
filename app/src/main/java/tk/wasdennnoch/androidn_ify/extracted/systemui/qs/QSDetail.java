@@ -95,8 +95,8 @@ public class QSDetail extends LinearLayout {
         mSetDetailRecord = setDetailRecord;
 
         Resources resources = mContext.getResources();
-        //noinspection deprecation
-        setBackground(resources.getDrawable(resources.getIdentifier("qs_detail_background", "drawable", PACKAGE_SYSTEMUI)));
+        ResourceUtils res = ResourceUtils.getInstance(mContext);
+        setBackground(res.getResources().getDrawable(R.drawable.qs_detail_background, mContext.getTheme()));
 
         addView(new ResizingSpace(mContext, ViewGroup.LayoutParams.MATCH_PARENT, R.dimen.qs_detail_margin_top));
 
@@ -129,7 +129,7 @@ public class QSDetail extends LinearLayout {
         mQsDetailHeader.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         mQsDetailHeader.setVisibility(VISIBLE);
         mQsDetailHeaderProgress.setImageDrawable(mContext.getDrawable(mContext.getResources().getIdentifier("indeterminate_anim", "drawable", PACKAGE_SYSTEMUI)));
-        mQsDetailHeaderProgress.setBackground(mContext.getDrawable(mContext.getResources().getIdentifier("qs_detail_progress_track", "color", PACKAGE_SYSTEMUI)));
+        mQsDetailHeaderProgress.setBackgroundColor(mContext.getResources().getColor(mContext.getResources().getIdentifier("qs_detail_progress_track", "color", PACKAGE_SYSTEMUI)));
         mQsDetailHeaderTitle.setTextColor(ColorUtils.getColorAttr(mContext, android.R.attr.textColorPrimary));
 
         updateDetailText();

@@ -1,7 +1,11 @@
 package tk.wasdennnoch.androidn_ify.systemui.notifications;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.content.res.Resources;
+import android.service.notification.StatusBarNotification;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,10 +20,13 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
+import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.NotificationUtils;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSFooter;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.stack.NotificationGroupManagerHooks;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
 import tk.wasdennnoch.androidn_ify.utils.Methods;
 
 import static tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationPanelHooks.getStatusBarState;
@@ -28,6 +35,7 @@ import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.*;
 import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.NotificationPanelView.*;
 import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.QSContainer.*;
 import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.NotificationPanelView.*;
+import static tk.wasdennnoch.androidn_ify.utils.Fields.SystemUI.NotificationStackScrollLayout.*;
 import static tk.wasdennnoch.androidn_ify.utils.Methods.SystemUI.NotificationStackScrollLayout.*;
 import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 
@@ -48,6 +56,8 @@ public class NotificationPanelViewHooks {
     private static ViewGroup mQSPanel;
     private static ViewGroup mStackScroller;
 
+    private static Object mGroupManager;
+
     private static Method methodCancelQsAnimation;
     private static Method methodCancelHeightAnimator;
     private static Method methodSetQsExpansion;
@@ -55,13 +65,8 @@ public class NotificationPanelViewHooks {
     private static Method methodSetQsExpanded;
     private static Method methodGetMaxPanelHeight;
 
-    private static Method methodGetNotGoneChildCount;
-    private static Method methodGetFirstChildNotGone;
-
     private static Method methodHasPinnedHeadsUp;
     private static Method methodGetTopHeadsUpHeight;
-    private static Method methodGetIntrinsicHeight;
-    private static Method methodGetPositionInLinearLayout;
     private static Method methodClampScrollPosition;
     private static Method methodIsScrolledToBottom;
 
@@ -83,12 +88,7 @@ public class NotificationPanelViewHooks {
     private static Field fieldClockPositionResult;
     private static Field fieldScrollYOverride;
 
-    private static Field fieldBottomStackSlowDownHeight;
-    private static Field fieldBottomStackPeekSize;
-    private static Field fieldMaxLayoutHeight;
     private static Field fieldIntrinsicPadding;
-    private static Field fieldPaddingBetweenElements;
-    private static Field fieldOwnScrollY;
     private static Field fieldCollapsedSize;
     private static Field fieldInterceptDelegateEnabled;
     private static Field fieldOnlyScrollingInThisMotion;
@@ -100,15 +100,9 @@ public class NotificationPanelViewHooks {
 
         try {
 
-            fieldBottomStackSlowDownHeight = XposedHelpers.findField(NotificationStackScrollLayout, "mBottomStackSlowDownHeight");
-            fieldBottomStackPeekSize = XposedHelpers.findField(NotificationStackScrollLayout, "mBottomStackPeekSize");
-            fieldMaxLayoutHeight = XposedHelpers.findField(NotificationStackScrollLayout, "mMaxLayoutHeight");
             fieldIntrinsicPadding = XposedHelpers.findField(NotificationStackScrollLayout, "mIntrinsicPadding");
-            fieldOwnScrollY = XposedHelpers.findField(NotificationStackScrollLayout, "mOwnScrollY");
             fieldCollapsedSize = XposedHelpers.findField(NotificationStackScrollLayout, "mCollapsedSize");
             fieldHeader = XposedHelpers.findField(NotificationPanelView, "mHeader");
-
-            methodGetFirstChildNotGone = XposedHelpers.findMethodBestMatch(NotificationStackScrollLayout, "getFirstChildNotGone");
 
             XposedHelpers.findAndHookMethod(NotificationPanelView, "onFinishInflate", onFinishInflateHook);
             
@@ -121,10 +115,7 @@ public class NotificationPanelViewHooks {
                 methodSetQsExpanded = XposedHelpers.findMethodBestMatch(NotificationPanelView, "setQsExpanded", boolean.class);
                 methodGetMaxPanelHeight = XposedHelpers.findMethodBestMatch(NotificationPanelView, "getMaxPanelHeight");
 
-                methodGetIntrinsicHeight = XposedHelpers.findMethodBestMatch(NotificationStackScrollLayout, "getIntrinsicHeight", View.class);
-                methodGetPositionInLinearLayout = XposedHelpers.findMethodBestMatch(NotificationStackScrollLayout, "getPositionInLinearLayout", View.class);
                 methodClampScrollPosition = XposedHelpers.findMethodBestMatch(NotificationStackScrollLayout, "clampScrollPosition");
-                methodGetNotGoneChildCount = XposedHelpers.findMethodBestMatch(NotificationStackScrollLayout, "getNotGoneChildCount");
                 methodIsScrolledToBottom = XposedHelpers.findMethodBestMatch(NotificationStackScrollLayout, "isScrolledToBottom");
 
                 methodHasPinnedHeadsUp = XposedHelpers.findMethodBestMatch(HeadsUpManager, "hasPinnedHeadsUp");
@@ -147,7 +138,6 @@ public class NotificationPanelViewHooks {
                 fieldTopPadding = XposedHelpers.findField(NotificationStackScrollLayout, "mTopPadding");
                 fieldTrackingHeadsUp = XposedHelpers.findField(NotificationStackScrollLayout, "mTrackingHeadsUp");
                 fieldHeadsUpManager = XposedHelpers.findField(NotificationStackScrollLayout, "mHeadsUpManager");
-                fieldPaddingBetweenElements = XposedHelpers.findField(NotificationStackScrollLayout, "mPaddingBetweenElements");
                 fieldInterceptDelegateEnabled = XposedHelpers.findField(NotificationStackScrollLayout, "mInterceptDelegateEnabled");
                 fieldOnlyScrollingInThisMotion = XposedHelpers.findField(NotificationStackScrollLayout, "mOnlyScrollingInThisMotion");
                 fieldDelegateToScrollView = XposedHelpers.findField(NotificationStackScrollLayout, "mDelegateToScrollView");
@@ -204,6 +194,41 @@ public class NotificationPanelViewHooks {
                 XposedHelpers.findAndHookMethod(ObservableScrollView, "onTouchEvent", MotionEvent.class, XC_MethodReplacement.returnConstant(false));
 
                 XposedHelpers.findAndHookMethod(StackScrollAlgorithm, "notifyChildrenChanged", ViewGroup.class, XC_MethodReplacement.DO_NOTHING);
+
+
+                XposedHelpers.findAndHookMethod(NotificationPanelView, "startQsSizeChangeAnimation", int.class, int.class, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(final MethodHookParam param) throws Throwable {
+                        int oldHeight = (int) param.args[0];
+                        int newHeight = (int) param.args[1];
+                        ValueAnimator qsSizeChangeAnimator = get(mQsSizeChangeAnimator, param.thisObject);
+                        if (qsSizeChangeAnimator != null) {
+                            oldHeight = (int) qsSizeChangeAnimator.getAnimatedValue();
+                            qsSizeChangeAnimator.cancel();
+                        }
+                        qsSizeChangeAnimator = ValueAnimator.ofInt(oldHeight, newHeight);
+                        qsSizeChangeAnimator.setDuration(300);
+                        qsSizeChangeAnimator.setInterpolator(Interpolators.FAST_OUT_SLOW_IN);
+                        final ValueAnimator finalQsSizeChangeAnimator = qsSizeChangeAnimator;
+                        qsSizeChangeAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                            @Override
+                            public void onAnimationUpdate(ValueAnimator animation) {
+                                invoke(requestScrollerTopPaddingUpdate, param.thisObject, false /* animate */);
+                                invoke(requestPanelHeightUpdate, param.thisObject);
+                                int height = (int) finalQsSizeChangeAnimator.getAnimatedValue();
+                                invoke(setHeightOverride, mQsContainer, height);
+                            }
+                        });
+                        qsSizeChangeAnimator.addListener(new AnimatorListenerAdapter() {
+                            @Override
+                            public void onAnimationEnd(Animator animation) {
+                                set(mQsSizeChangeAnimator, param.thisObject, null);
+                            }
+                        });
+                        qsSizeChangeAnimator.start();
+                        return null;
+                    }
+                });
             }
         } catch (Throwable t) {
             XposedHook.logE(TAG, "Error hooking NotificationPanelView ", t);
@@ -329,7 +354,7 @@ public class NotificationPanelViewHooks {
             mHeader.setVisibility((qsExpanded || !keyguardShowing || mHeaderAnimating)
                     ? View.VISIBLE
                     : View.INVISIBLE);
-            XposedHelpers.callMethod(mHeader, "setExpanded", ((keyguardShowing && !mHeaderAnimating)
+            invoke(Methods.SystemUI.StatusBarHeaderView.setExpanded, mHeader, ((keyguardShowing && !mHeaderAnimating)
                     || (qsExpanded && !mStackScrollerOverscrolling)));
             mQsFooter.setVisibility((qsExpanded || !keyguardShowing || mHeaderAnimating)
                     ? View.VISIBLE
@@ -420,7 +445,7 @@ public class NotificationPanelViewHooks {
             boolean mIsExpanding = getBoolean(fieldIsExpanding, mNotificationPanelView);
             boolean qsExpandedWhenExpandingStarted = getBoolean(fieldQsExpandedWhenExpandingStarted, mNotificationPanelView);
             if ((int) XposedHelpers.callMethod(statusBar, "getBarState") != STATE_KEYGUARD
-                    && (int) invoke(methodGetNotGoneChildCount, mStackScroller) == 0) {
+                    && (int) invoke(Methods.SystemUI.NotificationStackScrollLayout.getNotGoneChildCount, mStackScroller) == 0) {
                 int minHeight = (int) ((qsMinExpansionHeight + (float) invoke(getOverExpansionAmount, mNotificationPanelView)));
                 min = Math.max(min, minHeight);
             }
@@ -439,7 +464,7 @@ public class NotificationPanelViewHooks {
         @Override
         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
             int qsMinExpansionHeight = getInt(mQsMinExpansionHeight, mNotificationPanelView);
-            if (!((int) invoke(methodGetNotGoneChildCount, mStackScroller) > 0))
+            if (!((int) invoke(Methods.SystemUI.NotificationStackScrollLayout.getNotGoneChildCount, mStackScroller) > 0))
                 param.setResult(qsMinExpansionHeight);
         }
     };
@@ -484,12 +509,12 @@ public class NotificationPanelViewHooks {
     private static final XC_MethodReplacement getPeekHeightStackScroller = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-            final Object firstChild = invoke(methodGetFirstChildNotGone, mStackScroller);
-            final int firstChildMinHeight = firstChild != null ? (int) XposedHelpers.callMethod(firstChild, "getMinHeight")
+            final Object firstChild = invoke(Methods.SystemUI.NotificationStackScrollLayout.getFirstChildNotGone, mStackScroller);
+            final int firstChildMinHeight = firstChild != null ? (int) invoke(Methods.SystemUI.ExpandableView.getMinHeight, firstChild)
                     : getInt(fieldCollapsedSize, mStackScroller);
             int mIntrinsicPadding = getInt(fieldIntrinsicPadding, mStackScroller);
-            int mBottomStackSlowDownHeight = getInt(fieldBottomStackSlowDownHeight, mStackScroller);
-            int mBottomStackPeekSize = getInt(fieldBottomStackPeekSize, mStackScroller);
+            int mBottomStackSlowDownHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackSlowDownHeight, mStackScroller);
+            int mBottomStackPeekSize = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackPeekSize, mStackScroller);
             return mIntrinsicPadding + firstChildMinHeight + mBottomStackPeekSize
                     + mBottomStackSlowDownHeight;
         }
@@ -534,35 +559,35 @@ public class NotificationPanelViewHooks {
     private static final XC_MethodReplacement XCalculatePanelHeightQsExpanded = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-            boolean mShadeEmpty = XposedHelpers.getBooleanField(mNotificationPanelView, "mShadeEmpty");
+            boolean mShadeEmpty = getBoolean(Fields.SystemUI.NotificationPanelView.mShadeEmpty, mNotificationPanelView);
             int qsMaxExpansionHeight = getInt(mQsMaxExpansionHeight, mNotificationPanelView);
             int mTopPaddingAdjustment = getInt(fieldTopPaddingAdjustment, mNotificationPanelView);
-            Object qsSizeChangeAnimator = get(mQsSizeChangeAnimator, mNotificationPanelView);
+            ValueAnimator qsSizeChangeAnimator = get(mQsSizeChangeAnimator, mNotificationPanelView);
             Object mClockPositionResult = get(fieldClockPositionResult, mNotificationPanelView);
             float notificationHeight = mStackScroller.getHeight()
-                    - (int) XposedHelpers.callMethod(mStackScroller, "getEmptyBottomMargin")
-                    - (int) XposedHelpers.callMethod(mStackScroller, "getTopPadding");
+                    - (int) invoke(Methods.SystemUI.NotificationStackScrollLayout.getEmptyBottomMargin, mStackScroller)
+                    - (int) invoke(Methods.SystemUI.NotificationStackScrollLayout.getTopPadding, mStackScroller);
 
             // When only empty shade view is visible in QS collapsed state, simulate that we would have
             // it in expanded QS state as well so we don't run into troubles when fading the view in/out
             // and expanding/collapsing the whole panel from/to quick settings.
-            if ((int) invoke(methodGetNotGoneChildCount, mStackScroller) == 0
+            if ((int) invoke(Methods.SystemUI.NotificationStackScrollLayout.getNotGoneChildCount, mStackScroller) == 0
                     && mShadeEmpty) {
-                notificationHeight = (int) XposedHelpers.callMethod(mStackScroller, "getEmptyShadeViewHeight")
-                        + (int) XposedHelpers.callMethod(mStackScroller, "getBottomStackPeekSize")
-                        + getInt(fieldBottomStackSlowDownHeight, mStackScroller);
+                notificationHeight = (int) invoke(Methods.SystemUI.NotificationStackScrollLayout.getEmptyShadeViewHeight, mStackScroller)
+                        + (int) invoke(Methods.SystemUI.NotificationStackScrollLayout.getBottomStackPeekSize, mStackScroller)
+                        + getInt(mBottomStackSlowDownHeight, mStackScroller);
             }
             int maxQsHeight = qsMaxExpansionHeight;
 
             // If an animation is changing the size of the QS panel, take the animated value.
             if (qsSizeChangeAnimator != null) {
-                maxQsHeight = (int) XposedHelpers.callMethod(qsSizeChangeAnimator, "getAnimatedValue");
+                maxQsHeight = (int) qsSizeChangeAnimator.getAnimatedValue();
             }
             float totalHeight = Math.max(
                     maxQsHeight, getStatusBarState() == STATE_KEYGUARD
                             ? XposedHelpers.getIntField(mClockPositionResult, "stackScrollerPadding") - mTopPaddingAdjustment
                             : 0)
-                    + notificationHeight + (float) XposedHelpers.callMethod(mStackScroller, "getTopPaddingOverflow");
+                    + notificationHeight + (float) invoke(Methods.SystemUI.NotificationStackScrollLayout.getTopPaddingOverflow, mStackScroller);
 
             if (totalHeight > mStackScroller.getHeight()) {
                 float fullyCollapsedHeight = maxQsHeight
@@ -578,8 +603,8 @@ public class NotificationPanelViewHooks {
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             int qsMinExpansionHeight = getInt(mQsMinExpansionHeight, mNotificationPanelView);
             float alpha = ((float) XposedHelpers.callMethod(mNotificationPanelView, "getNotificationsTopY") + getFirstItemMinHeight())
-                    / (qsMinExpansionHeight + (int) XposedHelpers.callMethod(mStackScroller, "getBottomStackPeekSize")
-                    - getInt(fieldBottomStackSlowDownHeight, mStackScroller));
+                    / (qsMinExpansionHeight + (int) invoke(Methods.SystemUI.NotificationStackScrollLayout.getBottomStackPeekSize, mStackScroller)
+                    - getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackSlowDownHeight, mStackScroller));
             alpha = Math.max(0, Math.min(alpha, 1));
             alpha = (float) Math.pow(alpha, 0.75);
             return alpha;
@@ -589,9 +614,9 @@ public class NotificationPanelViewHooks {
     private static final XC_MethodReplacement getMinStackHeight = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-            int mBottomStackPeekSize = getInt(fieldBottomStackPeekSize, mStackScroller);
-            int mBottomStackSlowDownHeight = getInt(fieldBottomStackSlowDownHeight, mStackScroller);
-            int mMaxLayoutHeight = getInt(fieldMaxLayoutHeight, mStackScroller);
+            int mBottomStackPeekSize = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackPeekSize, mStackScroller);
+            int mBottomStackSlowDownHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackSlowDownHeight, mStackScroller);
+            int mMaxLayoutHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mMaxLayoutHeight, mStackScroller);
             int mIntrinsicPadding = getInt(fieldIntrinsicPadding, mStackScroller);
             int firstChildMinHeight = getFirstChildIntrinsicHeight();
             return Math.min(firstChildMinHeight + mBottomStackPeekSize + mBottomStackSlowDownHeight,
@@ -602,10 +627,10 @@ public class NotificationPanelViewHooks {
     private static final XC_MethodReplacement getEmptyBottomMargin = new XC_MethodReplacement() {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-            int mMaxLayoutHeight = getInt(fieldMaxLayoutHeight, mStackScroller);
-            int mContentHeight = XposedHelpers.getIntField(mStackScroller, "mContentHeight"); //TODO: optimize
-            int mBottomStackPeekSize = getInt(fieldBottomStackPeekSize, mStackScroller);
-            int mBottomStackSlowDownHeight = getInt(fieldBottomStackSlowDownHeight, mStackScroller);
+            int mMaxLayoutHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mMaxLayoutHeight, mStackScroller);
+            int mContentHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mContentHeight, mStackScroller);
+            int mBottomStackPeekSize = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackPeekSize, mStackScroller);
+            int mBottomStackSlowDownHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackSlowDownHeight, mStackScroller);
             int emptyMargin = mMaxLayoutHeight - mContentHeight - mBottomStackPeekSize
                     - mBottomStackSlowDownHeight;
             return Math.max(emptyMargin, 0);
@@ -616,7 +641,7 @@ public class NotificationPanelViewHooks {
         @Override
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             View mDismissView = (View) XposedHelpers.getObjectField(mStackScroller, "mDismissView");
-            int mPaddingBetweenElements = getInt(fieldPaddingBetweenElements, mStackScroller);
+            int mPaddingBetweenElements = getInt(Fields.SystemUI.NotificationStackScrollLayout.mPaddingBetweenElements, mStackScroller);
             return mDismissView.getHeight() + mPaddingBetweenElements;
         }
     };
@@ -629,11 +654,11 @@ public class NotificationPanelViewHooks {
             Object statusBar = get(mStatusBar, mNotificationPanelView);
             View keyguardStatusView = get(mKeyguardStatusView, mNotificationPanelView);
             Object mClockPositionResult = get(fieldClockPositionResult, mNotificationPanelView);
-            Object mClockAnimator = XposedHelpers.getObjectField(mNotificationPanelView, "mClockAnimator");
+            Object mClockAnimator = get(Fields.SystemUI.NotificationPanelView.mClockAnimator, mNotificationPanelView);
             boolean animate = invoke(isAddOrRemoveAnimationPending, mStackScroller);
             int stackScrollerPadding;
             if (getStatusBarState() != STATE_KEYGUARD) {
-                stackScrollerPadding = mHeader.getHeight() + XposedHelpers.getIntField(mNotificationPanelView, "mQsPeekHeight");
+                stackScrollerPadding = mHeader.getHeight() + getInt(mQsPeekHeight, mNotificationPanelView);
                 set(fieldTopPaddingAdjustment, mNotificationPanelView, 0);
             } else {
                 try {
@@ -641,7 +666,7 @@ public class NotificationPanelViewHooks {
                             NotificationHooks.getMaxKeyguardNotifications(statusBar, false),
                             invoke(methodGetMaxPanelHeight, mNotificationPanelView),
                             invoke(getExpandedHeight, mNotificationPanelView),
-                            invoke(methodGetNotGoneChildCount, mStackScroller),
+                            invoke(Methods.SystemUI.NotificationStackScrollLayout.getNotGoneChildCount, mStackScroller),
                             mNotificationPanelView.getHeight(),
                             keyguardStatusView.getHeight(),
                             XposedHelpers.getFloatField(mNotificationPanelView, "mEmptyDragAmount"));
@@ -654,11 +679,11 @@ public class NotificationPanelViewHooks {
                 } else {
                     keyguardStatusView.setY(XposedHelpers.getIntField(mClockPositionResult, "clockY"));
                 }
-                XposedHelpers.callMethod(mNotificationPanelView, "updateClock", XposedHelpers.getFloatField(mClockPositionResult, "clockAlpha"), XposedHelpers.getFloatField(mClockPositionResult, "clockScale"));
+                invoke(updateClock, mNotificationPanelView, XposedHelpers.getFloatField(mClockPositionResult, "clockAlpha"), XposedHelpers.getFloatField(mClockPositionResult, "clockScale"));
                 stackScrollerPadding = XposedHelpers.getIntField(mClockPositionResult, "stackScrollerPadding");
                 set(fieldTopPaddingAdjustment, mNotificationPanelView, XposedHelpers.getIntField(mClockPositionResult, "stackScrollerPaddingAdjustment"));
             }
-            XposedHelpers.callMethod(mStackScroller, "setIntrinsicPadding", stackScrollerPadding);
+            invoke(Methods.SystemUI.NotificationStackScrollLayout.setIntrinsicPadding, mStackScroller, stackScrollerPadding);
             invoke(requestScrollerTopPaddingUpdate, mNotificationPanelView, animate);
             return null;
         }
@@ -762,17 +787,17 @@ public class NotificationPanelViewHooks {
     }
 
     private static int getFirstItemMinHeight() {
-        final Object firstChild = invoke(methodGetFirstChildNotGone, mStackScroller);
+        final Object firstChild = invoke(Methods.SystemUI.NotificationStackScrollLayout.getFirstChildNotGone, mStackScroller);
         int mCollapsedSize = getInt(fieldCollapsedSize, mStackScroller);
-        return firstChild != null ? (int) XposedHelpers.callMethod(firstChild, "getMinHeight") : mCollapsedSize;
+        return firstChild != null ? (int) invoke(Methods.SystemUI.ExpandableView.getMinHeight, firstChild) : mCollapsedSize;
     }
 
     private static float getExpandTranslationStart() {
         Object mHeadsUpManager = get(fieldHeadsUpManager, mStackScroller);
-        int mMaxLayoutHeight = getInt(fieldMaxLayoutHeight, mStackScroller);
+        int mMaxLayoutHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mMaxLayoutHeight, mStackScroller);
         int mIntrinsicPadding = getInt(fieldIntrinsicPadding, mStackScroller);
-        int mBottomStackSlowDownHeight = getInt(fieldBottomStackSlowDownHeight, mStackScroller);
-        int mBottomStackPeekSize = getInt(fieldBottomStackPeekSize, mStackScroller);
+        int mBottomStackSlowDownHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackSlowDownHeight, mStackScroller);
+        int mBottomStackPeekSize = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackPeekSize, mStackScroller);
         int mTopPadding = getInt(fieldTopPadding, mStackScroller);
         int startPosition = 0;
         if (!getBoolean(fieldTrackingHeadsUp, mStackScroller) && !(boolean) invoke(methodHasPinnedHeadsUp, mHeadsUpManager)) {
@@ -802,8 +827,8 @@ public class NotificationPanelViewHooks {
     private static float getAppearEndPosition()  {
         Object mHeadsUpManager = get(fieldHeadsUpManager, mStackScroller);
         boolean trackingHeadsUp = getBoolean(fieldTrackingHeadsUp, mStackScroller) || (boolean) invoke(methodHasPinnedHeadsUp, mHeadsUpManager);
-        int mBottomStackPeekSize = getInt(fieldBottomStackPeekSize, mStackScroller);
-        int mBottomStackSlowDownHeight = getInt(fieldBottomStackSlowDownHeight, mStackScroller);
+        int mBottomStackPeekSize = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackPeekSize, mStackScroller);
+        int mBottomStackSlowDownHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackSlowDownHeight, mStackScroller);
         int mTopPadding = getInt(fieldTopPadding, mStackScroller);
         int mIntrinsicPadding = getInt(fieldIntrinsicPadding, mStackScroller);
         int firstItemHeight = trackingHeadsUp
@@ -815,23 +840,23 @@ public class NotificationPanelViewHooks {
 
     public static int getLayoutMinHeight() {
         int firstChildMinHeight = getFirstChildIntrinsicHeight();
-        int mBottomStackPeekSize = getInt(fieldBottomStackPeekSize, mStackScroller);
-        int mBottomStackSlowDownHeight = getInt(fieldBottomStackSlowDownHeight, mStackScroller);
+        int mBottomStackPeekSize = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackPeekSize, mStackScroller);
+        int mBottomStackSlowDownHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mBottomStackSlowDownHeight, mStackScroller);
         int mIntrinsicPadding = getInt(fieldIntrinsicPadding, mStackScroller);
-        int mMaxLayoutHeight = getInt(fieldMaxLayoutHeight, mStackScroller);
+        int mMaxLayoutHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mMaxLayoutHeight, mStackScroller);
         return Math.min(firstChildMinHeight + mBottomStackPeekSize + mBottomStackSlowDownHeight,
                 mMaxLayoutHeight - mIntrinsicPadding);
     }
 
     private static int getFirstChildIntrinsicHeight() {
-        final Object firstChild = invoke(methodGetFirstChildNotGone, mStackScroller);
-        final Object mEmptyShadeView = XposedHelpers.getObjectField(mStackScroller, "mEmptyShadeView");
+        final Object firstChild = invoke(Methods.SystemUI.NotificationStackScrollLayout.getFirstChildNotGone, mStackScroller);
+        final Object mEmptyShadeView = get(Fields.SystemUI.NotificationStackScrollLayout.mEmptyShadeView, mStackScroller);
         int mCollapsedSize = getInt(fieldCollapsedSize, mStackScroller);
-        int mOwnScrollY = getInt(fieldOwnScrollY, mStackScroller);
+        int mOwnScrollY = getInt(Fields.SystemUI.NotificationStackScrollLayout.mOwnScrollY, mStackScroller);
         int firstChildMinHeight = firstChild != null
                 ? (int) invoke(Methods.SystemUI.ExpandableView.getIntrinsicHeight, firstChild)
                 : mEmptyShadeView != null
-                ? (int) XposedHelpers.callMethod(mEmptyShadeView, "getMinHeight")
+                ? (int) invoke(Methods.SystemUI.ExpandableView.getMinHeight, mEmptyShadeView)
                 : mCollapsedSize;
         if (mOwnScrollY > 0) {
             firstChildMinHeight = Math.max(firstChildMinHeight - mOwnScrollY, mCollapsedSize);
@@ -851,8 +876,8 @@ public class NotificationPanelViewHooks {
     }
 
     private static void updateScrollStateForAddedChildren() {
-        int mPaddingBetweenElements = getInt(fieldPaddingBetweenElements, mStackScroller);
-        int mOwnScrollY = getInt(fieldOwnScrollY, mStackScroller);
+        int mPaddingBetweenElements = getInt(Fields.SystemUI.NotificationStackScrollLayout.mPaddingBetweenElements, mStackScroller);
+        int mOwnScrollY = getInt(Fields.SystemUI.NotificationStackScrollLayout.mOwnScrollY, mStackScroller);
         ArrayList<View> mChildrenToAddAnimated = get(fieldChildrenToAddAnimated, mStackScroller);
         if (mChildrenToAddAnimated.isEmpty()) {
             return;
@@ -860,12 +885,12 @@ public class NotificationPanelViewHooks {
         for (int i = 0; i < mStackScroller.getChildCount(); i++) {
             View child = mStackScroller.getChildAt(i);
             if (mChildrenToAddAnimated.contains(child)) {
-                int startingPosition = invoke(methodGetPositionInLinearLayout, mStackScroller, child);
+                int startingPosition = invoke(getPositionInLinearLayout, mStackScroller, child);
                 int padding = mPaddingBetweenElements;
-                int childHeight = (int) invoke(methodGetIntrinsicHeight, mStackScroller, child) + padding;
+                int childHeight = (int) invoke(getIntrinsicHeight, mStackScroller, child) + padding;
                 if (startingPosition < mOwnScrollY) {
                     // This child starts off screen, so let's keep it offscreen to keep the others visible
-                    set(fieldOwnScrollY, mStackScroller, mOwnScrollY + childHeight);
+                    set(Fields.SystemUI.NotificationStackScrollLayout.mOwnScrollY, mStackScroller, mOwnScrollY + childHeight);
                 }
             }
         }
@@ -877,7 +902,7 @@ public class NotificationPanelViewHooks {
      * @return the maximum keyguard notifications that can fit on the screen
      */
     public static int computeMaxKeyguardNotifications(View notificationPanel, int maximum) {
-        Object clockPositionAlgorithm = get(mClockPositionAlgorithm, notificationPanel); //TODO: switch to global variables once they're set up(Fields.java)
+        Object clockPositionAlgorithm = get(mClockPositionAlgorithm, notificationPanel);
         Object statusBar = get(mStatusBar, notificationPanel);
         View keyguardStatusView = get(mKeyguardStatusView, notificationPanel);
         Resources res = notificationPanel.getContext().getResources();
@@ -897,17 +922,16 @@ public class NotificationPanelViewHooks {
                 continue;
             }
             View row = child;
-            Object notification = invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row);
-//            boolean suppressedSummary = mGroupManager.isSummaryOfSuppressedGroup(
-//                    notification);
-//            if (suppressedSummary) {
-//                continue;
-//            }
+            StatusBarNotification notification = invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row);
+            boolean suppressedSummary = NotificationGroupManagerHooks.isSummaryOfSuppressedGroup(mGroupManager, notification);
+            if (suppressedSummary) {
+                continue;
+            }
             boolean shouldShow;
             try {
                 shouldShow = invoke(Methods.SystemUI.BaseStatusBar.shouldShowOnKeyguard, statusBar, notification);
             } catch (UncheckedIllegalArgumentException e) { //Xperia
-                boolean show = XposedHelpers.getBooleanField(statusBar, "mShowLockscreenNotifications");
+                boolean show = getBoolean(Fields.SystemUI.BaseStatusBar.mShowLockscreenNotifications, statusBar);
                 if (XposedHelpers.getBooleanField(statusBar, "mIsDisableSecureNotificationsByDpm"))
                     show = false;
                 shouldShow = invoke(Methods.SystemUI.BaseStatusBar.shouldShowOnKeyguard, statusBar, notification, show);
@@ -915,10 +939,10 @@ public class NotificationPanelViewHooks {
             if (!shouldShow) {
                 continue;
             }
-//            if ((boolean) XposedHelpers.callMethod(row, "isRemoved")) {
-//                continue;
-//            }
-            availableSpace -= (int) XposedHelpers.callMethod(child, "getMinHeight") + notificationPadding;
+            if (ExpandableNotificationRowHelper.getInstance(child).isRemoved()) {
+                continue;
+            }
+            availableSpace -= (int) invoke(Methods.SystemUI.ExpandableView.getMinHeight, child) + notificationPadding;
             if (availableSpace >= 0 && count < maximum) {
                 count++;
             } else {
@@ -935,7 +959,11 @@ public class NotificationPanelViewHooks {
 
     public static float getKeyguardBottomStackSize(View stackScroller) {
         Resources res = stackScroller.getContext().getResources();
-        return getInt(fieldBottomStackPeekSize, stackScroller) + res.getDimensionPixelSize(
+        return getInt(mBottomStackPeekSize, stackScroller) + res.getDimensionPixelSize(
                 res.getIdentifier("bottom_stack_slow_down_length", "dimen", XposedHook.PACKAGE_SYSTEMUI));
+    }
+
+    public static void setGroupManager(Object groupManager) {
+        mGroupManager = groupManager;
     }
 }

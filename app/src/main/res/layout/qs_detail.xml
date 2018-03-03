@@ -19,9 +19,9 @@
 
     <com.android.systemui.statusbar.AlphaOptimizedImageView
         android:id="@+id/qs_detail_header_progress"
-        android:alpha="0"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:alpha="0"
         />
 
     <tk.wasdennnoch.androidn_ify.extracted.systemui.NonInterceptingScrollView

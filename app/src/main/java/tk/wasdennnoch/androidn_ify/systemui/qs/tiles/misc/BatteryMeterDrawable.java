@@ -17,6 +17,7 @@
 package tk.wasdennnoch.androidn_ify.systemui.qs.tiles.misc;
 
 import android.annotation.Nullable;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
@@ -29,9 +30,11 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
+import android.support.graphics.drawable.ArgbEvaluator;
 
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.systemui.SystemUIHooks;
+import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static tk.wasdennnoch.androidn_ify.XposedHook.PACKAGE_SYSTEMUI;
@@ -79,6 +82,9 @@ public class BatteryMeterDrawable extends Drawable implements BatteryInfoManager
     private final Path mTextPath = new Path();
 
     private boolean mPowerSaveEnabled;
+
+    private int mDarkModeBackgroundColor;
+    private int mDarkModeFillColor;
 
     private final int mLightModeBackgroundColor;
     private final int mLightModeFillColor;
@@ -151,6 +157,9 @@ public class BatteryMeterDrawable extends Drawable implements BatteryInfoManager
 
         mPlusPaint = new Paint(mBoltPaint);
         mPlusPoints = loadPlusPoints(moduleRes);
+
+        mDarkModeBackgroundColor = ColorUtils.getColorAttr(context, android.R.attr.textColorPrimary);
+        mDarkModeFillColor = ColorUtils.getColorAttr(context, android.R.attr.textColorPrimary);
 
         mLightModeBackgroundColor = 0x4dffffff;
         mLightModeFillColor = 0xffffffff;
@@ -278,8 +287,8 @@ public class BatteryMeterDrawable extends Drawable implements BatteryInfoManager
         if (darkIntensity == mOldDarkIntensity) {
             return;
         }
-        int backgroundColor = getBackgroundColor();
-        int fillColor = getFillColor();
+        int backgroundColor = getBackgroundColor(darkIntensity);
+        int fillColor = getFillColor(darkIntensity);
         mIconTint = fillColor;
         mFramePaint.setColor(backgroundColor);
         mBoltPaint.setColor(fillColor);
@@ -288,12 +297,19 @@ public class BatteryMeterDrawable extends Drawable implements BatteryInfoManager
         mOldDarkIntensity = darkIntensity;
     }
 
-    private int getBackgroundColor() {
-        return mLightModeBackgroundColor;
+    private int getBackgroundColor(float darkIntensity) {
+        return getColorForDarkIntensity(
+                darkIntensity, mLightModeBackgroundColor, mDarkModeBackgroundColor);
     }
 
-    private int getFillColor() {
-        return mLightModeFillColor;
+    private int getFillColor(float darkIntensity) {
+        return getColorForDarkIntensity(
+                darkIntensity, mLightModeFillColor, mDarkModeFillColor);
+    }
+
+    @SuppressLint("RestrictedApi")
+    private int getColorForDarkIntensity(float darkIntensity, int lightColor, int darkColor) {
+        return (int) ArgbEvaluator.getInstance().evaluate(darkIntensity, lightColor, darkColor);
     }
 
     @SuppressWarnings("SuspiciousNameCombination")
