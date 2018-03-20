@@ -416,6 +416,8 @@
     <string name="back_press_voice_assist_title">Open voice assist on back long press</string>
     <string name="enable_theming_title">Enable theming (UNFINISHED)</string>
     <string name="enable_bundled_notifications_title">Enable bundled notifications</string>
+    <string name="bundled_notifications_collapsed_children_title">Maximum number of bundled notifications when group collapsed</string>
+    <string name="bundled_notifications_expanded_children_title">Maximum number of bundled notifications when group expanded</string>
 
     <string name="manage_users">Manage users</string>
 

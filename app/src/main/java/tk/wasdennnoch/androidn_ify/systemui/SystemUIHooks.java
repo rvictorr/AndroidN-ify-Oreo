@@ -34,6 +34,8 @@ import tk.wasdennnoch.androidn_ify.ui.PlatLogoActivity;
 import tk.wasdennnoch.androidn_ify.ui.SettingsActivity;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.RomUtils;
 
 @SuppressLint("StaticFieldLeak")
@@ -154,7 +156,7 @@ public class SystemUIHooks {
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 mPhoneStatusBar = param.thisObject;
                 mHandler = (Handler) XposedHelpers.getObjectField(mPhoneStatusBar, "mHandler");
-                mContext = (Context) XposedHelpers.getObjectField(mPhoneStatusBar, "mContext");
+                mContext = ReflectionUtils.get(Fields.SystemUI.BaseStatusBar.mContext, mPhoneStatusBar);
             }
         });
     }

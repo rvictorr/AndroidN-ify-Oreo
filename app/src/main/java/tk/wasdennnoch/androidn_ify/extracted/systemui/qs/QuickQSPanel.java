@@ -21,8 +21,9 @@ import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.misc.SafeOnClickListener;
 import tk.wasdennnoch.androidn_ify.misc.SafeOnLongClickListener;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
-import tk.wasdennnoch.androidn_ify.systemui.qs.tiles.BatteryTile;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static tk.wasdennnoch.androidn_ify.XposedHook.PACKAGE_SYSTEMUI;
@@ -31,9 +32,6 @@ import static tk.wasdennnoch.androidn_ify.systemui.qs.QSTileHostHooks.KEY_QUICKQ
 public class QuickQSPanel extends LinearLayout {
 
     private static final String TAG = "QuickQSPanel";
-
-    private final int mIconSizePx;
-    private final int mQuickTilePadding;
 
     private int mMaxTiles;
     private int mTileCount;
@@ -46,9 +44,7 @@ public class QuickQSPanel extends LinearLayout {
         super(context);
         ConfigUtils config = ConfigUtils.getInstance();
         Resources res = context.getResources();
-        mIconSizePx = res.getDimensionPixelSize(res.getIdentifier("qs_tile_icon_size", "dimen", PACKAGE_SYSTEMUI));
         mRes = ResourceUtils.getInstance(context);
-        mQuickTilePadding = mRes.getDimensionPixelSize(R.dimen.qs_quick_tile_padding);
         setOrientation(VERTICAL);
         int m = mRes.getDimensionPixelSize(R.dimen.qs_quick_panel_margin_horizontal);
         setPadding(m, 0, m, 0);
@@ -175,10 +171,10 @@ public class QuickQSPanel extends LinearLayout {
                 }
             }
             try {
-                XposedHelpers.callMethod(tileView, "setDual", false);
+                ReflectionUtils.invoke(Methods.SystemUI.QSTileView.setDual, tileView, false);
             } catch (Throwable t) { // CM13
                 try {
-                    XposedHelpers.callMethod(tileView, "setDual", false, false);
+                    ReflectionUtils.invoke(Methods.SystemUI.QSTileView.setDual, tileView, false, false);
                 } catch (Throwable ignore) { // Other ROMs
                 }
             }

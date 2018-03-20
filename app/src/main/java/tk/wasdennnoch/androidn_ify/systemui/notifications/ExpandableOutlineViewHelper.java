@@ -36,8 +36,6 @@ public class ExpandableOutlineViewHelper {
     private ExpandableNotificationRowHelper mRowHelper;
     private FakeShadowView mFakeShadow;
 
-    private static Method methodUpdateBackground;
-
     private boolean mCustomOutline;
     public boolean mClipToActualHeight = true;
     private float mOutlineAlpha = -1f;
@@ -84,7 +82,7 @@ public class ExpandableOutlineViewHelper {
     private ExpandableOutlineViewHelper(Object expandableView) {
         XposedHelpers.setAdditionalInstanceField(expandableView, "mOutlineViewHelper", this);
         mExpandableView = (FrameLayout) expandableView;
-        init(expandableView);
+        init();
         if (ExpandableNotificationRow.isInstance(expandableView)) {
             mRowHelper = ExpandableNotificationRowHelper.getInstance(expandableView);
             mRowHelper.setOutlineHelper(this);
@@ -94,10 +92,6 @@ public class ExpandableOutlineViewHelper {
     public static ExpandableOutlineViewHelper getInstance(Object expandableView) {
         ExpandableOutlineViewHelper helper = (ExpandableOutlineViewHelper) XposedHelpers.getAdditionalInstanceField(expandableView, "mOutlineViewHelper");
         return helper != null ? helper : new ExpandableOutlineViewHelper(expandableView);
-    }
-
-    public static void initFields() {
-        methodUpdateBackground = XposedHelpers.findMethodBestMatch(ActivatableNotificationView, "updateBackground");
     }
 
     public ExpandableNotificationRowHelper getRowHelper() {
@@ -110,7 +104,7 @@ public class ExpandableOutlineViewHelper {
         updateOutlineAlpha();
     }
 
-    private void init(Object expandableView) {
+    private void init() {
         mProvider = new ViewOutlineProvider() {
             @Override
             public void getOutline(View view, Outline outline) {
@@ -148,7 +142,13 @@ public class ExpandableOutlineViewHelper {
         if (mCustomOutline) {
             return;
         }
-        mExpandableView.setOutlineProvider(mProvider);
+        boolean hasOutline = true;
+        if (isChildInGroup()) {
+            hasOutline = isGroupExpanded() && !isGroupExpansionChanging();
+        } else if (isSummaryWithChildren()) {
+            hasOutline = !isGroupExpanded() || isGroupExpansionChanging();
+        }
+        mExpandableView.setOutlineProvider(hasOutline ? mProvider : null);
     }
 
     public boolean isOutlineShowing() {
@@ -240,7 +240,7 @@ public class ExpandableOutlineViewHelper {
      * Sets the tint color of the background
      */
     public void setTintColor(int color, boolean animated) {
-        XposedHelpers.setIntField(mExpandableView, "mBgTint", color);
+        set(SystemUI.ActivatableNotificationView.mBgTint, mExpandableView, color);
         mBgTint = color;
         updateBackgroundTint(animated);
     }
@@ -327,7 +327,7 @@ public class ExpandableOutlineViewHelper {
     }
 
     public void updateBackground() {
-        invoke(methodUpdateBackground, mExpandableView);
+        invoke(Methods.SystemUI.ActivatableNotificationView.updateBackground, mExpandableView);
     }
 
     public void setFakeShadowIntensity(float shadowIntensity, float outlineAlpha, int shadowYEnd,
@@ -358,6 +358,12 @@ public class ExpandableOutlineViewHelper {
     public boolean isChildInGroup() {
         if (mRowHelper != null)
             return mRowHelper.isChildInGroup();
+        return false;
+    }
+
+    public boolean isSummaryWithChildren() {
+        if (mRowHelper != null)
+            return mRowHelper.isSummaryWithChildren();
         return false;
     }
 }

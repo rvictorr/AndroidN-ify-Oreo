@@ -116,7 +116,7 @@ public class ExpandableNotificationRowHelper {
             }
         }
     };
-    private boolean mForceUnlocked;
+    public boolean mForceUnlocked;
     private boolean mDismissed;
     private boolean mKeepInParent;
     private boolean mRemoved;
@@ -183,7 +183,7 @@ public class ExpandableNotificationRowHelper {
             return (int) invoke(Methods.SystemUI.NotificationChildrenContainer.getIntrinsicHeight, mChildrenContainer);
         }
         if(mExpandedWhenPinned) {
-            return Math.max((int) invoke(getMaxExpandHeight, mExpandableRow), mHeadsUpHeight);
+            return Math.max(getInt(mMaxExpandHeight, mExpandableRow), mHeadsUpHeight);
         } else if (atLeastMinHeight) {
             return Math.max(getCollapsedHeight(), mHeadsUpHeight);
         } else {
@@ -248,7 +248,7 @@ public class ExpandableNotificationRowHelper {
         }
         // Remove views that don't translate
         mTranslateableViews.remove(mVetoButton);
-        mTranslateableViews.remove(mSettingsIconRowStub);
+//        mTranslateableViews.remove(mSettingsIconRowStub);
         //mTranslateableViews.remove(mChildrenContainerStub);
 //        mTranslateableViews.remove(mGutsStub);
     }
@@ -506,7 +506,7 @@ public class ExpandableNotificationRowHelper {
     }
 
     protected void updateBackgroundTint() {
-//        updateBackgroundForGroupState(); //FIXME causes problems
+//        updateBackgroundForGroupState(); //TODO: causes problems
         if (mIsSummaryWithChildren) {
             List<ViewGroup> notificationChildren =
                     invoke(Methods.SystemUI.NotificationChildrenContainer.getNotificationChildren, mChildrenContainer);
@@ -790,8 +790,7 @@ public class ExpandableNotificationRowHelper {
 
     public int getMinHeight() {
         boolean isHeadsUp = get(mIsHeadsUp, mExpandableRow);
-        boolean trackingHeadsUp = getBoolean(Fields.SystemUI.HeadsUpManager.mTrackingHeadsUp, mHeadsUpManager);
-        if (isHeadsUp && trackingHeadsUp) {
+        if (isHeadsUp && NotificationsStuff.isTrackingHeadsUp(mHeadsUpManager)) {
             return getPinnedHeadsUpHeight(false /* atLeastMinHeight */);
         } else if (mIsSummaryWithChildren && !isGroupExpanded() && !getBoolean(mShowingPublic, mExpandableRow)) {
             return mChildrenContainerHelper.getMinHeight();

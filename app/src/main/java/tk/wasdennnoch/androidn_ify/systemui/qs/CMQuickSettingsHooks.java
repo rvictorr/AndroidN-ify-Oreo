@@ -9,8 +9,8 @@ import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 
 class CMQuickSettingsHooks extends QuickSettingsHooks {
-    CMQuickSettingsHooks(ClassLoader classLoader) {
-        super(classLoader);
+    CMQuickSettingsHooks() {
+        super();
     }
 
     @Override

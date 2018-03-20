@@ -5,10 +5,10 @@ import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 
 import com.android.internal.logging.MetricsLogger;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,6 +29,7 @@ import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 
@@ -40,6 +41,14 @@ public class QuickSettingsHooks {
 
     final Class mHookClass;
     private final Class mSecondHookClass;
+
+    private Field fieldRecords;
+    private Field fieldGridHeight;
+    private Field fieldExpanded;
+    private Field fieldGridContentVisible;
+    private Field fieldTile;
+    private Field fieldTileView;
+    private Method methodSetDetailRecord;
 
     protected Context mContext;
     ViewGroup mQsPanel;
@@ -60,21 +69,20 @@ public class QuickSettingsHooks {
         }
     };
 
-    private Method mSetDetailRecord;
 
     public static QuickSettingsHooks create() {
-        ClassLoader classLoader = Classes.SystemUI.getClassLoader();
         try {
-            XposedHelpers.findClass(CLASS_QS_DRAG_PANEL, classLoader);
-            return new CMQuickSettingsHooks(classLoader);
+            XposedHelpers.findClass(CLASS_QS_DRAG_PANEL, Classes.SystemUI.getClassLoader());
+            return new CMQuickSettingsHooks();
         } catch (Throwable t) {
-            return new QuickSettingsHooks(classLoader);
+            return new QuickSettingsHooks();
         }
     }
 
-    QuickSettingsHooks(ClassLoader classLoader) {
-        mHookClass = XposedHelpers.findClass(getHookClass(), classLoader);
-        mSecondHookClass = XposedHelpers.findClass(getSecondHookClass(), classLoader);
+    QuickSettingsHooks() {
+        mHookClass = XposedHelpers.findClass(getHookClass(), Classes.SystemUI.getClassLoader());
+        mSecondHookClass = XposedHelpers.findClass(getSecondHookClass(), Classes.SystemUI.getClassLoader());
+        initReflection();
         QuickSettingsTileHooks.hook();
         hookConstructor();
         hookOnMeasure();
@@ -93,8 +101,18 @@ public class QuickSettingsHooks {
                 XposedHelpers.findAndHookMethod(mSecondHookClass, "handleSetTileVisibility", View.class, int.class, XC_MethodReplacement.DO_NOTHING);
             } catch (NoSuchMethodError ignore) {}
         }
-        Class<?> classRecord = XposedHelpers.findClass(getSecondHookClass() + "$Record", classLoader);
-        mSetDetailRecord = XposedHelpers.findMethodExact(mSecondHookClass, "setDetailRecord", classRecord);
+    }
+
+    private void initReflection() {
+        Class<?> classRecord = XposedHelpers.findClass(getSecondHookClass() + "$Record", Classes.SystemUI.getClassLoader());
+
+        fieldRecords = XposedHelpers.findField(mHookClass, "mRecords");
+        fieldGridHeight = XposedHelpers.findField(mHookClass, "mGridHeight");
+        fieldExpanded = XposedHelpers.findField(mHookClass, "mExpanded");
+        fieldGridContentVisible = XposedHelpers.findField(mHookClass, "mGridContentVisible");
+        fieldTile = XposedHelpers.findField(Classes.SystemUI.QSTileRecord, "tile");
+        fieldTileView = XposedHelpers.findField(Classes.SystemUI.QSTileRecord, "tileView");
+        methodSetDetailRecord = XposedHelpers.findMethodExact(mSecondHookClass, "setDetailRecord", classRecord);
     }
 
     protected void addDivider() {
@@ -126,10 +144,10 @@ public class QuickSettingsHooks {
                 ViewGroup qsPanel = (ViewGroup) param.thisObject;
                 int newVis = visible ? VISIBLE : INVISIBLE;
                 mQsPanel.setVisibility(newVis);
-                if (XposedHelpers.getBooleanField(qsPanel, "mGridContentVisible") != visible) {
+                if (getBoolean(fieldGridContentVisible, qsPanel) != visible) {
                     MetricsLogger.visibility(mContext, MetricsLogger.QS_PANEL, newVis);
                 }
-                XposedHelpers.setBooleanField(qsPanel, "mGridContentVisible", visible);
+                set(fieldGridContentVisible, qsPanel, visible);
                 return null;
             }
         };
@@ -146,8 +164,8 @@ public class QuickSettingsHooks {
         XC_MethodHook addTile = new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                ArrayList mRecords = (ArrayList) XposedHelpers.getObjectField(param.thisObject, "mRecords");
-                ((View) XposedHelpers.getObjectField(mRecords.get(mRecords.size() - 1), "tileView")).setVisibility(VISIBLE);
+                ArrayList mRecords = get(fieldRecords, param.thisObject);
+                ((View) get(fieldTileView, mRecords.get(mRecords.size() - 1))).setVisibility(VISIBLE);
             }
         };
         try {
@@ -194,7 +212,7 @@ public class QuickSettingsHooks {
             @SuppressWarnings("unchecked")
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                List<Object> mRecords = (List<Object>) XposedHelpers.getObjectField(param.thisObject, "mRecords");
+                List mRecords = get(fieldRecords, param.thisObject);
                 for (Object record : mRecords) {
                     mTileLayout.removeTile(record);
                 }
@@ -204,7 +222,7 @@ public class QuickSettingsHooks {
             @SuppressWarnings("unchecked")
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                List<Object> mRecords = (List<Object>) XposedHelpers.getObjectField(param.thisObject, "mRecords");
+                List mRecords = get(fieldRecords, param.thisObject);
                 for (Object record : mRecords) {
                     mTileLayout.addTile(record);
                 }
@@ -267,18 +285,18 @@ public class QuickSettingsHooks {
         XposedHelpers.findAndHookMethod(mHookClass, "onMeasure", int.class, int.class, new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                ArrayList records = (ArrayList) XposedHelpers.getObjectField(param.thisObject, "mRecords");
+                ArrayList records = get(fieldRecords, param.thisObject);
                 for (Object record : records) {
-                    Object tileView = XposedHelpers.getObjectField(record, "tileView");
-                    Object tile = XposedHelpers.getObjectField(record, "tile");
+                    Object tileView = get(fieldTileView, record);
+                    Object tile = get(fieldTile, record);
                     boolean supportsDualTargets;
                     boolean changed;
                     try {
-                        supportsDualTargets = (boolean) XposedHelpers.callMethod(tile, "supportsDualTargets");
-                        changed = (boolean) XposedHelpers.callMethod(tileView, "setDual", supportsDualTargets);
+                        supportsDualTargets = invoke(Methods.SystemUI.QSTile.supportsDualTargets, tile);
+                        changed = invoke(Methods.SystemUI.QSTileView.setDual, tileView, supportsDualTargets);
                     } catch (NoSuchMethodError e) { //LOS
                         supportsDualTargets = (boolean) XposedHelpers.callMethod(tile, "hasDualTargetsDetails");
-                        changed = (boolean) XposedHelpers.callMethod(tileView, "setDual", supportsDualTargets, supportsDualTargets);
+                        changed = invoke(Methods.SystemUI.QSTileView.setDual, tileView, supportsDualTargets, supportsDualTargets);
                     }
                     if (changed) {
                         XposedHelpers.callMethod(tileView, "handleStateChanged", XposedHelpers.callMethod(tile, "getState"));
@@ -318,7 +336,7 @@ public class QuickSettingsHooks {
         }
         if (!mHookedGetGridHeight) {
             try {
-                XposedHelpers.setObjectField(mQsPanel, "mGridHeight", h);
+                set(fieldGridHeight, mQsPanel, h);
             } catch (Throwable t) {
                 try {
                     XposedHelpers.findAndHookMethod(mQsPanel.getClass(), "getGridHeight", getGridHeightHook);
@@ -375,7 +393,7 @@ public class QuickSettingsHooks {
     }
 
     private boolean isExpanded() {
-        return XposedHelpers.getBooleanField(mQsPanel, "mExpanded");
+        return getBoolean(fieldExpanded, mQsPanel);
     }
 
     private static int exactly(int size) {
@@ -407,7 +425,7 @@ public class QuickSettingsHooks {
     }
 
     QSDetail setupQsDetail(ViewGroup panel, ViewGroup header, View footer) {
-        mQSDetail = new QSDetail(panel.getContext(), panel, header, footer, mSetDetailRecord);
+        mQSDetail = new QSDetail(panel.getContext(), panel, header, footer, methodSetDetailRecord);
         return mQSDetail;
     }
 

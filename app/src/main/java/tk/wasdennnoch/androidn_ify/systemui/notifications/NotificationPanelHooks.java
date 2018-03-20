@@ -151,7 +151,7 @@ public class NotificationPanelHooks {
 
     private static void setKeyguardShowing(boolean keyguardShowing) {
         XposedHook.logD(TAG, "setKeyguardShowing " + keyguardShowing);
-        //QSContainerHelper.setKeyguardShowing(keyguardShowing);//FIXME this screws things up
+        //QSContainerHelper.setKeyguardShowing(keyguardShowing);//TODO: this screws things up
 
         if (StatusBarHeaderHooks.getQsAnimator() != null) {
             StatusBarHeaderHooks.getQsAnimator().setOnKeyguard(keyguardShowing);
@@ -262,7 +262,7 @@ public class NotificationPanelHooks {
                     @Override
                     protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                         boolean qsExpansionEnabled = (boolean) param.args[0];
-                        XposedHelpers.setBooleanField(mNotificationPanelView, "mQsExpansionEnabled", qsExpansionEnabled);
+                        set(mQsExpansionEnabled, mNotificationPanelView, qsExpansionEnabled);
                         mQsFooter.getExpandView().setClickable(qsExpansionEnabled);
                         mHeader.setClickable(false);
                         return null;

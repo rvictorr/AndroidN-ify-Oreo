@@ -358,8 +358,6 @@ public class SettingsActivity extends Activity implements View.OnClickListener,
         private SharedPreferences prefs;
 
         private boolean mShowedDialog;
-        private boolean mAssistantSupported = false;
-        private String mGoogleAppVersionName;
 
         @Override
         public void onCreate(Bundle savedInstanceState) {
@@ -415,44 +413,12 @@ public class SettingsActivity extends Activity implements View.OnClickListener,
             } else if (getContent() == R.xml.experimental_prefs) {
                 mShowedDialog = prefs.getBoolean("reconfigure_notification_panel_warning", false);
 
-                try {
-                    mGoogleAppVersionName = getActivity().getPackageManager().getPackageInfo(XposedHook.PACKAGE_GOOGLE, 0).versionName;
-                } catch (PackageManager.NameNotFoundException e) {
-                    mGoogleAppVersionName = "Error";
-                }
-
                 /*if (UpdateUtils.isConnected(getActivity())) {
                     // Always update from cloud if connected
                     getLoaderManager().initLoader(0, null, updateLoaderCallbacks).startLoading();
                 } else {*/
                 // Else load config from assets
-                try {
-                    String result = MiscUtils.readInputStream(getResources().getAssets().open("assistant_hooks"));
-                    JSONArray hookConfigs = MiscUtils.checkValidJSONArray(result);
-                    // Only update if config from assets is newer
-                    if (hookConfigs.optInt(0) > new JSONArray(prefs.getString(PreferenceKeys.GOOGLE_APP_HOOK_CONFIGS, "[]")).optInt(0)) {
-                        prefs.edit().putString(PreferenceKeys.GOOGLE_APP_HOOK_CONFIGS, hookConfigs.toString()).apply();
-                    }
-                } catch (IOException | JSONException e) {
-                    e.printStackTrace();
-                }
-                //}
 
-                // Read version and check if supported
-                try {
-                    JSONArray hookConfigs = new JSONArray(prefs.getString(PreferenceKeys.GOOGLE_APP_HOOK_CONFIGS, "[]"));
-                    for (int i = 0; i < hookConfigs.length(); i++) {
-                        if (hookConfigs.optInt(i, -1) != -1)
-                            continue;
-                        if (mGoogleAppVersionName.matches(hookConfigs.getJSONObject(i).optString("version"))) {
-                            mAssistantSupported = true;
-                        }
-                    }
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-
-                Preference assistant = findPreference("enable_assistant");
                 Preference reconfigureNotifPanel = findPreference("reconfigure_notification_panel");
                 reconfigureNotifPanel.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
                     @Override
@@ -473,13 +439,7 @@ public class SettingsActivity extends Activity implements View.OnClickListener,
                     }
                 });
                 if (!ConfigUtils.M) {
-                    lockPreference(assistant);
                     lockPreference(reconfigureNotifPanel);
-                } else {
-                    if (!mAssistantSupported) {
-                        assistant.setEnabled(false);
-                        assistant.setSummary(getResources().getString(R.string.enable_assistant_summary_unsupported, mGoogleAppVersionName));
-                    }
                 }
             }
         }

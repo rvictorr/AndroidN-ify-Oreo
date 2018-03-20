@@ -55,18 +55,8 @@ public class ActivatableNotificationViewHooks {
 
     public static void hook() {
         try {
-            ExpandableOutlineViewHelper.initFields();
-
             if (!ConfigUtils.notifications().enable_notifications_background)
                 return;
-
-//            XposedHelpers.findAndHookMethod(ActivatableNotificationView, "onFinishInflate", new XC_MethodHook() {
-//                @Override
-//                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-//                    ExpandableOutlineViewHelper helper = ExpandableOutlineViewHelper.getInstance(param.thisObject);
-//                    helper.onFinishInflate();
-//                }
-//            });
 
             XposedHelpers.findAndHookMethod(ActivatableNotificationView, "setTintColor", int.class, new XC_MethodReplacement() {
                 @Override

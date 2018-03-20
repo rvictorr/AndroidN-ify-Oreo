@@ -13,6 +13,8 @@ import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
 import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.systemui.qs.QuickSettingsHooks;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 public class TileLayout extends ViewGroup implements QuickSettingsHooks.QSTileLayout {
@@ -135,11 +137,11 @@ public class TileLayout extends ViewGroup implements QuickSettingsHooks.QSTileLa
         View tileView = getTileViewFromRecord(record);
         boolean dual = XposedHelpers.getBooleanField(tileView, "mDual");
         try {
-            XposedHelpers.callMethod(tileView, "setDual", boolean.class, dual);
+            ReflectionUtils.invoke(Methods.SystemUI.QSTileView.setDual, tileView, dual);
         } catch (Throwable t) { // CM13
             try {
                 Object tile = getTileFromRecord(record);
-                XposedHelpers.callMethod(tileView, "setDual", boolean.class, boolean.class, dual, XposedHelpers.callMethod(tile, "hasDualTargetsDetails"));
+                ReflectionUtils.invoke(Methods.SystemUI.QSTileView.setDual, dual, XposedHelpers.callMethod(tile, "hasDualTargetsDetails"));
             } catch (Throwable ignore) {
                 // Other ROMs
             }

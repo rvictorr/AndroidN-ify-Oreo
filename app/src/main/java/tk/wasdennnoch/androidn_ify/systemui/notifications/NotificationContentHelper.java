@@ -10,10 +10,6 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.Toast;
-
-import java.lang.reflect.Field;
-import java.util.HashMap;
 
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.R;
@@ -164,7 +160,7 @@ public class NotificationContentHelper {
         }
         updateShowingLegacyBackground();
         mForceSelectNextLayout = true;
-        XposedHelpers.callMethod(getContentView(), "setDark", XposedHelpers.getBooleanField(getContentView(), "mDark"), false /* animate */, 0 /* delay */);
+        invoke(setDark, getContentView(), getBoolean(Fields.SystemUI.NotificationContentView.mDark, getContentView()), false /* animate */, 0 /* delay */);
         mPreviousExpandedRemoteInputIntent = null;
         mPreviousHeadsUpRemoteInputIntent = null;
     }
@@ -317,7 +313,7 @@ public class NotificationContentHelper {
                     isTransitioningFromTo(VISIBLE_TYPE_HEADSUP, VISIBLE_TYPE_EXPANDED) ||
                     isTransitioningFromTo(VISIBLE_TYPE_EXPANDED, VISIBLE_TYPE_HEADSUP);
             boolean pinned = !isVisibleOrTransitioning(VISIBLE_TYPE_CONTRACTED)
-                    && (!getBoolean(mIsHeadsUp, getContentView()) || mHeadsUpAnimatingAway);
+                    && (getBoolean(mIsHeadsUp, getContentView()) || mHeadsUpAnimatingAway);
 //                    && !mRowHelper.isOnKeyguard();
             if (transitioningBetweenHunAndExpanded || pinned) {
                 return Math.min(mHeadsUpChild.getHeight(), mExpandedChild.getHeight());
@@ -715,11 +711,9 @@ public class NotificationContentHelper {
         }
 
         View bigContentView = mExpandedChild;
-        XposedHook.logD(TAG, "bigContentView==null: " + (bigContentView == null));
         if (bigContentView != null) {
             mExpandedRemoteInput = applyRemoteInput(bigContentView, entry, hasRemoteInput,
                     mPreviousExpandedRemoteInputIntent, mCachedExpandedRemoteInput);
-            XposedHook.logD(TAG, "remoteInput applied! ");
         } else {
             mExpandedRemoteInput = null;
         }
@@ -730,7 +724,7 @@ public class NotificationContentHelper {
         }
         mCachedExpandedRemoteInput = null;
 
-        View headsUpContentView = (View) get(Fields.SystemUI.NotificationContentView.mHeadsUpChild, getContentView());
+        View headsUpContentView = get(Fields.SystemUI.NotificationContentView.mHeadsUpChild, getContentView());
         if (headsUpContentView != null) {
             mHeadsUpRemoteInput = applyRemoteInput(headsUpContentView, entry, hasRemoteInput,
                     mPreviousHeadsUpRemoteInputIntent, mCachedHeadsUpRemoteInput);
@@ -835,8 +829,8 @@ public class NotificationContentHelper {
         mExpandable = expandable;
         // if the expanded child has the same height as the collapsed one we hide it.
         if (mExpandedChild != null && mExpandedChild.getHeight() != 0) { //TODO: probably has something to do with the lockscreen issue
-            if ((!getBoolean(mIsHeadsUp, getContentView()) && !mHeadsUpAnimatingAway)
-                    || mHeadsUpChild == null || mRowHelper.isOnKeyguard()) {
+            if ((!getBoolean(mIsHeadsUp, getContentView())/* && !mHeadsUpAnimatingAway*/)
+                    || mHeadsUpChild == null/* || mRowHelper.isOnKeyguard()*/) {
                 if (mExpandedChild.getHeight() == mContractedChild.getHeight()) {
                     expandable = false;
                 }

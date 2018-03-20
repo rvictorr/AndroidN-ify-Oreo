@@ -35,6 +35,7 @@ import tk.wasdennnoch.androidn_ify.systemui.notifications.ExpandableOutlineViewH
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationContentHelper;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHeaderView;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHooks;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationsStuff;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.RelativeDateTimeView;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.Fields;
@@ -55,10 +56,6 @@ import static android.view.View.LAYOUT_DIRECTION_RTL;
 import static android.view.View.VISIBLE;
 
 public class NotificationChildrenContainerHelper {
-
-    private static final int NUMBER_OF_CHILDREN_WHEN_COLLAPSED = 2;
-    private static final int NUMBER_OF_CHILDREN_WHEN_SYSTEM_EXPANDED = 5;
-    private static final int NUMBER_OF_CHILDREN_WHEN_CHILDREN_EXPANDED = 8;
 
     private ResourceUtils res;
 
@@ -122,7 +119,7 @@ public class NotificationChildrenContainerHelper {
     public void onLayout(boolean changed, int l, int t, int r, int b) {
         List<View> dividers = get(mDividers, mNotificationChildrenContainer);
         List<View> children = get(mChildren, mNotificationChildrenContainer);
-        int childCount = Math.min(children.size(), NUMBER_OF_CHILDREN_WHEN_CHILDREN_EXPANDED);
+        int childCount = Math.min(children.size(), NotificationsStuff.NUMBER_OF_CHILDREN_WHEN_CHILDREN_EXPANDED);
 
         for (int i = 0; i < childCount; i++) {
             View child = children.get(i);
@@ -162,7 +159,7 @@ public class NotificationChildrenContainerHelper {
         }
         int dividerHeightSpec = MeasureSpec.makeMeasureSpec(mDividerHeight, MeasureSpec.EXACTLY);
         int height = mNotificationHeaderMargin + mNotificatonTopPadding;
-        int childCount = Math.min(children.size(), NUMBER_OF_CHILDREN_WHEN_CHILDREN_EXPANDED);
+        int childCount = Math.min(children.size(), NotificationsStuff.NUMBER_OF_CHILDREN_WHEN_CHILDREN_EXPANDED);
         int collapsedChildren = getMaxAllowedVisibleChildren(true /* likeCollapsed */);
         int overflowIndex = childCount > collapsedChildren ? collapsedChildren - 1 : -1;
 
@@ -574,13 +571,13 @@ public class NotificationChildrenContainerHelper {
 
     private int getMaxAllowedVisibleChildren(boolean likeCollapsed) {
         if (!likeCollapsed && (mChildrenExpanded || (boolean) invoke(ExpandableNotificationRow.isUserLocked, mNotificationParent))) {
-            return NUMBER_OF_CHILDREN_WHEN_CHILDREN_EXPANDED;
+            return NotificationsStuff.NUMBER_OF_CHILDREN_WHEN_CHILDREN_EXPANDED;
         }
         if (!mParentHelper.isOnKeyguard()
                 && ((boolean) invoke(ExpandableNotificationRow.isExpanded, mNotificationParent) || (boolean) invoke(ExpandableNotificationRow.isHeadsUp, mNotificationParent))) {
-            return NUMBER_OF_CHILDREN_WHEN_SYSTEM_EXPANDED;
+            return NotificationsStuff.NUMBER_OF_CHILDREN_WHEN_SYSTEM_EXPANDED;
         }
-        return NUMBER_OF_CHILDREN_WHEN_COLLAPSED;
+        return NotificationsStuff.NUMBER_OF_CHILDREN_WHEN_COLLAPSED;
     }
 
     public void applyState(Object state) {
@@ -730,13 +727,13 @@ public class NotificationChildrenContainerHelper {
         int visibleChildren = 0;
         int childCount = children.size();
         for (int i = 0; i < childCount; i++) {
-            if (visibleChildren >= NUMBER_OF_CHILDREN_WHEN_CHILDREN_EXPANDED) {
+            if (visibleChildren >= NotificationsStuff.NUMBER_OF_CHILDREN_WHEN_CHILDREN_EXPANDED) {
                 break;
             }
             ViewGroup child = children.get(i);
             NotificationContentHelper showingLayoutHelper = NotificationContentHelper.getInstance(invoke(ExpandableNotificationRow.getShowingLayout, child));
             float childHeight = ExpandableNotificationRowHelper.isExpanded(child, true /* allowOnKeyguard */)
-                    ? (int) invoke(ExpandableNotificationRow.getMaxExpandHeight, child)
+                    ? getInt(Fields.SystemUI.ExpandableNotificationRow.mMaxExpandHeight, child)
                     : showingLayoutHelper.getMinHeight(true /* likeGroupExpanded */);
             maxContentHeight += childHeight;
             visibleChildren++;
@@ -760,7 +757,7 @@ public class NotificationChildrenContainerHelper {
             ViewGroup child = children.get(i);
             NotificationContentHelper showingLayoutHelper = NotificationContentHelper.getInstance(invoke(ExpandableNotificationRow.getShowingLayout, child));
             float childHeight = ExpandableNotificationRowHelper.isExpanded(child, true /* allowOnKeyguard */)
-                    ? (int) invoke(ExpandableNotificationRow.getMaxExpandHeight, child)
+                    ? getInt(Fields.SystemUI.ExpandableNotificationRow.mMaxExpandHeight, child)
                     : showingLayoutHelper.getMinHeight(true /* likeGroupExpanded */);
             if (i < maxAllowedVisibleChildren) {
                 float singleLineHeight = showingLayoutHelper.getMinHeight(
@@ -794,7 +791,7 @@ public class NotificationChildrenContainerHelper {
             ViewGroup child = children.get(i);
             NotificationContentHelper showingLayoutHelper = NotificationContentHelper.getInstance(invoke(ExpandableNotificationRow.getShowingLayout, child));
             float childHeight = ExpandableNotificationRowHelper.isExpanded(child, true /* allowOnKeyguard */)
-                    ? (int) invoke(ExpandableNotificationRow.getMaxExpandHeight, child)
+                    ? getInt(Fields.SystemUI.ExpandableNotificationRow.mMaxExpandHeight, child)
                     : showingLayoutHelper.getMinHeight(true /* likeGroupExpanded */);
             intrinsicHeight += childHeight;
             visibleChildren++;
@@ -803,7 +800,7 @@ public class NotificationChildrenContainerHelper {
     }
 
     public int getMinHeight() {
-        return getMinHeight(NUMBER_OF_CHILDREN_WHEN_COLLAPSED);
+        return getMinHeight(NotificationsStuff.NUMBER_OF_CHILDREN_WHEN_COLLAPSED);
     }
 
     public int getCollapsedHeight() {

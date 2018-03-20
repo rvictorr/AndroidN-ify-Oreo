@@ -14,7 +14,7 @@ ext.updaterUrl = System.getenv("UPDATER_URL") ?: "null"
 ext.buildNumber = System.getenv("BUILD_NUMBER") ?: "0"
 ext.useSigningConfig = false
 
-ext.supportLibraryVersion = "27.0.2"
+ext.supportLibraryVersion = "27.1.0"
 
 def keyPropPath = System.getenv("KEY_PROP_PATH") ?: "../../../"
 def propFile = project.file(keyPropPath + "key.properties")
@@ -111,5 +111,5 @@ dependencies {
     compile "com.android.support:recyclerview-v7:$supportLibraryVersion"
     compile "com.android.support:palette-v7:$supportLibraryVersion"
     compile "com.android.support:design:$supportLibraryVersion"
-    compile 'com.crossbowffs.remotepreferences:remotepreferences:0.4'
+    compile 'com.crossbowffs.remotepreferences:remotepreferences:0.5'
 }

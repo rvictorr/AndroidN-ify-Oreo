@@ -10,11 +10,10 @@ import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.RemoteInputView;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHooks;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
 import tk.wasdennnoch.androidn_ify.utils.Methods;
-import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
+import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
 
-import static de.robv.android.xposed.XposedHelpers.callMethod;
-import static de.robv.android.xposed.XposedHelpers.getObjectField;
 
 public class RemoteInputHelper {
 
@@ -51,7 +50,7 @@ public class RemoteInputHelper {
             if (p instanceof View) {
                 View pv = (View) p;
                 if ((boolean) XposedHelpers.callMethod(pv, "isRootNamespace")) {
-                    riv = pv.findViewWithTag(RemoteInputView.VIEW_TAG);
+                    riv = findRemoteInputView(pv);
                     break;
                 }
             }
@@ -66,24 +65,23 @@ public class RemoteInputHelper {
             p = p.getParent();
         }
 
-        if (riv == null || row == null) {
+        if (row == null) {
             return false;
         }
 
-        ReflectionUtils.invoke(Methods.SystemUI.ExpandableNotificationRow.setUserExpanded, row, true);
+        invoke(Methods.SystemUI.ExpandableNotificationRow.setUserExpanded, row, true);
 
-//        if (!mAllowLockscreenRemoteInput) { //TODO: implement
-//            if (isLockscreenPublicMode()) {
-//                onLockedRemoteInput(row, view);
+        if (riv == null) {
+            View expandedChild = invoke(Methods.SystemUI.NotificationContentView.getExpandedChild, get(Fields.SystemUI.ExpandableNotificationRow.mPrivateLayout, row));
+            riv = findRemoteInputView(expandedChild);
+            if (riv == null) {
+                return false;
+            }
+//            if (!expandedChild.isShown()) {
+//                onMakeExpandedVisibleForRemoteInput(row, view);
 //                return true;
 //            }
-////            final int userId = pendingIntent.getCreatorUserHandle().getIdentifier();
-////            if (mUserManager.getUserInfo(userId).isManagedProfile()
-////                    && mKeyguardManager.isDeviceLocked(userId)) {
-////                onLockedWorkRemoteInput(userId, row, view);
-////                return true;
-////            }
-//        }
+        }
 
         int width = view.getWidth();
         if (view instanceof TextView) {
@@ -111,9 +109,16 @@ public class RemoteInputHelper {
         return true;
     }
 
+    private static RemoteInputView findRemoteInputView(View v) {
+        if (v == null) {
+            return null;
+        }
+        return (RemoteInputView) v.findViewWithTag(RemoteInputView.VIEW_TAG);
+    }
+
     public static void setWindowManagerFocus(boolean focus) {
         NotificationHooks.remoteInputActive = focus;
         if (NotificationHooks.mStatusBarWindowManager != null)
-            callMethod(NotificationHooks.mStatusBarWindowManager, "apply", getObjectField(NotificationHooks.mStatusBarWindowManager, "mCurrentState"));
+            XposedHelpers.callMethod(NotificationHooks.mStatusBarWindowManager, "apply", XposedHelpers.getObjectField(NotificationHooks.mStatusBarWindowManager, "mCurrentState"));
     }
 }

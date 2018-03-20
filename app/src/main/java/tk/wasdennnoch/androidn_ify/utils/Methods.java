@@ -2,9 +2,12 @@ package tk.wasdennnoch.androidn_ify.utils;
 
 import android.animation.ValueAnimator;
 import android.app.Notification;
+import android.content.pm.ApplicationInfo;
+import android.graphics.PointF;
 import android.graphics.Rect;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
+import android.telecom.Call;
 import android.view.View;
 import android.widget.Chronometer;
 import android.widget.FrameLayout;
@@ -89,11 +92,13 @@ public final class Methods {
 
             public static Method addTransientView;
             public static Method removeTransientView;
+            public static Method getTransientView;
             public static Method getTransientViewCount;
 
             private static void init() {
                 addTransientView = findMethodBestMatch(clazz, "addTransientView", android.view.View.class, int.class);
                 removeTransientView = findMethodBestMatch(clazz, "removeTransientView", android.view.View.class);
+                getTransientView = findMethodBestMatch(clazz, "getTransientView", int.class);
                 getTransientViewCount = findMethodBestMatch(clazz, "getTransientViewCount");
             }
         }
@@ -105,6 +110,18 @@ public final class Methods {
 
             private static void init() {
                 isGroupSummary = findMethodBestMatch(clazz, "isGroupSummary");
+
+                BuilderRemoteViews.init();
+            }
+
+            public static final class BuilderRemoteViews {
+                private static final Class clazz = Classes.Android.BuilderRemoteViews;
+
+                public static Constructor constructor;
+
+                private static void init() {
+                    constructor = findConstructorBestMatch(clazz, ApplicationInfo.class, int.class);
+                }
             }
         }
     }
@@ -116,9 +133,14 @@ public final class Methods {
             PhoneStatusBar.init();
             StatusBarWindowManagerState.init();
             QSContainer.init();
+            QSTile.init();
+            QSTileView.init();
             StatusBarHeaderView.init();
             NotificationPanelView.init();
             NotificationStackScrollLayout.init();
+            SwipeHelper.init();
+            ExpandHelper.init();
+            ViewScaler.init();
             StackScrollAlgorithm.init();
             StackStateAnimator.init();
             StackScrollState.init();
@@ -146,6 +168,7 @@ public final class Methods {
             public static Method updateNotification;
             public static Method addNotification;
             public static Method removeNotification;
+            public static Method removeNotificationViews;
 
             private static void init() {
                 try {
@@ -159,6 +182,7 @@ public final class Methods {
                 updateNotification = findMethodBestMatch(clazz, "updateNotification", StatusBarNotification.class, NotificationListenerService.RankingMap.class);
                 addNotification = findMethodBestMatch(clazz, "addNotification", StatusBarNotification.class, NotificationListenerService.RankingMap.class, Classes.SystemUI.NotificationDataEntry);
                 removeNotification = findMethodBestMatch(clazz, "removeNotification", String.class, NotificationListenerService.RankingMap.class);
+                removeNotificationViews = findMethodBestMatch(clazz, "removeNotificationViews", String.class, NotificationListenerService.RankingMap.class);
             }
         }
 
@@ -176,6 +200,12 @@ public final class Methods {
             public static Method updateQsExpansionEnabled;
             public static Method updateNotifications;
             public static Method maybeEscalateHeadsUp;
+            public static Method resetUserExpandedStates;
+            public static Method getBarState;
+            public static Method hasActiveNotifications;
+            public static Method animateCollapsePanels;
+            public static Method goToKeyguard;
+            public static Method setAreThereNotifications;
 
             private static void init() {
                 isCollapsing = findMethodBestMatch(clazz, "isCollapsing");
@@ -189,6 +219,12 @@ public final class Methods {
                 updateQsExpansionEnabled = findMethodBestMatch(clazz, "updateQsExpansionEnabled");
                 updateNotifications = findMethodBestMatch(clazz, "updateNotifications");
                 maybeEscalateHeadsUp = findMethodBestMatch(clazz, "maybeEscalateHeadsUp");
+                resetUserExpandedStates = findMethodBestMatch(clazz, "resetUserExpandedStates");
+                getBarState = findMethodBestMatch(clazz, "getBarState");
+                hasActiveNotifications = findMethodBestMatch(clazz, "hasActiveNotifications");
+                animateCollapsePanels = findMethodBestMatch(clazz, "animateCollapsePanels");
+                goToKeyguard = findMethodBestMatch(clazz, "goToKeyguard");
+                setAreThereNotifications = findMethodBestMatch(clazz, "setAreThereNotifications");
             }
         }
 
@@ -211,6 +247,30 @@ public final class Methods {
             private static void init() {
                 setHeightOverride = findMethodBestMatch(clazz, "setHeightOverride", int.class);
                 getDesiredHeight = findMethodBestMatch(clazz, "getDesiredHeight");
+            }
+        }
+
+        public static final class QSTile {
+            private static final Class clazz = Classes.SystemUI.QSTile;
+
+            public static Method supportsDualTargets;
+
+            private static void init() {
+                supportsDualTargets = findMethodBestMatch(clazz, "supportsDualTargets");
+            }
+        }
+
+        public static final class QSTileView {
+            private static final Class clazz = Classes.SystemUI.QSTileView;
+
+            public static Method setDual;
+
+            private static void init() {
+                try {
+                    setDual = findMethodBestMatch(clazz, "setDual", boolean.class);
+                } catch (NoSuchMethodError ignore) {//LOS I guess
+                    setDual = findMethodBestMatch(clazz, "setDual", boolean.class, boolean.class);
+                }
             }
         }
 
@@ -248,6 +308,8 @@ public final class Methods {
             public static Method getOverExpansionAmount;
             public static Method updateQsState;
             public static Method updateClock;
+            public static Method isTracking;
+            public static Method isQsExpanded;
 
             private static void init() {
                 layoutChildren = findMethodBestMatch(FrameLayout.class, "layoutChildren", int.class, int.class, int.class, int.class, boolean.class);
@@ -268,6 +330,8 @@ public final class Methods {
                 getOverExpansionAmount = findMethodBestMatch(clazz, "getOverExpansionAmount");
                 updateQsState = findMethodBestMatch(clazz, "updateQsState");
                 updateClock = findMethodBestMatch(clazz, "updateClock", float.class, float.class);
+                isTracking = findMethodBestMatch(clazz, "isTracking");
+                isQsExpanded = findMethodBestMatch(clazz, "isQsExpanded");
             }
         }
 
@@ -353,10 +417,16 @@ public final class Methods {
 
             public static Method setLayoutHeight;
             public static Method isDark;
+            public static Method setDimmed;
+            public static Method setDark;
+            public static Method setSpeedBumpIndex;
 
             private static void init() {
                 setLayoutHeight = findMethodBestMatch(clazz, "setLayoutHeight", int.class);
                 isDark = findMethodBestMatch(clazz, "isDark");
+                setDimmed = findMethodBestMatch(clazz, "setDimmed", boolean.class);
+                setDark = findMethodBestMatch(clazz, "setDark", boolean.class);
+                setSpeedBumpIndex = findMethodBestMatch(clazz, "setSpeedBumpIndex", int.class);
             }
         }
 
@@ -407,6 +477,9 @@ public final class Methods {
             public static Method getBottomStackPeekSize;
             public static Method getTopPaddingOverflow;
             public static Method getNotGoneChildCount;
+            public static Method getContentHeight;
+            public static Method isCurrentlyAnimating;
+            public static Method findDarkAnimationOriginIndex;
 
             private static void init() {
                 setIsExpanded = findMethodBestMatch(clazz, "setIsExpanded", boolean.class);
@@ -437,6 +510,76 @@ public final class Methods {
                 getBottomStackPeekSize = findMethodBestMatch(clazz, "getBottomStackPeekSize");
                 getTopPaddingOverflow = findMethodBestMatch(clazz, "getTopPaddingOverflow");
                 getNotGoneChildCount = findMethodBestMatch(clazz, "getNotGoneChildCount");
+                getContentHeight = findMethodBestMatch(clazz, "getContentHeight");
+                isCurrentlyAnimating = findMethodBestMatch(clazz, "isCurrentlyAnimating");
+                findDarkAnimationOriginIndex = findMethodBestMatch(clazz, "findDarkAnimationOriginIndex", PointF.class);
+            }
+        }
+
+        public static final class SwipeHelper {
+            private static final Class clazz = Classes.SystemUI.SwipeHelper;
+
+            public static Method getTranslation;
+            public static Method getSize;
+            public static Method updateSwipeProgressFromOffset;
+
+            private static void init() {
+                getTranslation = findMethodBestMatch(clazz, "getTranslation", View.class);
+                getSize = findMethodBestMatch(clazz, "getSize", View.class);
+                updateSwipeProgressFromOffset = findMethodBestMatch(clazz, "updateSwipeProgressFromOffset", View.class, boolean.class);
+
+                Callback.init();
+            }
+
+            public static final class Callback {
+                private static final Class clazz = Classes.SystemUI.SwipeHelperCallback;
+
+                public static Method canChildBeDismissed;
+
+                private static void init() {
+                    canChildBeDismissed = findMethodBestMatch(clazz, "canChildBeDismissed", View.class);
+                }
+            }
+        }
+
+        public static final class ExpandHelper {
+            private static final Class clazz = Classes.SystemUI.ExpandHelper;
+
+            private static void init() {
+                Callback.init();
+            }
+
+            public static final class Callback {
+                private static final Class clazz = Classes.SystemUI.ExpandHelperCallback;
+
+                public static Method setUserExpandedChild;
+                public static Method setUserLockedChild;
+                public static Method expansionStateChanged;
+                public static Method canChildBeExpanded;
+
+                private static void init() {
+                    setUserExpandedChild = findMethodBestMatch(clazz, "setUserExpandedChild", View.class, boolean.class);
+                    setUserLockedChild = findMethodBestMatch(clazz, "setUserLockedChild", View.class, boolean.class);
+                    expansionStateChanged = findMethodBestMatch(clazz, "expansionStateChanged", boolean.class);
+                    canChildBeExpanded = findMethodBestMatch(clazz, "canChildBeExpanded", View.class);
+                }
+            }
+        }
+
+        public static final class ViewScaler {
+            private static final Class clazz = Classes.SystemUI.ViewScaler;
+
+            public static Method setView;
+            public static Method setHeight;
+            public static Method getHeight;
+            public static Method getNaturalHeight;
+
+
+            private static void init() {
+                setView = findMethodBestMatch(clazz, "setView", Classes.SystemUI.ExpandableView);
+                setHeight = findMethodBestMatch(clazz, "setHeight", float.class);
+                getHeight = findMethodBestMatch(clazz, "getHeight");
+                getNaturalHeight = findMethodBestMatch(clazz, "getNaturalHeight", int.class);
             }
         }
 
@@ -470,6 +613,7 @@ public final class Methods {
             public static Method updateClipping;
             public static Method getMaxContentHeight;
             public static Method getMinHeight;
+            public static Method areChildrenExpanded;
 
             private static void init() {
                 isTransparent = findMethodBestMatch(clazz, "isTransparent");
@@ -485,6 +629,7 @@ public final class Methods {
                 updateClipping = findMethodBestMatch(clazz, "updateClipping");
                 getMaxContentHeight = findMethodBestMatch(clazz, "getMaxContentHeight");
                 getMinHeight = findMethodBestMatch(clazz, "getMinHeight");
+                areChildrenExpanded = findMethodBestMatch(clazz, "areChildrenExpanded");
             }
         }
 
@@ -501,6 +646,7 @@ public final class Methods {
             public static Method enableAppearDrawing;
             public static Method fadeInFromDark;
             public static Method setContentAlpha;
+            public static Method updateBackground;
 
             private static void init() {
                 getRippleColor = findMethodBestMatch(clazz, "getRippleColor");
@@ -513,6 +659,7 @@ public final class Methods {
                 enableAppearDrawing = findMethodBestMatch(clazz, "enableAppearDrawing", boolean.class);
                 fadeInFromDark = findMethodBestMatch(clazz, "fadeInFromDark", long.class);
                 setContentAlpha = findMethodBestMatch(clazz, "setContentAlpha", float.class);
+                updateBackground = findMethodBestMatch(clazz, "updateBackground");
             }
         }
 
@@ -527,6 +674,7 @@ public final class Methods {
             public static Method calculateVisibleType;
             public static Method updateViewVisibilities;
             public static Method selectLayout;
+            public static Method setDark;
 
             private static void init() {
                 getExpandedChild = findMethodBestMatch(clazz, "getExpandedChild");
@@ -537,6 +685,7 @@ public final class Methods {
                 calculateVisibleType = findMethodBestMatch(clazz, "calculateVisibleType");
                 updateViewVisibilities = findMethodBestMatch(clazz, "updateViewVisibilities", int.class);
                 selectLayout = findMethodBestMatch(clazz, "selectLayout", boolean.class, boolean.class);
+                setDark = findMethodBestMatch(clazz, "setDark", boolean.class, boolean.class, long.class);
             }
         }
 
@@ -548,10 +697,8 @@ public final class Methods {
             public static Method isExpanded;
             public static Method isExpandable;
             public static Method isHeadsUp;
-            public static Method areChildrenExpanded;
             public static Method getIntrinsicHeight;
             public static Method getMaxContentHeight;
-            public static Method getMaxExpandHeight;
             public static Method getActualHeight;
             public static Method getMinHeight;
             public static Method getStatusBarNotification;
@@ -575,17 +722,16 @@ public final class Methods {
             public static Method applyChildrenState;
             public static Method setExpansionDisabled;
             public static Method setSystemExpanded;
+            public static Method setHeadsUp;
 
             private static void init() {
                 isUserLocked = findMethodBestMatch(clazz, "isUserLocked");
                 isExpanded = findMethodBestMatch(clazz, "isExpanded");
                 isExpandable = findMethodBestMatch(clazz, "isExpandable");
                 isHeadsUp = findMethodBestMatch(clazz, "isHeadsUp");
-                areChildrenExpanded = findMethodBestMatch(clazz, "areChildrenExpanded");
                 getActualHeight = findMethodBestMatch(clazz, "getActualHeight");
                 getIntrinsicHeight = findMethodBestMatch(clazz, "getIntrinsicHeight");
                 getMaxContentHeight = findMethodBestMatch(clazz, "getMaxContentHeight");
-                getMaxExpandHeight = findMethodBestMatch(clazz, "getMaxExpandHeight");
                 getMinHeight = findMethodBestMatch(clazz, "getMinHeight");
                 getStatusBarNotification = findMethodBestMatch(clazz, "getStatusBarNotification");
                 getShowingLayout = findMethodBestMatch(clazz, "getShowingLayout");
@@ -608,6 +754,7 @@ public final class Methods {
                 applyChildrenState = findMethodBestMatch(clazz, "applyChildrenState", Classes.SystemUI.StackScrollState);
                 setExpansionDisabled = findMethodBestMatch(clazz, "setExpansionDisabled", boolean.class);
                 setSystemExpanded = findMethodBestMatch(clazz, "setSystemExpanded", boolean.class);
+                setHeadsUp = findMethodBestMatch(clazz, "setHeadsUp", boolean.class);
             }
         }
 
@@ -665,6 +812,7 @@ public final class Methods {
             public static Method setEntryPinned;
             public static Method shouldHeadsUpBecomePinned;
             public static Method getTopEntry;
+            public static Method removeHeadsUpEntry;
 
             private static void init() {
                 isHeadsUp = findMethodBestMatch(clazz, "isHeadsUp", String.class);
@@ -675,6 +823,19 @@ public final class Methods {
                 setEntryPinned = findMethodBestMatch(clazz, "setEntryPinned", Classes.SystemUI.HeadsUpEntry, boolean.class);
                 shouldHeadsUpBecomePinned = findMethodBestMatch(clazz, "shouldHeadsUpBecomePinned", Classes.SystemUI.NotificationDataEntry);
                 getTopEntry = findMethodBestMatch(clazz, "getTopEntry");
+                removeHeadsUpEntry = findMethodBestMatch(clazz, "removeHeadsUpEntry", Classes.SystemUI.NotificationDataEntry);
+
+                OnHeadsUpChangedListener.init();
+            }
+
+            public static final class OnHeadsUpChangedListener {
+                private static final Class clazz = Classes.SystemUI.HeadsUpManagerOnHeadsUpChangedListener;
+
+                public static Method onHeadsUpStateChanged;
+
+                private static void init() {
+                    onHeadsUpStateChanged = findMethodBestMatch(clazz, "onHeadsUpStateChanged", Classes.SystemUI.NotificationDataEntry, boolean.class);
+                }
             }
         }
 
@@ -683,10 +844,12 @@ public final class Methods {
 
             public static Method removeAutoRemovalCallbacks;
             public static Method compareTo;
+            public static Method updateEntry;
 
             private static void init() {
                 removeAutoRemovalCallbacks = findMethodBestMatch(clazz, "removeAutoRemovalCallbacks");
                 compareTo = findMethodBestMatch(clazz, "compareTo", clazz);
+                updateEntry = findMethodBestMatch(clazz, "updateEntry");
             }
         }
 

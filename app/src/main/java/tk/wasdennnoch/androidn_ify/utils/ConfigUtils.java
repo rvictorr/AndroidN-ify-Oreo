@@ -35,7 +35,6 @@ public class ConfigUtils {
     public QuickSettingsConfig qs;
     public NotificationsConfig notifications;
     public LockscreenConfig lockscreen;
-    public AssistantConfig assistant;
     public OthersConfig others;
 
     private ConfigUtils() {
@@ -67,7 +66,6 @@ public class ConfigUtils {
         qs = new QuickSettingsConfig(mPrefs);
         notifications = new NotificationsConfig(mPrefs);
         lockscreen = new LockscreenConfig(mPrefs);
-        assistant = new AssistantConfig(mPrefs);
         others = new OthersConfig(mPrefs);
     }
 
@@ -95,10 +93,6 @@ public class ConfigUtils {
 
     public static LockscreenConfig lockscreen() {
         return getInstance().lockscreen;
-    }
-
-    public static AssistantConfig assistant() {
-        return getInstance().assistant;
     }
 
     public static OthersConfig others() {
@@ -216,6 +210,8 @@ public class ConfigUtils {
         public final int keyguard_max;
         public final int actions_color;
         public final boolean enable_bundled_notifications;
+        public final int bundled_notifications_collapsed_children;
+        public final int bundled_notifications_expanded_children;
 
         public List<String> blacklistedApps;
 
@@ -234,6 +230,8 @@ public class ConfigUtils {
             keyguard_max = prefs.getInt("notification_keyguard_max", 3);
             actions_color = prefs.getInt("actions_background_colors", 0);
             enable_bundled_notifications = prefs.getBoolean("enable_bundled_notifications", false) && EXPERIMENTAL;
+            bundled_notifications_collapsed_children = prefs.getInt("bundled_notifications_collapsed_children", 2);
+            bundled_notifications_expanded_children = prefs.getInt("bundled_notifications_expanded_children", 8);
         }
 
         public void loadBlacklistedApps() {
@@ -258,16 +256,6 @@ public class ConfigUtils {
 
         public LockscreenConfig(SharedPreferences prefs) {
             enable_emergency_info = prefs.getBoolean("enable_emergency_info", true);
-        }
-    }
-
-    public class AssistantConfig {
-        public final boolean enable_assistant;
-        public final String google_app_hook_configs;
-
-        public AssistantConfig(SharedPreferences prefs) {
-            enable_assistant = prefs.getBoolean("enable_assistant", true);
-            google_app_hook_configs = prefs.getString("google_app_hook_configs", "[]");
         }
     }
 

@@ -99,9 +99,6 @@ public class StackScrollAlgorithmHooks {
     private static Field fieldHostView;
     private static Field fieldStateMap;
     private static Field fieldClearAllTopPadding;
-    private static Field fieldAmbientState;
-    private static Field fieldMaxLayoutHeight;
-    private static Field fieldCurrentStackHeight;
     private static Field fieldTopPaddingScroller;
 
     private static Method methodGetInnerHeight;
@@ -174,9 +171,6 @@ public class StackScrollAlgorithmHooks {
             fieldStateMap = XposedHelpers.findField(StackScrollState, "mStateMap");
             fieldClearAllTopPadding = XposedHelpers.findField(StackScrollState, "mClearAllTopPadding");
 
-            fieldAmbientState = XposedHelpers.findField(NotificationStackScrollLayout, "mAmbientState");
-            fieldMaxLayoutHeight = XposedHelpers.findField(NotificationStackScrollLayout, "mMaxLayoutHeight");
-            fieldCurrentStackHeight = XposedHelpers.findField(NotificationStackScrollLayout, "mCurrentStackHeight");
             fieldTopPaddingScroller = XposedHelpers.findField(NotificationStackScrollLayout, "mTopPadding");
 
             methodGetInnerHeight = XposedHelpers.findMethodBestMatch(AmbientState, "getInnerHeight");
@@ -218,9 +212,9 @@ public class StackScrollAlgorithmHooks {
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "clampPositionToTopStackEnd", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "updateFirstChildMaxSizeToMaxHeight", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "onExpansionStarted", XC_MethodReplacement.DO_NOTHING);
+            XposedBridge.hookAllMethods(StackScrollAlgorithm, "onExpansionStopped", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "updateFirstChildHeightWhileExpanding", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "updateIsSmallScreen", XC_MethodReplacement.DO_NOTHING);
-            XposedBridge.hookAllMethods(StackScrollAlgorithm, "onExpansionStopped", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "notifyChildrenChanged", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "updateStateForChildFullyInBottomStack", new XC_MethodHook() {
                 @Override
@@ -315,9 +309,9 @@ public class StackScrollAlgorithmHooks {
         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
             //replacing it rather than hooking it because it's different on Xperias
             Object stackScroller = param.thisObject;
-            Object mAmbientState = get(fieldAmbientState, stackScroller);
-            int mMaxLayoutHeight = getInt(fieldMaxLayoutHeight, stackScroller);
-            int mCurrentStackHeight = getInt(fieldCurrentStackHeight, stackScroller);
+            Object mAmbientState = get(Fields.SystemUI.NotificationStackScrollLayout.mAmbientState, stackScroller);
+            int mMaxLayoutHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mMaxLayoutHeight, stackScroller);
+            int mCurrentStackHeight = getInt(Fields.SystemUI.NotificationStackScrollLayout.mCurrentStackHeight, stackScroller);
             int minLayoutHeight = Math.min(mMaxLayoutHeight, mCurrentStackHeight);
             invoke(setLayoutHeight, mAmbientState, minLayoutHeight);
             updateAlgorithmLayoutMinHeight();

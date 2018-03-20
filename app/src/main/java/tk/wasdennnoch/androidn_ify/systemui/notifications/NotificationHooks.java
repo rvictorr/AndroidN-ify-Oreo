@@ -142,8 +142,6 @@ public class NotificationHooks {
 
     private static final int REMOTE_INPUT_KEPT_ENTRY_AUTO_CANCEL_DELAY = 200;
 
-    private static Class classBuilderRemoteViews;
-
     private static int mNotificationBgColor;
     private static int mNotificationBgDimmedColor;
     private static int mAccentColor = 0;
@@ -167,6 +165,24 @@ public class NotificationHooks {
         @SuppressWarnings({"deprecation", "UnusedAssignment"})
         @Override
         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+//            Object entry = param.args[0];
+//            Context context = (Context) XposedHelpers.getObjectField(param.thisObject, "mContext");
+//            Notification n = ((StatusBarNotification) get(Fields.SystemUI.NotificationDataEntry.notification, entry)).getNotification(); //TODO: make this work
+//            final Notification.Builder recoveredBuilder
+//                    = NotificationHooks.recoverBuilder(context,
+//                    n);
+//
+//            if (isMediaNotification(n)) {
+//                MediaNotificationProcessor processor = new MediaNotificationProcessor(context, ResourceUtils.getPackageContext(context));
+//                processor.processNotification(n, recoveredBuilder);
+//
+////                n.extras.putBoolean("android.rebuild.largeIcon", true);
+//                n.extras.putBoolean("android.rebuild.contentView", true);
+//                n.extras.putBoolean("android.rebuild.bigView", true);
+//                n = (Notification) XposedHelpers.callMethod(recoveredBuilder, "rebuild");
+////                n = recoveredBuilder.build();
+////                makeBigContentView
+//            }
             mHeadsUpManager = get(Fields.SystemUI.BaseStatusBar.mHeadsUpManager, param.thisObject);
             ExpandableNotificationRowHelper.setHeadsUpManager(mHeadsUpManager);
         }
@@ -175,7 +191,7 @@ public class NotificationHooks {
         protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
             if (!(boolean) param.getResult()) return;
 
-            Context context = (Context) XposedHelpers.getObjectField(param.thisObject, "mContext");
+            Context context = get(Fields.SystemUI.BaseStatusBar.mContext, param.thisObject);
 
             Object entry = param.args[0];
             Object row = get(Fields.SystemUI.NotificationDataEntry.row, entry);
@@ -187,15 +203,23 @@ public class NotificationHooks {
 
             if (!ConfigUtils.notifications().change_style) return;
 
-            Notification n = ((StatusBarNotification) get(Fields.SystemUI.NotificationDataEntry.notification, entry)).getNotification();
-            final Notification.Builder recoveredBuilder
-                    = NotificationHooks.recoverBuilder(context,
-                    n);
-
-            if (isMediaNotification(n)) {
-                MediaNotificationProcessor processor = new MediaNotificationProcessor(context, ResourceUtils.getPackageContext(context));
-                processor.processNotification(n, recoveredBuilder);
-            }
+            Notification n = ((StatusBarNotification) get(Fields.SystemUI.NotificationDataEntry.notification, entry)).getNotification(); //TODO: make this work
+//            n.extras.putParcelable(EXTRA_LARGE_ICON, (Bitmap) invoke(Methods.Android.Icon.getBitmap, n.getLargeIcon()));
+//            final Notification.Builder recoveredBuilder
+//                    = NotificationHooks.recoverBuilder(context,
+//                    n);
+//
+//            if (isMediaNotification(n)) {
+//                MediaNotificationProcessor processor = new MediaNotificationProcessor(context, ResourceUtils.getPackageContext(context));
+//                processor.processNotification(n, recoveredBuilder);
+//
+////                n.extras.putBoolean("android.rebuild.largeIcon", true);
+//                n.extras.putBoolean("android.rebuild.contentView", true);
+//                n.extras.putBoolean("android.rebuild.bigView", true);
+////                XposedHelpers.callMethod(recoveredBuilder, "rebuild");
+//                recoveredBuilder.build();
+//                makeBigContentView
+//            }
 
             RemoteInputController mRemoteInputController = (RemoteInputController) XposedHelpers.getAdditionalInstanceField(param.thisObject, "mRemoteInputController");
             rowHelper.setRemoteInputController(mRemoteInputController);
@@ -213,10 +237,9 @@ public class NotificationHooks {
             }
             //}
             ((FrameLayout) row).setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
-            rowHelper.onNotificationUpdated(entry);
 
             ConfigUtils.notifications().loadBlacklistedApps();
-            StatusBarNotification sbn = invoke(Methods.SystemUI.ExpandableNotificationRow.getStatusBarNotification, row);
+            StatusBarNotification sbn = get(Fields.SystemUI.NotificationDataEntry.notification, entry);
             if (ConfigUtils.notifications().blacklistedApps.contains(sbn.getPackageName())) return;
 
             View privateView = invoke(Methods.SystemUI.NotificationContentView.getContractedChild, contentContainer);
@@ -289,12 +312,15 @@ public class NotificationHooks {
                 Notification.Action[] actions = sbn.getNotification().actions;
                 if (actions != null) {
                     addRemoteInput(context, expandedChild, actions);
+                    addRemoteInput(context, headsUpChild, actions);
                 }
             }
+
+            rowHelper.onNotificationUpdated(entry);
         }
     };
 
-    private static void addRemoteInput(Context context, View child, Notification.Action[] actions) {
+    public static void addRemoteInput(Context context, View child, Notification.Action[] actions) {
         if (child == null) {
             return;
         }
@@ -664,6 +690,7 @@ public class NotificationHooks {
     }
 
     public static void setColorPalette(Notification.Builder builder, int backgroundColor, int foregroundColor) {
+//        XposedHook.logI(TAG, "color palette set for builder " + builder.toString());
         XposedHelpers.setAdditionalInstanceField(builder, "mBackgroundColor", backgroundColor);
         XposedHelpers.setAdditionalInstanceField(builder, "mForegroundColor", foregroundColor);
         XposedHelpers.setAdditionalInstanceField(builder, "mTextColorsAreForBackground", COLOR_INVALID);
@@ -832,16 +859,19 @@ public class NotificationHooks {
 //                contentView.setInt(R.id.status_bar_latest_event_content, "setBackgroundColor",
 //                        getBackgroundColor(builder));
 //////            }
-                contentView.setInt(context.getResources().getIdentifier("status_bar_latest_event_content", "id", PACKAGE_ANDROID), "setBackgroundColor",
+                if (!NotificationsStuff.DEBUG_CONTENT_TRANSFORMATIONS)
+                    contentView.setInt(context.getResources().getIdentifier("status_bar_latest_event_content", "id", PACKAGE_ANDROID), "setBackgroundColor",
                         getBackgroundColor(builder));
+//            XposedHook.logI(TAG, "updated background color for builder " + builder.toString());
         } else {
             //Clear it!
 //            contentView.setInt(R.id.status_bar_latest_event_content, "setBackgroundResource",
-//                    0); //FIXME setting a background screws it up
-            contentView.setInt(context.getResources().getIdentifier("status_bar_latest_event_content", "id", PACKAGE_ANDROID), "setBackgroundResource",
-                    0);
+//                    0); //TODO: setting a background screws it up
+            if (!NotificationsStuff.DEBUG_CONTENT_TRANSFORMATIONS)
+                contentView.setInt(context.getResources().getIdentifier("status_bar_latest_event_content", "id", PACKAGE_ANDROID), "setBackgroundResource",
+                        0);
 //        contentView.setInt(R.id.status_bar_latest_event_content, "setBackgroundColor",
-//                0x99ff0000); //FIXME setting a background screws it up
+//                0x99ff0000);
         }
     }
 
@@ -850,8 +880,7 @@ public class NotificationHooks {
      */
     public static RemoteViews makeNotificationHeader(Notification.Builder builder) {
         Context context = (Context) XposedHelpers.getObjectField(builder, "mContext");
-        Constructor constructor = XposedHelpers.findConstructorBestMatch(classBuilderRemoteViews, ApplicationInfo.class, int.class);
-        RemoteViews header = newInstance(constructor, ResourceUtils.createOwnContext(context).getApplicationInfo(), R.layout.notification_template_header);
+        RemoteViews header = newInstance(Methods.Android.Notification.BuilderRemoteViews.constructor, ResourceUtils.createOwnContext(context).getApplicationInfo(), R.layout.notification_template_header);
         resetNotificationHeader(header);
         bindNotificationHeader(header, builder);
         return header;
@@ -1204,13 +1233,6 @@ public class NotificationHooks {
                 XposedHook.logE(TAG, "Error in buildHook (car extender)", t);
             }
         }
-
-        @Override
-        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-            Notification n = (Notification) param.getResult();
-            Notification.Builder builder = (Notification.Builder) param.thisObject;
-            XposedHelpers.setAdditionalInstanceField(n, "mBuilder", builder);
-        }
     };
 
     private static final XC_MethodHook makeBigContentViewBigPictureHook = new XC_MethodHook() {
@@ -1418,7 +1440,6 @@ public class NotificationHooks {
             if (ConfigUtils.notifications().change_style) {
 
                 final Class classNotificationBuilder = Notification.Builder.class;
-                classBuilderRemoteViews = XposedHelpers.findClass(Notification.class.getName() + "$BuilderRemoteViews", classLoader);
                 Class classNotificationStyle = Notification.Style.class;
                 Class classNotificationMediaStyle = Notification.MediaStyle.class;
                 Class classNotificationBigTextStyle = Notification.BigTextStyle.class;
@@ -1552,7 +1573,7 @@ public class NotificationHooks {
             mRemoteInputController.removeRemoteInput(entry, null);
             invoke(Methods.SystemUI.BaseStatusBar.removeNotification, mPhoneStatusBar,
                     get(Fields.SystemUI.NotificationDataEntry.key, entry),
-                    XposedHelpers.getObjectField(mPhoneStatusBar, "mLatestRankingMap"));
+                    get(Fields.SystemUI.PhoneStatusBar.mLatestRankingMap, mPhoneStatusBar));
         }
         mRemoteInputEntriesToRemoveOnCollapse.clear();
     }
@@ -1565,15 +1586,6 @@ public class NotificationHooks {
 
             final Class classNotificationClicker = XposedHelpers.findClass("com.android.systemui.statusbar.BaseStatusBar.NotificationClicker", Classes.SystemUI.getClassLoader());
             XposedHelpers.findAndHookMethod(Classes.SystemUI.BaseStatusBar, "inflateViews", Classes.SystemUI.NotificationDataEntry, ViewGroup.class, inflateViewsHook);
-            XposedHelpers.findAndHookMethod(Classes.SystemUI.BaseStatusBar, "updateNotificationViews", Classes.SystemUI.NotificationDataEntry, StatusBarNotification.class, new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    Object entry = param.args[0];
-                    Object row = get(Fields.SystemUI.NotificationDataEntry.row, entry);
-                    ExpandableNotificationRowHelper.getInstance(row).onNotificationUpdated(entry);
-                }
-            });
-
 
             if (config.notifications.change_style) {
 
@@ -1581,25 +1593,6 @@ public class NotificationHooks {
 
                 if (ConfigUtils.M) // For now
                     mStackScrollLayoutHooks = new NotificationStackScrollLayoutHooks();
-
-                boolean foundClass = false;
-                Class classBroadcastReceiver = null;
-                Class classNotificationListener = null;
-                for(int i = 1; !foundClass; i++) {
-                    try {
-                        classBroadcastReceiver = XposedHelpers.findClass("com.android.systemui.statusbar.phone.PhoneStatusBar$" + i, Classes.SystemUI.getClassLoader());
-                    } catch (XposedHelpers.ClassNotFoundError ignore) {} //wtf Sony?? (some numbers missing)
-                    if (classBroadcastReceiver != null && BroadcastReceiver.class.isAssignableFrom(classBroadcastReceiver))
-                        foundClass = true;
-                }
-                foundClass = false;
-                for(int i = 1; !foundClass; i++) {
-                    try {
-                        classNotificationListener = XposedHelpers.findClass("com.android.systemui.statusbar.BaseStatusBar$" + i, Classes.SystemUI.getClassLoader());
-                    } catch (XposedHelpers.ClassNotFoundError ignore) {} //wtf Sony?? (some numbers missing)
-                    if (classNotificationListener != null && NotificationListenerService.class.isAssignableFrom(classNotificationListener))
-                        foundClass = true;
-                }
 
                 final Class<?> classMediaExpandableNotificationRow = getClassMediaExpandableNotificationRow(Classes.SystemUI.getClassLoader());
                 Class classNotificationGuts = XposedHelpers.findClass("com.android.systemui.statusbar.NotificationGuts", Classes.SystemUI.getClassLoader());
@@ -1609,17 +1602,16 @@ public class NotificationHooks {
                     XposedHelpers.findAndHookMethod(View.class, "dispatchStartTemporaryDetach", new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                            int mPrivateFlags3 = XposedHelpers.getIntField(param.thisObject, "mPrivateFlags3");
-                            XposedHelpers.setIntField(param.thisObject, "mPrivateFlags3",  mPrivateFlags3 | 0x2000000/* PFLAG3_TEMPORARY_DETACH*/);
-                            XposedHook.logD(TAG, "dispatchStartTemporaryDetach called");
+                            int mPrivateFlags3 = getInt(Fields.Android.View.mPrivateFlags3, param.thisObject);
+                            set(Fields.Android.View.mPrivateFlags3, param.thisObject,  mPrivateFlags3 | 0x2000000/* PFLAG3_TEMPORARY_DETACH*/);
                         }
                     });
 
                     XposedHelpers.findAndHookMethod(View.class, "dispatchFinishTemporaryDetach", new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                            int mPrivateFlags3 = XposedHelpers.getIntField(param.thisObject, "mPrivateFlags3");
-                            XposedHelpers.setIntField(param.thisObject, "mPrivateFlags3",  mPrivateFlags3 & ~0x2000000/* PFLAG3_TEMPORARY_DETACH*/);
+                            int mPrivateFlags3 = getInt(Fields.Android.View.mPrivateFlags3, param.thisObject);
+                            set(Fields.Android.View.mPrivateFlags3, param.thisObject,  mPrivateFlags3 & ~0x2000000/* PFLAG3_TEMPORARY_DETACH*/);
                         }
 
                         @Override
@@ -1635,8 +1627,8 @@ public class NotificationHooks {
                     XposedHelpers.findAndHookMethod(View.class, "onDetachedFromWindowInternal", new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                            int mPrivateFlags3 = XposedHelpers.getIntField(param.thisObject, "mPrivateFlags3");
-                            XposedHelpers.setIntField(param.thisObject, "mPrivateFlags3",  mPrivateFlags3 & ~0x2000000/* PFLAG3_TEMPORARY_DETACH*/);
+                            int mPrivateFlags3 = getInt(Fields.Android.View.mPrivateFlags3, param.thisObject);
+                            set(Fields.Android.View.mPrivateFlags3, param.thisObject,  mPrivateFlags3 & ~0x2000000/* PFLAG3_TEMPORARY_DETACH*/);
                         }
                     });
 
@@ -1695,7 +1687,7 @@ public class NotificationHooks {
 
                             if (!inPinnedMode) {
                                 if ((boolean) XposedHelpers.callMethod(mNotificationPanel, "isFullyCollapsed")
-                                        || !(boolean) XposedHelpers.callMethod(mNotificationPanel, "isTracking")) {
+                                        || !(boolean) invoke(Methods.SystemUI.NotificationPanelView.isTracking, mNotificationPanel)) {
                                     XposedHelpers.callMethod(mStackScroller, "runAfterAnimationFinished", new Runnable() {
                                         @Override
                                         public void run() {
@@ -1739,11 +1731,10 @@ public class NotificationHooks {
                     XposedHelpers.findAndHookMethod(Classes.SystemUI.PhoneStatusBar, "removeNotification", String.class, NotificationListenerService.RankingMap.class, new XC_MethodReplacement() {
                         @Override
                         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                            //TODO: this realllllyyyyy needs to pe optimized properly (fields etc.)
                             Object mNotificationPanel = get(Fields.SystemUI.PhoneStatusBar.mNotificationPanel, param.thisObject);
                             Object mNotificationData = get(Fields.SystemUI.BaseStatusBar.mNotificationData, param.thisObject);
                             Object row = null;
-                            HashSet mHeadsUpEntriesToRemoveOnSwitch = (HashSet) XposedHelpers.getObjectField(param.thisObject, "mHeadsUpEntriesToRemoveOnSwitch");
+                            HashSet mHeadsUpEntriesToRemoveOnSwitch = get(Fields.SystemUI.PhoneStatusBar.mHeadsUpEntriesToRemoveOnSwitch, param.thisObject);
                             RemoteInputController mRemoteInputController = (RemoteInputController) XposedHelpers.getAdditionalInstanceField(param.thisObject, "mRemoteInputController");
                             String key = (String) param.args[0];
                             NotificationListenerService.RankingMap ranking = (NotificationListenerService.RankingMap) param.args[1];
@@ -1759,7 +1750,7 @@ public class NotificationHooks {
                                 XposedHelpers.callMethod(param.thisObject, "updateMediaMetaData", true);
                             }
                             if (deferRemoval) {
-                                XposedHelpers.setObjectField(param.thisObject, "mLatestRankingMap", ranking);
+                                set(Fields.SystemUI.PhoneStatusBar.mLatestRankingMap, param.thisObject, ranking);
                                 mHeadsUpEntriesToRemoveOnSwitch.add(XposedHelpers.callMethod(mHeadsUpManager, "getEntry", key));
                                 return null;
                             }
@@ -1769,7 +1760,7 @@ public class NotificationHooks {
                             }
                             if (entry != null && mRemoteInputController.isRemoteInputActive(entry)
                                     && (row != null && !ExpandableNotificationRowHelper.getInstance(row).isDismissed())) {
-                                XposedHelpers.setObjectField(param.thisObject, "mLatestRankingMap",  ranking);
+                                set(Fields.SystemUI.PhoneStatusBar.mLatestRankingMap, param.thisObject,  ranking);
                                 mRemoteInputEntriesToRemoveOnCollapse.add(entry);
                                 return null;
                             }
@@ -1779,26 +1770,26 @@ public class NotificationHooks {
                             }
                             // Let's remove the children if this was a summary
                             NotificationsStuff.handleGroupSummaryRemoved(param.thisObject, key, ranking);
-                            StatusBarNotification old = (StatusBarNotification) XposedHelpers.callMethod(param.thisObject, "removeNotificationViews", key, ranking);
+                            StatusBarNotification old = invoke(Methods.SystemUI.BaseStatusBar.removeNotificationViews, param.thisObject, key, ranking);
 
                             if (old != null) {
-                                if (!(boolean) XposedHelpers.callMethod(param.thisObject, "hasActiveNotifications")
-                                        && !(boolean) XposedHelpers.callMethod(mNotificationPanel, "isTracking")
-                                        && !(boolean) XposedHelpers.callMethod(mNotificationPanel, "isQsExpanded")) {
+                                if (!(boolean) invoke(Methods.SystemUI.PhoneStatusBar.hasActiveNotifications, param.thisObject)
+                                        && !(boolean) invoke(Methods.SystemUI.NotificationPanelView.isTracking, mNotificationPanel)
+                                        && !(boolean) invoke(Methods.SystemUI.NotificationPanelView.isQsExpanded, mNotificationPanel)) {
                                     int state = getInt(Fields.SystemUI.BaseStatusBar.mState, param.thisObject);
                                     if (state == 0 /*StatusBarState.SHADE*/) {
-                                        XposedHelpers.callMethod(param.thisObject, "animateCollapsePanels");
-                                    } else if (state == 2 /*StatusBarState.SHADE_LOCKED*/ && !(boolean) XposedHelpers.callMethod(param.thisObject, "isCollapsing")) {
-                                        XposedHelpers.callMethod(param.thisObject, "goToKeyguard");
+                                        invoke(Methods.SystemUI.PhoneStatusBar.animateCollapsePanels, param.thisObject);
+                                    } else if (state == 2 /*StatusBarState.SHADE_LOCKED*/ && !(boolean) invoke(Methods.SystemUI.PhoneStatusBar.isCollapsing, param.thisObject)) {
+                                        invoke(Methods.SystemUI.PhoneStatusBar.goToKeyguard, param.thisObject);
                                     }
                                 }
                             }
-                            XposedHelpers.callMethod(param.thisObject, "setAreThereNotifications");
+                            invoke(Methods.SystemUI.PhoneStatusBar.setAreThereNotifications, param.thisObject);
                             return null;
                         }
                     });
 
-                    XposedHelpers.findAndHookMethod(classBroadcastReceiver, "onReceive", Context.class, Intent.class, new XC_MethodHook() {
+                    XposedHelpers.findAndHookMethod(Classes.SystemUI.StatusBarBroadCastReceiver, "onReceive", Context.class, Intent.class, new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                             Intent intent = (Intent) param.args[1];
@@ -1813,7 +1804,7 @@ public class NotificationHooks {
                         }
                     });
 
-                    XposedHelpers.findAndHookMethod(classNotificationListener, "onNotificationPosted", StatusBarNotification.class, NotificationListenerService.RankingMap.class, new XC_MethodReplacement() {
+                    XposedHelpers.findAndHookMethod(Classes.SystemUI.StatusBarNotificationListener, "onNotificationPosted", StatusBarNotification.class, NotificationListenerService.RankingMap.class, new XC_MethodReplacement() {
                         @Override
                         protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                             final Object baseStatusBar = XposedHelpers.getSurroundingThis(param.thisObject);

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:title="@string/header_experimental">
 
     <SwitchPreference
@@ -18,6 +19,26 @@
         android:dependency="enable_experimental_features"
         android:key="enable_bundled_notifications"
         android:title="@string/enable_bundled_notifications_title"/>
+
+    <tk.wasdennnoch.androidn_ify.ui.preference.SeekBarPreference
+        android:defaultValue="2"
+        android:dependency="enable_bundled_notifications"
+        android:key="bundled_notifications_collapsed_children"
+        android:title="@string/bundled_notifications_collapsed_children_title"
+        app:maximum="6"
+        app:interval="1"
+        app:minimum="1"
+        app:monitorBoxEnabled="true"/>
+
+    <tk.wasdennnoch.androidn_ify.ui.preference.SeekBarPreference
+        android:defaultValue="8"
+        android:dependency="enable_bundled_notifications"
+        android:key="bundled_notifications_expanded_children"
+        android:title="@string/bundled_notifications_expanded_children_title"
+        app:maximum="10"
+        app:interval="1"
+        app:minimum="2"
+        app:monitorBoxEnabled="true"/>
 
     <SwitchPreference
         android:defaultValue="true"
@@ -43,12 +64,5 @@
         android:dependency="fix_header_space"
         android:key="reconfigure_notification_panel"
         android:title="@string/reconfigure_notification_panel_title"/>
-
-    <SwitchPreference
-        android:defaultValue="true"
-        android:dependency="enable_experimental_features"
-        android:key="enable_assistant"
-        android:summary="@string/enable_assistant_summary"
-        android:title="@string/enable_assistant"/>
 
 </PreferenceScreen>

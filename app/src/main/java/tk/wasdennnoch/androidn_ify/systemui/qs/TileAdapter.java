@@ -26,6 +26,8 @@ import tk.wasdennnoch.androidn_ify.XposedHook;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
+import tk.wasdennnoch.androidn_ify.utils.ReflectionUtils;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static tk.wasdennnoch.androidn_ify.systemui.qs.QSTileHostHooks.KEY_EDIT_TILEVIEW;
@@ -199,10 +201,10 @@ public class TileAdapter extends RecyclerView.Adapter<TileAdapter.TileViewHolder
         boolean dual = XposedHelpers.getBooleanField(tileView, "mDual");
         tileView.setLayoutParams(tileViewLp);
         try {
-            XposedHelpers.callMethod(tileView, "setDual", dual);
+            ReflectionUtils.invoke(Methods.SystemUI.QSTileView.setDual, tileView, dual);
         } catch (Throwable t) {// CM13
             try {
-                XposedHelpers.callMethod(tileView, "setDual", dual, dual);
+                ReflectionUtils.invoke(Methods.SystemUI.QSTileView.setDual, tileView, dual, dual);
             } catch (Throwable ignore) {
                 // Other ROMs
             }

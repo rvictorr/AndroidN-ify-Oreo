@@ -13,6 +13,7 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XposedHelpers;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
 import tk.wasdennnoch.androidn_ify.utils.Methods;
 
 import static tk.wasdennnoch.androidn_ify.utils.Classes.SystemUI.NotificationDataEntry;
@@ -34,13 +35,6 @@ public class NotificationGroupManagerHooks {
         XposedHelpers.findAndHookMethod(NotificationGroupManager, "isVisible", StatusBarNotification.class, XC_MethodReplacement.returnConstant(true));
         XposedHelpers.findAndHookMethod(NotificationGroupManager, "hasGroupChildren", StatusBarNotification.class, XC_MethodReplacement.returnConstant(true));
 
-//        XposedHelpers.findAndHookMethod(NotificationGroupManager, "isGroupExpanded", StatusBarNotification.class, new XC_MethodReplacement() {
-//            @Override
-//            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-//                return isGroupExpanded(param.thisObject, (StatusBarNotification) param.args[0]);
-//            }
-//        });
-
         XposedHelpers.findAndHookMethod(NotificationGroupManager, "setGroupExpanded", StatusBarNotification.class, boolean.class, new XC_MethodReplacement() {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
@@ -52,7 +46,7 @@ public class NotificationGroupManagerHooks {
         XposedHelpers.findAndHookMethod(NotificationGroupManager, "onEntryRemoved", Classes.SystemUI.NotificationDataEntry, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                mIsolatedEntries.remove(get(key, param.thisObject));
+                mIsolatedEntries.remove(get(key, param.args[0]));
             }
         });
 
@@ -105,7 +99,7 @@ public class NotificationGroupManagerHooks {
                     updateSuppression(param.thisObject, group);
                 } else {
                     set(summary, group, added);
-                    set(expanded, group, invoke(Methods.SystemUI.ExpandableNotificationRow.areChildrenExpanded, get(row, added)));
+                    set(expanded, group, invoke(Methods.SystemUI.ExpandableView.areChildrenExpanded, get(row, added)));
                     updateSuppression(param.thisObject, group);
                     if (!childrenSet.isEmpty()) {
                         HashSet childrenCopy =
@@ -451,9 +445,10 @@ public class NotificationGroupManagerHooks {
 
     private static boolean isGroupNotFullyVisible(Object notificationGroup) {
         Object groupSummary = get(summary, notificationGroup);
+        View row = get(Fields.SystemUI.NotificationDataEntry.row, groupSummary);
         return groupSummary == null
-                || (int) invoke(Methods.SystemUI.ExpandableView.getClipTopAmount, get(row, groupSummary)) > 0
-                || ((View) get(row, groupSummary)).getTranslationY() < 0;
+                || (int) invoke(Methods.SystemUI.ExpandableView.getClipTopAmount, row) > 0
+                || row.getTranslationY() < 0;
     }
 
     public static void setHeadsUpManager(Object headsUpManager) {

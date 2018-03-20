@@ -18,7 +18,6 @@ import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_InitPackageResources;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import tk.wasdennnoch.androidn_ify.android.AndroidHooks;
-import tk.wasdennnoch.androidn_ify.google.AssistantHooks;
 import tk.wasdennnoch.androidn_ify.packageinstaller.PackageInstallerHooks;
 import tk.wasdennnoch.androidn_ify.phone.emergency.EmergencyHooks;
 import tk.wasdennnoch.androidn_ify.settings.SettingsHooks;
@@ -54,7 +53,6 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
     public static final String PACKAGE_SYSTEMUI = "com.android.systemui";
     public static final String PACKAGE_SETTINGS = "com.android.settings";
     public static final String PACKAGE_PHONE = "com.android.phone";
-    public static final String PACKAGE_GOOGLE = "com.google.android.googlequicksearchbox";
     public static final String PACKAGE_PACKAGEINSTALLER = "com.android.packageinstaller";
     public static final String PACKAGE_GOOGLEPACKAGEINSTALLER = "com.google.android.packageinstaller";
     public static final String PACKAGE_OWN = "tk.wasdennnoch.androidn_ify";
@@ -149,9 +147,9 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
                 SettingsHooks.hook(lpparam.classLoader);
                 break;
             case PACKAGE_SYSTEMUI:
-                Classes.SystemUI.init(lpparam.classLoader);
-                Classes.Keyguard.init(lpparam.classLoader);
-                Classes.Android.init(lpparam.classLoader); //for some reason this needs to be initialized again here
+                if (!initReflection(lpparam.classLoader, false)) {
+                    return;
+                }
                 SystemUIHooks.hookSystemUI();
                 SystemUIThemingHooks.hook();
                 ScreenshotHooks.hook();
@@ -169,7 +167,9 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
                 DoubleTapSwKeys.hook();
                 break;
             case PACKAGE_ANDROID:
-                Classes.Android.init(lpparam.classLoader);
+                if (!initReflection(lpparam.classLoader, true)) {
+                    return;
+                }
                 AndroidHooks.hook(lpparam.classLoader);
                 DoubleTapHwKeys.hook(lpparam.classLoader);
                 LiveDisplayObserver.hook(lpparam.classLoader);
@@ -184,11 +184,6 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
                 XposedHelpers.findAndHookMethod(SETTINGS_OWN, lpparam.classLoader, "isActivated", XC_MethodReplacement.returnConstant(true));
                 if (!sPrefs.getBoolean("can_read_prefs", false))
                     XposedHelpers.findAndHookMethod(SETTINGS_OWN, lpparam.classLoader, "isPrefsFileReadable", XC_MethodReplacement.returnConstant(false));
-                break;
-            case PACKAGE_GOOGLE:
-                if (ConfigUtils.M && ConfigUtils.assistant().enable_assistant) {
-                    AssistantHooks.hook(lpparam.classLoader);
-                }
                 break;
             case PACKAGE_PACKAGEINSTALLER:
             case PACKAGE_GOOGLEPACKAGEINSTALLER:
@@ -210,6 +205,20 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
             }
         }
 
+    }
+
+    private static boolean initReflection(ClassLoader classLoader, boolean onlyAndroid) {
+        try {
+            Classes.Android.init(classLoader); //for some reason this needs to be initialized again here
+            if (!onlyAndroid) {
+                Classes.SystemUI.init(classLoader);
+                Classes.Keyguard.init(classLoader);
+            }
+        } catch (XposedHelpers.ClassNotFoundError e) {
+            XposedHook.logE(TAG, "Failed to initialize reflection. Aborting module initialization", e);
+            return false;
+        }
+        return true;
     }
 
     private static void hookBatteryStats(ClassLoader classLoader) {

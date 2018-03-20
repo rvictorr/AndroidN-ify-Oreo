@@ -1,5 +1,7 @@
 package tk.wasdennnoch.androidn_ify.utils;
 
+import android.view.View;
+
 import java.lang.reflect.Field;
 
 import de.robv.android.xposed.XposedHelpers;
@@ -14,6 +16,7 @@ public final class Fields {
 
         public static void init() {
             Icon.init();
+            View.init();
         }
 
         public static final class Icon {
@@ -22,7 +25,17 @@ public final class Fields {
             public static Field mType;
 
             private static void init() {
-                mType = XposedHelpers.findField(clazz, "mType");
+                mType = findField(clazz, "mType");
+            }
+        }
+
+        public static final class View {
+            private static final Class clazz = android.view.View.class;
+
+            public static Field mPrivateFlags3;
+
+            private static void init() {
+                mPrivateFlags3 = findField(clazz, "mPrivateFlags3");
             }
         }
     }
@@ -45,6 +58,8 @@ public final class Fields {
             QSContainer.init();
             NotificationPanelView.init();
             NotificationStackScrollLayout.init();
+            SwipeHelper.init();
+            ExpandHelper.init();
             StackScrollAlgorithm.init();
             StackViewState.init();
             StackStateAnimator.init();
@@ -93,6 +108,7 @@ public final class Fields {
             public static Field mPublicLayout;
             public static Field mHasUserChangedExpansion;
             public static Field mExpansionDisabled;
+            public static Field mUserLocked;
 
             private static void init() {
                 mShowingPublic = findField(clazz, "mShowingPublic");
@@ -113,6 +129,7 @@ public final class Fields {
                 mPublicLayout = findField(clazz, "mPublicLayout");
                 mHasUserChangedExpansion = findField(clazz, "mHasUserChangedExpansion");
                 mExpansionDisabled = findField(clazz, "mExpansionDisabled");
+                mUserLocked = findField(clazz, "mUserLocked");
             }
         }
 
@@ -212,6 +229,7 @@ public final class Fields {
             public static Field mLowPriorityColor;
             public static Field mTapTimeoutRunnable;
             public static Field mOnActivatedListener;
+            public static Field mBgTint;
 
             private static void init() {
                 mDrawingAppearAnimation = findField(clazz, "mDrawingAppearAnimation");
@@ -236,6 +254,7 @@ public final class Fields {
                 mLowPriorityColor = findField(clazz, "mLowPriorityColor");
                 mTapTimeoutRunnable = findField(clazz, "mTapTimeoutRunnable");
                 mOnActivatedListener = findField(clazz, "mOnActivatedListener");
+                mBgTint = findField(clazz, "mBgTint");
             }
         }
 
@@ -257,6 +276,9 @@ public final class Fields {
             public static Field mMinimumDisplayTime;
             public static Field mHeadsUpNotificationDecay;
             public static Field mClock;
+            public static Field mListeners;
+            public static Field mEntryPool;
+            public static Field mReleaseOnExpandFinish;
 
             private static void init() {
                 mHeadsUpEntries = findField(clazz, "mHeadsUpEntries");
@@ -274,6 +296,9 @@ public final class Fields {
                 mMinimumDisplayTime = findField(clazz, "mMinimumDisplayTime");
                 mHeadsUpNotificationDecay = findField(clazz, "mHeadsUpNotificationDecay");
                 mClock = findField(clazz, "mClock");
+                mListeners = findField(clazz, "mListeners");
+                mEntryPool = findField(clazz, "mEntryPool");
+                mReleaseOnExpandFinish = findField(clazz, "mReleaseOnExpandFinish");
             }
         }
 
@@ -305,6 +330,7 @@ public final class Fields {
             public static Field mDismissView;
             public static Field mEmptyShadeView;
             public static Field mHandler;
+            public static Field mContext;
 
             private static void init() {
                 mShowLockscreenNotifications = findField(clazz, "mShowLockscreenNotifications");
@@ -316,6 +342,7 @@ public final class Fields {
                 mDismissView = findField(clazz, "mDismissView");
                 mEmptyShadeView = findField(clazz, "mEmptyShadeView");
                 mHandler = findField(clazz, "mHandler");
+                mContext = findField(clazz, "mContext");
             }
         }
 
@@ -327,6 +354,8 @@ public final class Fields {
             public static Field mShadeUpdates;
             public static Field mIconController;
             public static Field mKeyguardIconOverflowContainer;
+            public static Field mHeadsUpEntriesToRemoveOnSwitch;
+            public static Field mLatestRankingMap;
 
             private static void init() {
                 mNotificationPanel = findField(clazz, "mNotificationPanel");
@@ -334,6 +363,8 @@ public final class Fields {
                 mShadeUpdates = findField(clazz, "mShadeUpdates");
                 mIconController = findField(clazz, "mIconController");
                 mKeyguardIconOverflowContainer = findField(clazz, "mKeyguardIconOverflowContainer");
+                mHeadsUpEntriesToRemoveOnSwitch = findField(clazz, "mHeadsUpEntriesToRemoveOnSwitch");
+                mLatestRankingMap = findField(clazz, "mLatestRankingMap");
             }
         }
 
@@ -396,6 +427,9 @@ public final class Fields {
             public static Field mQsPeekHeight;
             public static Field mShadeEmpty;
             public static Field mClockAnimator;
+            public static Field mStatusBarMinHeight;
+            public static Field mQsExpansionEnabled;
+            public static Field mKeyguardStatusBar;
 
             private static void init() {
                 mQsExpansionHeight = findField(clazz, "mQsExpansionHeight");
@@ -417,6 +451,9 @@ public final class Fields {
                 mQsPeekHeight = findField(clazz, "mQsPeekHeight");
                 mShadeEmpty = findField(clazz, "mShadeEmpty");
                 mClockAnimator = findField(clazz, "mClockAnimator");
+                mStatusBarMinHeight = findField(clazz, "mStatusBarMinHeight");
+                mQsExpansionEnabled = findField(clazz, "mQsExpansionEnabled");
+                mKeyguardStatusBar = findField(clazz, "mKeyguardStatusBar");
             }
         }
 
@@ -442,6 +479,15 @@ public final class Fields {
             public static Field mStackScrollAlgorithm;
             public static Field mContentHeight;
             public static Field mEmptyShadeView;
+            public static Field mIsExpansionChanging;
+            public static Field mLastSetStackHeight;
+            public static Field mIsExpanded;
+            public static Field mAnimationEvents;
+            public static Field mChangePositionInProgress;
+            public static Field mChildrenChangingPositions;
+            public static Field mDimmedNeedsAnimation;
+            public static Field mDarkNeedsAnimation;
+            public static Field mDarkAnimationOriginIndex;
 
             public static Field viewScalerView;
 
@@ -465,8 +511,60 @@ public final class Fields {
                 mStackScrollAlgorithm = findField(clazz, "mStackScrollAlgorithm");
                 mContentHeight = findField(clazz, "mContentHeight");
                 mEmptyShadeView = findField(clazz, "mEmptyShadeView");
+                mIsExpansionChanging = findField(clazz, "mIsExpansionChanging");
+                mCurrentStackHeight = findField(clazz, "mCurrentStackHeight");
+                mLastSetStackHeight = findField(clazz, "mLastSetStackHeight");
+                mIsExpanded = findField(clazz, "mIsExpanded");
+                mAnimationEvents = findField(clazz, "mAnimationEvents");
+                mChangePositionInProgress = findField(clazz, "mChangePositionInProgress");
+                mChildrenChangingPositions = findField(clazz, "mChildrenChangingPositions");
+                mDimmedNeedsAnimation = findField(clazz, "mDimmedNeedsAnimation");
+                mDarkNeedsAnimation = findField(clazz, "mDarkNeedsAnimation");
+                mDarkAnimationOriginIndex = findField(clazz, "mDarkAnimationOriginIndex");
 
                 viewScalerView = findField(Classes.SystemUI.ViewScaler, "mView");
+            }
+        }
+
+        public static final class SwipeHelper {
+            private static final Class clazz = Classes.SystemUI.SwipeHelper;
+
+            public static Field mMinSwipeProgress;
+            public static Field mMaxSwipeProgress;
+            public static Field mCallback;
+
+            private static void init() {
+                mMinSwipeProgress = findField(clazz, "mMinSwipeProgress");
+                mMaxSwipeProgress = findField(clazz, "mMaxSwipeProgress");
+                mCallback = findField(clazz, "mCallback");
+            }
+        }
+
+        public static final class ExpandHelper {
+            private static final Class clazz = Classes.SystemUI.ExpandHelper;
+
+            public static Field mExpanding;
+            public static Field mNaturalHeight;
+            public static Field mOldHeight;
+            public static Field mSmallSize;
+            public static Field mScaler;
+            public static Field mScaleAnimation;
+            public static Field mCallback;
+            public static Field mFlingAnimationUtils;
+            public static Field mResizedView;
+            public static Field mExpansionStyle;
+
+            private static void init() {
+                mExpanding = findField(clazz, "mExpanding");
+                mNaturalHeight = findField(clazz, "mNaturalHeight");
+                mOldHeight = findField(clazz, "mOldHeight");
+                mSmallSize = findField(clazz, "mSmallSize");
+                mScaler = findField(clazz, "mScaler");
+                mScaleAnimation = findField(clazz, "mScaleAnimation");
+                mCallback = findField(clazz, "mCallback");
+                mFlingAnimationUtils = findField(clazz, "mFlingAnimationUtils");
+                mResizedView = findField(clazz, "mResizedView");
+                mExpansionStyle = findField(clazz, "mExpansionStyle");
             }
         }
 

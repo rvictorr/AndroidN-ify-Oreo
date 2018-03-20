@@ -1132,7 +1132,7 @@ public class StatusBarHeaderHooks {
 
                 XposedHelpers.findAndHookMethod(BaseStatusBar, "updateRowStates", new XC_MethodReplacement() {
                     @Override
-                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable { //TODO: optimize this
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                         Object keyguardOverFlowContainer = get(Fields.SystemUI.PhoneStatusBar.mKeyguardIconOverflowContainer, param.thisObject);
                         Object mNotificationData = ReflectionUtils.get(Fields.SystemUI.BaseStatusBar.mNotificationData, param.thisObject);
                         Object mGroupManager = get(Fields.SystemUI.BaseStatusBar.mGroupManager, param.thisObject);
