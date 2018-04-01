@@ -419,7 +419,7 @@ public class ExpandableNotificationRowHelper {
         return mPublicHelper;
     }
 
-    public void setGroupExpansionChanging(boolean changing) {
+    public void setGroupExpansionChanging(boolean changing) { //TODO: call in goToLockedShade (PhoneStatusBar)
         mGroupExpansionChanging = changing;
     }
 

@@ -70,6 +70,7 @@ public final class Classes {
         public static Class StatusBarClock;
         public static Class StatusBarWindowManager;
         public static Class StatusBarWindowManagerState;
+        public static Class NotificationsQuickSettingsContainer;
         public static Class NotificationGroupManager;
         public static Class NotificationGroup;
 
@@ -145,6 +146,7 @@ public final class Classes {
             NotificationGroup = XposedHelpers.findClass(PACKAGE_STATUSBAR_PHONE + ".NotificationGroupManager$NotificationGroup", sClassLoader);
             StatusBarWindowManager = XposedHelpers.findClass(PACKAGE_STATUSBAR_PHONE + ".StatusBarWindowManager", sClassLoader);
             StatusBarWindowManagerState = XposedHelpers.findClass(PACKAGE_STATUSBAR_PHONE + ".StatusBarWindowManager.State", sClassLoader);
+            NotificationsQuickSettingsContainer = XposedHelpers.findClass(PACKAGE_STATUSBAR_PHONE + ".NotificationsQuickSettingsContainer", sClassLoader);
 
             HeadsUpManager = XposedHelpers.findClass(PACKAGE_POLICY + ".HeadsUpManager", sClassLoader);
             HeadsUpManagerOnHeadsUpChangedListener = XposedHelpers.findClass(PACKAGE_POLICY + ".HeadsUpManager$OnHeadsUpChangedListener", sClassLoader);

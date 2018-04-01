@@ -471,19 +471,20 @@ public class StatusBarHeaderHooks {
                 mQsFooter.setClipToPadding(false);
                 mQsFooter.setClipChildren(false);
                 mQsFooter.setId(R.id.qs_footer);
-                mQsFooter.setElevation(elevation);
                 mQsFooter.setLayoutParams(qsFooterLp);
-                mQsFooter.setBackgroundColor(0);
                 mQsFooter.addView(mDateTimeAlarmGroup);
                 mQsFooter.addView(mRightContainer);
                 mQsFooter.addView(divider);
-
+                if (NotificationPanelHooks.ENABLE_QS_GUTTER) {
+                    mQsFooter.setBackgroundColor(0);
+                    mQsFooter.setElevation(elevation);
+                    mQsPanel.setBackgroundColor(0);
+                }
                 mQsFooter.init();
 
                 mStatusBarHeaderView.addView(mTopContainer, 0);
                 mStatusBarHeaderView.addView(mHeaderQsPanel, 1);
                 mQsContainer.addView(mQsFooter);
-                mQsPanel.setBackgroundColor(0);
                 mStatusBarHeaderView.setClipChildren(false);
                 mStatusBarHeaderView.setClipToPadding(false);
                 mStatusBarHeaderView.setClickable(false);
@@ -1336,7 +1337,10 @@ public class StatusBarHeaderHooks {
                         layout.setPadding(0, 0, 0, 0);
                         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) liparam.view.getLayoutParams();
                         params.height = ResourceUtils.getInstance(liparam.view.getContext()).getDimensionPixelSize(R.dimen.status_bar_header_height);
-                        layout.setElevation(ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_container_elevation));
+                        if (NotificationPanelHooks.ENABLE_QS_GUTTER)
+                            layout.setElevation(ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_container_elevation));
+                        else
+                            layout.setElevation(0);
                     }
                 });
 
@@ -1350,7 +1354,10 @@ public class StatusBarHeaderHooks {
                             layout.setPadding(0, 0, 0, 0);
                             FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) liparam.view.getLayoutParams();
                             params.height = ResourceUtils.getInstance(liparam.view.getContext()).getDimensionPixelSize(R.dimen.status_bar_header_height);
-                            layout.setElevation(ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_container_elevation));
+                            if (NotificationPanelHooks.ENABLE_QS_GUTTER)
+                                layout.setElevation(ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_container_elevation));
+                            else
+                                layout.setElevation(0);
                         }
                     });
                 } catch (Throwable ignore) {
@@ -1392,15 +1399,19 @@ public class StatusBarHeaderHooks {
 
                         mQsContainer = layout;
 
-                        layout.setElevation(ViewUtils.dpToPx(context.getResources(), 2));
                         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) layout.getLayoutParams();
                         params.setMargins(0, 0, 0, 0);
                         params.setMarginStart(0);
                         params.setMarginEnd(0);
-                        layout.setLayoutParams(params);
+                        mQsContainer.setLayoutParams(params);
 
                         mQsPanel = layout.findViewById(context.getResources().getIdentifier("quick_settings_panel", "id", PACKAGE_SYSTEMUI));
-                        mQsPanel.setElevation(ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_container_elevation));
+                        if (NotificationPanelHooks.ENABLE_QS_GUTTER) {
+                            mQsContainer.setElevation(ViewUtils.dpToPx(context.getResources(), 2));
+                            mQsPanel.setElevation(ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_container_elevation));
+                        } else {
+                            mQsContainer.setElevation(ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_container_elevation));
+                        }
                         mQsPanel.setClipChildren(true);
                         mQsPanel.setClipToPadding(true);
                     }

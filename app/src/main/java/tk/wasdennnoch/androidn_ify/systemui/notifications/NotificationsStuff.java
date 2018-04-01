@@ -521,7 +521,8 @@ public class NotificationsStuff {
         XposedHelpers.findAndHookMethod(SystemUI.PhoneStatusBar, "onHeadsUpStateChanged", SystemUI.NotificationDataEntry, boolean.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                NotificationGroupManagerHooks.onHeadsUpStateChanged(XposedHelpers.getObjectField(param.thisObject, "mGroupManager"), param.args[0], (boolean) param.args[1]);
+                NotificationGroupManagerHooks.onHeadsUpStateChanged(get(Fields.SystemUI.BaseStatusBar.mGroupManager, param.thisObject), param.args[0], (boolean) param.args[1]);
+                NotificationPanelHooks.onHeadsUpStateChanged(get(Fields.SystemUI.BaseStatusBar.mHeadsUpManager, param.thisObject));
             }
         });
         XposedHelpers.findAndHookConstructor(SystemUI.NotificationChildrenContainer, Context.class, AttributeSet.class, int.class, int.class, new XC_MethodHook() {

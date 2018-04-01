@@ -190,9 +190,6 @@ public class NotificationPanelViewHooks {
                 XposedHelpers.findAndHookMethod(ObservableScrollView, "setBlockFlinging", boolean.class, XC_MethodReplacement.DO_NOTHING);
                 XposedHelpers.findAndHookMethod(ObservableScrollView, "onTouchEvent", MotionEvent.class, XC_MethodReplacement.returnConstant(false));
 
-                XposedHelpers.findAndHookMethod(StackScrollAlgorithm, "notifyChildrenChanged", ViewGroup.class, XC_MethodReplacement.DO_NOTHING);
-
-
                 XposedHelpers.findAndHookMethod(NotificationPanelView, "startQsSizeChangeAnimation", int.class, int.class, new XC_MethodReplacement() {
                     @Override
                     protected Object replaceHookedMethod(final MethodHookParam param) throws Throwable {

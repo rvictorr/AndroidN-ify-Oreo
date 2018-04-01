@@ -267,6 +267,10 @@ public class ExpandableOutlineViewHelper {
         }
     }
 
+    public void updateBackgroundTint() {
+        updateBackgroundTint(false /* animated */);
+    }
+
     public void updateBackgroundTint(boolean animated) {
         if (mBackgroundColorAnimator != null) {
             mBackgroundColorAnimator.cancel();

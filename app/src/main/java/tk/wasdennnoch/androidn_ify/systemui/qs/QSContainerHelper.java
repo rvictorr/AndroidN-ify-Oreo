@@ -23,6 +23,7 @@ import tk.wasdennnoch.androidn_ify.extracted.systemui.Interpolators;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSFooter;
 import tk.wasdennnoch.androidn_ify.extracted.systemui.qs.QSDetail;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationHooks;
+import tk.wasdennnoch.androidn_ify.systemui.notifications.NotificationPanelHooks;
 import tk.wasdennnoch.androidn_ify.systemui.notifications.StatusBarHeaderHooks;
 import tk.wasdennnoch.androidn_ify.utils.ColorUtils;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
@@ -76,17 +77,15 @@ public class QSContainerHelper {
         mQSDetail = StatusBarHeaderHooks.qsHooks.setupQsDetail(mQSPanel, mHeader, mQSFooter);
 
         mContext = mQSContainer.getContext();
-        int bgColor = android.support.v4.graphics.ColorUtils.setAlphaComponent(ColorUtils.getColorAttr(mContext, android.R.attr.colorPrimary), (int) (0.87 * 255));
         res = ResourceUtils.getInstance(mContext);
 
         mQSContainer.addView(mQSDetail);
         mQSContainer.setBackgroundColor(res.getResources().getColor(R.color.qs_background_dark, mContext.getTheme()));
-//        mQSContainer.setBackgroundColor(bgColor);
 
         mFullElevation = mQSPanel.getElevation();
 
         mHeaderHeight = res.getDimensionPixelSize(R.dimen.status_bar_header_height);
-        mGutterHeight = res.getDimensionPixelSize(R.dimen.qs_gutter_height);
+        mGutterHeight = NotificationPanelHooks.ENABLE_QS_GUTTER ? res.getDimensionPixelSize(R.dimen.qs_gutter_height) : 0;
 
         mQSPanel.setPadding(0, 0, 0, res.getDimensionPixelSize(R.dimen.qs_padding_bottom));
 
@@ -109,17 +108,19 @@ public class QSContainerHelper {
         scrollView.setClipChildren(false);
         scrollView.setClipToPadding(false);
 
-        mBackground = new View(mContext);
-        mBackground.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        mBackground.setOutlineProvider(new ViewOutlineProvider() {
-            @Override
-            public void getOutline(View view, Outline outline) {
-                outline.setRect(-view.getWidth(), -view.getHeight(), 2 * view.getWidth(), view.getHeight()); //only the bottom part of the outline should be visible
-            }
-        }); //workaround for the shadow not being cast if the view is transparent
-        mBackground.setElevation(res.getDimensionPixelSize(R.dimen.qs_container_elevation));
-        mQSContainer.addView(mBackground, 0);
-        mQSDetail.setElevation(res.getDimensionPixelSize(R.dimen.qs_container_elevation));
+        if (NotificationPanelHooks.ENABLE_QS_GUTTER) {
+            mBackground = new View(mContext);
+            mBackground.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            mBackground.setOutlineProvider(new ViewOutlineProvider() {
+                @Override
+                public void getOutline(View view, Outline outline) {
+                    outline.setRect(-view.getWidth(), -view.getHeight(), 2 * view.getWidth(), view.getHeight()); //only the bottom part of the outline should be visible
+                }
+            }); //workaround for the shadow not being cast if the view is transparent
+            mBackground.setElevation(res.getDimensionPixelSize(R.dimen.qs_container_elevation));
+            mQSContainer.addView(mBackground, 0);
+            mQSDetail.setElevation(res.getDimensionPixelSize(R.dimen.qs_container_elevation));
+        }
 
         if (ConfigUtils.qs().reconfigure_notification_panel) {
             reconfigureNotifPanel = true;
@@ -177,9 +178,14 @@ public class QSContainerHelper {
         mQSContainer.setBottom(mQSContainer.getTop() + height + gutterHeight);
         if (reconfigureNotifPanel)
             mQSDetail.setBottom(mQSContainer.getTop() + height);
-        mBackground.setBottom(mQSContainer.getTop() + height);
         // Pin QS Footer to the bottom of the panel.
         mQSFooter.setTranslationY(height - mQSFooter.getHeight());
+
+        if (!NotificationPanelHooks.ENABLE_QS_GUTTER)
+            return;
+
+        mBackground.setBottom(mQSContainer.getTop() + height);
+
         float elevation = mQsExpansion * mFullElevation;
         mQSDetail.setElevation(elevation);
         mBackground.setElevation(elevation);
@@ -328,6 +334,8 @@ public class QSContainerHelper {
     };
 
     public void setGutterEnabled(boolean gutterEnabled) {
+        if (!NotificationPanelHooks.ENABLE_QS_GUTTER)
+            return;
         if (gutterEnabled == (mGutterHeight != 0)) {
             return;
         }

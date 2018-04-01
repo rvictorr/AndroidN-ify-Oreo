@@ -208,6 +208,7 @@ public class StackScrollAlgorithmHooks {
             XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onLayout", boolean.class, int.class, int.class, int.class, int.class, onLayoutHook);
             XposedHelpers.findAndHookMethod(NotificationPanelView, "updateQsState", updateQsStateHook); //TODO: see if this is really needed
 
+            XposedHelpers.findAndHookMethod(StackScrollAlgorithm, "notifyChildrenChanged", ViewGroup.class, XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "getStackScrollState", getStackScrollState);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "clampPositionToTopStackEnd", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "updateFirstChildMaxSizeToMaxHeight", XC_MethodReplacement.DO_NOTHING);
@@ -215,7 +216,6 @@ public class StackScrollAlgorithmHooks {
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "onExpansionStopped", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "updateFirstChildHeightWhileExpanding", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "updateIsSmallScreen", XC_MethodReplacement.DO_NOTHING);
-            XposedBridge.hookAllMethods(StackScrollAlgorithm, "notifyChildrenChanged", XC_MethodReplacement.DO_NOTHING);
             XposedBridge.hookAllMethods(StackScrollAlgorithm, "updateStateForChildFullyInBottomStack", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {

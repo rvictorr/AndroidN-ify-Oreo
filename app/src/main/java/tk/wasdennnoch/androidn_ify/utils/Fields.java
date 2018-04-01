@@ -55,6 +55,7 @@ public final class Fields {
             NotificationDataEntry.init();
             BaseStatusBar.init();
             PhoneStatusBar.init();
+            NotificationQuickSettingsContainer.init();
             QSContainer.init();
             NotificationPanelView.init();
             NotificationStackScrollLayout.init();
@@ -394,6 +395,15 @@ public final class Fields {
             }
         }
 
+        public static final class NotificationQuickSettingsContainer {
+            private static final Class clazz = Classes.SystemUI.NotificationsQuickSettingsContainer;
+
+            public static Field mQsExpanded;
+
+            private static void init() {
+                mQsExpanded = findField(clazz, "mQsExpanded");
+            }
+        }
 
         public static final class QSContainer {
             private static final Class clazz = Classes.SystemUI.QSContainer;

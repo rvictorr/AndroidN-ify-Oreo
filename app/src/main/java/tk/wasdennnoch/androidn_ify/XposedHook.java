@@ -209,7 +209,7 @@ public class XposedHook implements IXposedHookLoadPackage, IXposedHookZygoteInit
 
     private static boolean initReflection(ClassLoader classLoader, boolean onlyAndroid) {
         try {
-            Classes.Android.init(classLoader); //for some reason this needs to be initialized again here
+            Classes.Android.init(classLoader);
             if (!onlyAndroid) {
                 Classes.SystemUI.init(classLoader);
                 Classes.Keyguard.init(classLoader);

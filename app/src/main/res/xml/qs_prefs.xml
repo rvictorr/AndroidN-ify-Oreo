@@ -49,6 +49,12 @@
 
     <SwitchPreference
         android:defaultValue="false"
+        android:dependency="enable_notification_header"
+        android:key="enable_qs_gutter"
+        android:title="@string/enable_qs_gutter"/>
+
+    <SwitchPreference
+        android:defaultValue="false"
         android:dependency="enable_qs_editor"
         android:key="alternative_qs_loading"
         android:summary="@string/alternative_qs_loading_summary"

@@ -208,7 +208,14 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                     }
                 }
             });
+            //TODO: finish implementing commit d13956475e97da9de83f6519eab514770118e7af
             XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onViewRemovedInternal", View.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    if (mChildTransferInProgress)
+                        param.setResult(null);
+                }
+
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     // Make sure the clipRect we might have set is removed
@@ -701,14 +708,6 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                 }
             });
 
-            XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "onViewRemovedInternal", View.class, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    if (mChildTransferInProgress)
-                        param.setResult(null);
-                }
-            });
-
             XposedHelpers.findAndHookMethod(NotificationStackScrollLayout, "setUserExpandedChild", View.class, boolean.class, new XC_MethodReplacement() {
                 @Override
                 protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
@@ -786,7 +785,8 @@ public class NotificationStackScrollLayoutHooks implements View.OnApplyWindowIns
                                 if (!mCancelled) {
                                     invoke(Methods.SystemUI.ExpandHelper.Callback.setUserExpandedChild, callback, scaledView, expand);
                                 } else {
-//                                    mCallback.setExpansionCancelled(scaledView);
+                                    if (ExpandableNotificationRow.isInstance(scaledView))
+                                        ExpandableNotificationRowHelper.getInstance(scaledView).setGroupExpansionChanging(false);
                                 }
                                 invoke(Methods.SystemUI.ExpandHelper.Callback.setUserLockedChild, callback, scaledView, false);
                                 scaleAnimation.removeListener(this);

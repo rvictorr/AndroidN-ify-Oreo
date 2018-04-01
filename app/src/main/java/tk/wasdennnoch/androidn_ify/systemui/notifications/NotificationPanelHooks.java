@@ -2,6 +2,8 @@ package tk.wasdennnoch.androidn_ify.systemui.notifications;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Canvas;
+import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -28,6 +30,8 @@ import tk.wasdennnoch.androidn_ify.systemui.qs.QSContainerHelper;
 import tk.wasdennnoch.androidn_ify.systemui.qs.customize.QSCustomizer;
 import tk.wasdennnoch.androidn_ify.utils.Classes;
 import tk.wasdennnoch.androidn_ify.utils.ConfigUtils;
+import tk.wasdennnoch.androidn_ify.utils.Fields;
+import tk.wasdennnoch.androidn_ify.utils.Methods;
 import tk.wasdennnoch.androidn_ify.utils.ResourceUtils;
 
 import static tk.wasdennnoch.androidn_ify.utils.ReflectionUtils.*;
@@ -42,11 +46,15 @@ public class NotificationPanelHooks {
     private static Field fieldStatusBarState;
 
     public static final int STATE_KEYGUARD = 1;
+    public static final boolean ENABLE_QS_GUTTER = ConfigUtils.getInstance().qs.enable_qs_gutter;
 
     private static boolean mAnimate = true;
+    private static boolean tempQsExpanded;
+    private static boolean mHeadsUp;
 
     private static int mQsPeekHeight;
 
+    private static ViewGroup mNotificationQuickSettingsContainer;
     private static ViewGroup mNotificationPanelView;
     private static ViewGroup mQSContainer;
     private static ViewGroup mHeader;
@@ -87,7 +95,8 @@ public class NotificationPanelHooks {
             FrameLayout.LayoutParams qsCustomizerLp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
             qsCustomizerLp.gravity = Gravity.CENTER_HORIZONTAL;
             QSCustomizer qsCustomizer = new QSCustomizer(context);
-            qsCustomizer.setElevation(ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_container_elevation));
+            if (ENABLE_QS_GUTTER)
+                qsCustomizer.setElevation(ResourceUtils.getInstance(context).getDimensionPixelSize(R.dimen.qs_container_elevation));
             mNotificationPanelView.addView(qsCustomizer, qsCustomizerLp);
 
             mQsCustomizer = qsCustomizer;
@@ -248,6 +257,26 @@ public class NotificationPanelHooks {
             if (ConfigUtils.qs().header) { // Although this is the notification panel everything here is header-related (mainly QS editor)
 
                 fieldStatusBarState = XposedHelpers.findField(Classes.SystemUI.NotificationPanelView, "mStatusBarState");
+
+                XposedHelpers.findAndHookConstructor(Classes.SystemUI.NotificationsQuickSettingsContainer, Context.class, AttributeSet.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        mNotificationQuickSettingsContainer = (ViewGroup) param.thisObject;
+                    }
+                });
+
+                XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationsQuickSettingsContainer, "drawChild", Canvas.class, View.class, long.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        tempQsExpanded = getBoolean(Fields.SystemUI.NotificationQuickSettingsContainer.mQsExpanded, param.thisObject);
+                        set(Fields.SystemUI.NotificationQuickSettingsContainer.mQsExpanded, param.thisObject, mHeadsUp);
+                    }
+
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        set(Fields.SystemUI.NotificationQuickSettingsContainer.mQsExpanded, param.thisObject, tempQsExpanded);
+                    }
+                });
 
                 XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "onFinishInflate", onFinishInflateHook);
                 XposedHelpers.findAndHookMethod(Classes.SystemUI.NotificationPanelView, "setBarState", int.class, boolean.class, boolean.class, setBarStateHook);
@@ -489,5 +518,14 @@ public class NotificationPanelHooks {
             return false;
         }
         return true;
+    }
+
+    public static void onHeadsUpStateChanged(Object headsUpManager) {
+        boolean hasHeadsUp = NotificationsStuff.getAllEntries(headsUpManager).size() != 0;
+        if (mHeadsUp == hasHeadsUp) {
+            return;
+        }
+        mHeadsUp = hasHeadsUp;
+        mNotificationQuickSettingsContainer.invalidate();
     }
 }

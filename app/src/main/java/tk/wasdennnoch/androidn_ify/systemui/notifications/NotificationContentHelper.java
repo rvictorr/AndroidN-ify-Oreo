@@ -120,7 +120,7 @@ public class NotificationContentHelper {
             post(new Runnable() {
                 @Override
                 public void run() {
-                    XposedHelpers.setBooleanField(getContentView(), "mAnimate", true);
+                    set(Fields.SystemUI.NotificationContentView.mAnimate, getContentView(), true);
                 }
             });
             getContentView().getViewTreeObserver().removeOnPreDrawListener(this);
@@ -129,13 +129,13 @@ public class NotificationContentHelper {
     };
 
     private NotificationContentHelper(Object obj) {
-        XposedHelpers.setAdditionalInstanceField(obj, "mNotificationsHelper", this);
+        XposedHelpers.setAdditionalInstanceField(obj, "mContentHelper", this);
         mNotificationContentView = (FrameLayout) obj;
         res = ResourceUtils.getInstance(mNotificationContentView.getContext());
     }
 
     public static NotificationContentHelper getInstance(Object obj) {
-        NotificationContentHelper helper = (NotificationContentHelper) XposedHelpers.getAdditionalInstanceField(obj, "mNotificationsHelper");
+        NotificationContentHelper helper = (NotificationContentHelper) XposedHelpers.getAdditionalInstanceField(obj, "mContentHelper");
         return helper != null ? helper : new NotificationContentHelper(obj);
     }
 

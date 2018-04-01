@@ -163,6 +163,7 @@ public class ConfigUtils {
         public final boolean keep_qs_panel_background;
         public final boolean force_old_date_position;
         public final boolean enable_qs_editor;
+        public final boolean enable_qs_gutter;
         public final boolean alternative_qs_loading;
         public final boolean inject_gb_tiles;
         public final boolean new_click_behavior;
@@ -178,6 +179,7 @@ public class ConfigUtils {
             header = prefs.getBoolean("enable_notification_header", true);
             force_old_date_position = prefs.getBoolean("force_old_date_position", false);
             enable_qs_editor = prefs.getBoolean("enable_qs_editor", true);
+            enable_qs_gutter = prefs.getBoolean("enable_qs_gutter", false);
             alternative_qs_loading = prefs.getBoolean("alternative_qs_loading", false);
             inject_gb_tiles = prefs.getBoolean("inject_gb_tiles", false);
             new_click_behavior = prefs.getBoolean("enable_new_tile_click_behavior", true);
